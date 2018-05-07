@@ -10,15 +10,33 @@ from __future__ import print_function
 import numpy as np
 import argparse
 import pysam
-import subprocess
 import os
 import sys
 from sys import stderr, argv
 from functools import partial
-from multiprocessing import Pool
-from itertools import izip
 import pyBigWig as pbw
 from numba import jit
+import gc
+
+class bigWigFile:
+    def __init__(self, filename):
+        self.bw_file = pbw.open(filename, 'w')
+
+    def add_chrom(self, chrom_dict):
+        self.bw_file.addHeader(list(chrom_dict.items()))
+
+    
+    def add_wps(self, chromosome, chrom_array):
+        chrom_length = len(chrom_array)
+        self.bw_file.addEntries(chromosome, 
+                        list(range(chrom_length)), 
+                        values=np.array(chrom_array, dtype=np.float64),
+                        validate = False, 
+                        span=1)
+
+    def close(self):
+        self.bw_file.close()
+
 
 ### helper functions
 def printMessage(message, sample):
@@ -27,16 +45,15 @@ def printMessage(message, sample):
     return 0
 
 
-
 def make_regions(chromosome_length, how_many_bases_to_look_at, half_window):
     start = half_window
     end = start + how_many_bases_to_look_at
     upper_limit = chromosome_length - half_window
     while end < upper_limit:
-        yield (start, end)
+        yield int(start), int(end)
         start = end
         end = end + how_many_bases_to_look_at
-    yield (start, upper_limit)
+    yield int(start), int(upper_limit)
 
 
 # get options
@@ -44,16 +61,14 @@ def getOpt():
     parser = argparse.ArgumentParser(description='Extract coverage of TSS')
     parser.add_argument('-i','--inFile',help='input bed file (merged paired-end fragments to single fragment bed file)',required=True)
     parser.add_argument('-o','--outprefix',help='output prefix', default='out')
-    parser.add_argument('-g','--genome',help='genome file (.fa.fai)',required=True)
-    parser.add_argument('-c','--chromosome',help='chromosome name',required=True)
-    parser.add_argument('-w','--window', help='Window size for calculating WPS in memory (default: 10000)', default = 10000, type=int)
+    parser.add_argument('-g','--genome',help='genome file (genome.fa)',required=True)
+    parser.add_argument('-w','--window', help='Window size for calculating WPS in memory (default: 10000)', default = 100000, type=int)
     args = parser.parse_args()
     inFile = args.inFile
     outprefix = args.outprefix
     genome = args.genome
     window = args.window
-    chromosome = args.chromosome
-    return inFile, outprefix, genome, window, chromosome
+    return inFile, outprefix, genome, window 
 
 @jit()
 def push_WPS_to_Array(fields, halfWPSwindow, start, end, window, isize, wpsWindow):
@@ -69,18 +84,18 @@ def push_WPS_to_Array(fields, halfWPSwindow, start, end, window, isize, wpsWindo
     alnWPS[wpsWindow:-wpsWindow] = 1 # only half window after aln start, the alignment is fully covering the wps window
                                      # and we added half window on the previous line
     alnWPS[alnWPS != 1 ] = -1 #making the alignment wps with ends containing windows
-    alnShift = start - (long(fields[1]) - halfWPSwindow) # the distance between alignment start and right side of the wps window:
+    alnShift = start - (int(fields[1]) - halfWPSwindow) # the distance between alignment start and right side of the wps window:
                                   #  + is left side of the window start, - is to the right
     if alnShift >= 0:
         wps = alnWPS[alnShift:]
-        end = len(wps) if len(wps) < window else window
-        transcriptAlnWPS[:end] += wps[:end]
+        frag_end = len(wps) if len(wps) < window else window
+        transcriptAlnWPS[:frag_end] += wps[:frag_end]
     else:
         baseShifted = abs(alnShift)
-        end = window if baseShifted + len(alnWPS) > window else baseShifted + len(alnWPS)
+        frag_end = window if baseShifted + len(alnWPS) > window else baseShifted + len(alnWPS)
         alignedBases = window + alnShift
-        wps = alnWPS[:alignedBases]
-        transcriptAlnWPS[baseShifted:end] += wps
+        wps = alnWPS[:int(alignedBases)]
+        transcriptAlnWPS[int(baseShifted):int(frag_end)] += wps
     return transcriptAlnWPS
 
 @jit()
@@ -98,7 +113,7 @@ def calculate_WPS(aln_file, chrom, window, wpsWindow, halfWPSwindow, upperBound,
                             start = start - halfWPSwindow, 
                             end = end+halfWPSwindow):
         fields = aln.strip().split('\t')
-        isize = long(fields[2]) - long(fields[1])
+        isize = int(fields[2]) - int(fields[1])
         strand = fields[5]
         if lowerBound <= isize <= upperBound:
             if strand == '-':
@@ -106,7 +121,6 @@ def calculate_WPS(aln_file, chrom, window, wpsWindow, halfWPSwindow, upperBound,
             else:
                 transcriptWpsForward += push_WPS_to_Array(fields, halfWPSwindow, start, end, window, isize, wpsWindow)
     return transcriptWpsForward, transcriptWpsReverse
-
 
 
 def extract_aln(bam, window, wpsWindow, halfWPSwindow, upperBound,
@@ -125,58 +139,83 @@ def extract_aln(bam, window, wpsWindow, halfWPSwindow, upperBound,
     printMessage('Finished calculating %s WPS for chromosome %s' %(lenType, chrom), samplename)
     return chromArrayForward, chromArrayReverse
 
-def writeWig(chrom_array, outputWig, chromosome, samplename):
-    outputWig = outputWig.replace('|','_')
-    outWig =  pbw.open(outputWig,'w')
-    chrom_length = len(chrom_array)
-    outWig.addHeader([(chromosome,chrom_length)])
-    outWig.addEntries(chromosome, range(chrom_length), values=np.array(chrom_array, dtype=np.float64), span=1)
-    outWig.close()
-    printMessage('Witten %s' %outputWig, samplename)
-    return 0
-
 
 def parse_faidx(genome):
+
+    regular_chrom = list(range(1,23))
+    regular_chrom = []
+    regular_chrom.extend(['X','Y'])
+    regular_chrom = ['chr' + str(chrom) for chrom in regular_chrom]
+
+    fa = pysam.Fastafile(genome)
     chroms = {}
-    for line in open(genome):
-        fields = line.split('\t')
-        chrom, chrom_size = fields[0], fields[1]
-        chroms[chrom] = long(chrom_size)
+    for chrom, chrom_length in zip(fa.references, fa.lengths):
+        if chrom in regular_chrom:
+            chroms[chrom] = chrom_length
     return chroms
 
 
-def runFile(arg):
-    bed, outprefix, genome, wpsWindow, window, upperBound, lowerBound, lenType, samplename, chromosome = arg
+def make_output(outprefix, lenType, chrom_lengths):
+    '''
+    define output files
+    '''
+    file_template = '{outprefix}.{strand}.bigWig'
+
+    out_bw = {}
+    for strand in ['fwd','rvs']:
+        bigwig_name = file_template.format(strand = strand, 
+                                    outprefix = outprefix)
+        bw = bigWigFile(bigwig_name)
+        bw.add_chrom(chrom_lengths)
+        out_bw[strand] = bw
+    
+    return out_bw
+
+
+def runFile(bed, outprefix, genome, wpsWindow, window, upperBound, lowerBound, lenType, samplename):
     wpsWindow = wpsWindow + 1
     halfWPSwindow = np.divide(wpsWindow,2)
-    output_forward_wig= outprefix + '.' + chromosome+'.'+lenType.split(' ')[0] +'.forward.bigWig'
-    output_reverse_wig = output_forward_wig.replace('forward','reverse')
-    chromLength = parse_faidx(genome)
-    with pysam.Tabixfile(bed) as tabix_bed:
-        if chromosome not in chromLength.keys():
-            sys.exit('Wrong chromosome name: %s!' %chromosome)
-        chromSize = chromLength[chromosome]
-        chromArrayForward, chromArrayReverse = extract_aln(tabix_bed, window, wpsWindow, halfWPSwindow, upperBound,
-                lowerBound, chromosome, chromSize, lenType, samplename)
+    
+    # fetch info and define output
+    chrom_lengths = parse_faidx(genome)
+    out_bws = make_output(outprefix, lenType, chrom_lengths)
 
-    for output_wig, chromArray in izip([output_forward_wig, output_reverse_wig],
-                                        [chromArrayForward, chromArrayReverse]):
-        writeWig(chromArray, output_wig, chromosome, samplename)
+    with pysam.Tabixfile(bed) as tabix_bed:
+        '''
+        For each chromosome, extract WPS
+        '''
+        for chromosome in chrom_lengths.keys():
+            chrom_size = chrom_lengths[chromosome]
+            chromArrayForward, chromArrayReverse = extract_aln(tabix_bed, window, wpsWindow, halfWPSwindow, upperBound,
+                    lowerBound, chromosome, chrom_size, lenType, samplename)
+
+            out_bws['fwd'].add_wps(chromosome, chromArrayForward)
+            out_bws['rvs'].add_wps(chromosome, chromArrayReverse)
+            printMessage('Written %s to BigWig' %(chromosome), samplename)
+            
+            del chromArrayForward, chromArrayReverse
+            gc.collect()
+
+    #close all
+    [bw.close() for bw in out_bws.values()]
     return 0
 
-def main(inFile, outprefix, genome, window, chromosome):
+def main(inFile, outprefix, genome, window):
     '''
     main function for controling the work flow
     '''
     samplename = os.path.basename(inFile).split('.')[0]
     printMessage( 'Saving all result to: %s' %outprefix, samplename)
 
-    iterater =  zip([100, 180],[10, 120],['Short (30-80bp)','Long (120-180bp)'],[5,120])
-    args = [(inFile, outprefix, genome, wps_window, window, upperBound, lowerBound, lenType, samplename, chromosome) \
-            for upperBound, lowerBound, lenType, wps_window in iterater]
+    lowerBound = 15
+    upperBound = 100
+    lenType = 'Short (%i-%ibp)' %(lowerBound, upperBound)
+    wps_window = 5
+
+    runFile(inFile, outprefix, genome, wps_window, window, upperBound, lowerBound, lenType, samplename)
     map(runFile, args)
     return 0
 
 if __name__ == '__main__':
-    inFile, outprefix, genome, window, chromosome = getOpt()
-    main(inFile, outprefix, genome, window, chromosome)
+    inFile, outprefix, genome, window = getOpt()
+    main(inFile, outprefix, genome, window)

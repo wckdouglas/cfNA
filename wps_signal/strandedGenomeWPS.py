@@ -16,9 +16,7 @@ from sys import stderr, argv
 from functools import partial
 from multiprocessing import Pool
 import pyBigWig as pbw
-#from numba import jit
 import gc
-import pickle
 
 class bigWigFile:
     def __init__(self, filename, chrom_dict):
@@ -74,7 +72,6 @@ def getOpt():
     threads = args.threads
     return inFile, outprefix, genome, window, threads
 
-#@jit()
 def push_WPS_to_Array(fields, halfWPSwindow, start, end, window, isize, wpsWindow):
     """
     for a given alignment, compute the regions that can be fully aligned and not
@@ -102,7 +99,6 @@ def push_WPS_to_Array(fields, halfWPSwindow, start, end, window, isize, wpsWindo
         transcriptAlnWPS[int(baseShifted):int(frag_end)] += wps
     return transcriptAlnWPS
 
-#@jit()
 def calculate_WPS(aln_file, chrom, window, wpsWindow, halfWPSwindow, upperBound, lowerBound, start, end):
     '''
     for each gene start site region:

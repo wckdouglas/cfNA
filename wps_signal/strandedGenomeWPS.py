@@ -14,23 +14,24 @@ import os
 import sys
 from sys import stderr, argv
 from functools import partial
+from multiprocessing import Pool
 import pyBigWig as pbw
 from numba import jit
 import gc
 
 class bigWigFile:
-    def __init__(self, filename):
+    def __init__(self, filename, chrom_dict):
         self.bw_file = pbw.open(filename, 'w')
-
-    def add_chrom(self, chrom_dict):
         self.bw_file.addHeader(list(chrom_dict.items()))
+        self.chrom_dict = chrom_dict
 
     
     def add_wps(self, chromosome, chrom_array):
-        chrom_length = len(chrom_array)
-        self.bw_file.addEntries(chromosome, 
-                        list(range(chrom_length)), 
-                        values=np.array(chrom_array, dtype=np.float64),
+        chrom_length = self.chrom_dict[chromosome]
+        for s, e in make_regions(chrom_length, 5000, 0):
+            self.bw_file.addEntries(chromosome, 
+                        list(range(s,e)), 
+                        values=np.array(chrom_array[s:e], dtype=np.float64),
                         validate = False, 
                         span=1)
 
@@ -123,27 +124,29 @@ def calculate_WPS(aln_file, chrom, window, wpsWindow, halfWPSwindow, upperBound,
     return transcriptWpsForward, transcriptWpsReverse
 
 
-def extract_aln(bam, window, wpsWindow, halfWPSwindow, upperBound,
-        lowerBound, chrom, chromSize, lenType, samplename):
+def extract_aln(bed, window, wpsWindow, halfWPSwindow, 
+                upperBound, lowerBound, lenType, chrom_lengths,
+                samplename, chrom):
     '''
     adding up wps track for all genes
     '''
-    chromArrayForward = np.zeros(chromSize)
-    chromArrayReverse = np.zeros(chromSize)
-    cal_wps = partial(calculate_WPS, bam, chrom,window, wpsWindow, halfWPSwindow, upperBound, lowerBound)
-    for start, end in make_regions(chromSize, window, halfWPSwindow):
-        forwardWps, reverseWps = cal_wps(start, end)
-        chromArrayForward[start:end] += forwardWps
-        chromArrayReverse[start:end] += reverseWps
+    chrom_size = chrom_lengths[chrom]
+    with pysam.Tabixfile(bed) as tabix_bed:
+        chromArrayForward = np.zeros(chrom_size)
+        chromArrayReverse = np.zeros(chrom_size)
+        cal_wps = partial(calculate_WPS, tabix_bed, chrom,window, wpsWindow, halfWPSwindow, upperBound, lowerBound)
+        for start, end in make_regions(chrom_size, window, halfWPSwindow):
+            forwardWps, reverseWps = cal_wps(start, end)
+            chromArrayForward[start:end] += forwardWps
+            chromArrayReverse[start:end] += reverseWps
 
-    printMessage('Finished calculating %s WPS for chromosome %s' %(lenType, chrom), samplename)
-    return chromArrayForward, chromArrayReverse
+        printMessage('Finished calculating %s WPS for chromosome %s' %(lenType, chrom), samplename)
+    return chrom, chromArrayForward, chromArrayReverse
 
 
 def parse_faidx(genome):
 
     regular_chrom = list(range(1,23))
-    regular_chrom = []
     regular_chrom.extend(['X','Y'])
     regular_chrom = ['chr' + str(chrom) for chrom in regular_chrom]
 
@@ -165,8 +168,7 @@ def make_output(outprefix, lenType, chrom_lengths):
     for strand in ['fwd','rvs']:
         bigwig_name = file_template.format(strand = strand, 
                                     outprefix = outprefix)
-        bw = bigWigFile(bigwig_name)
-        bw.add_chrom(chrom_lengths)
+        bw = bigWigFile(bigwig_name, chrom_lengths)
         out_bw[strand] = bw
     
     return out_bw
@@ -180,21 +182,21 @@ def runFile(bed, outprefix, genome, wpsWindow, window, upperBound, lowerBound, l
     chrom_lengths = parse_faidx(genome)
     out_bws = make_output(outprefix, lenType, chrom_lengths)
 
-    with pysam.Tabixfile(bed) as tabix_bed:
-        '''
-        For each chromosome, extract WPS
-        '''
-        for chromosome in chrom_lengths.keys():
-            chrom_size = chrom_lengths[chromosome]
-            chromArrayForward, chromArrayReverse = extract_aln(tabix_bed, window, wpsWindow, halfWPSwindow, upperBound,
-                    lowerBound, chromosome, chrom_size, lenType, samplename)
-
-            out_bws['fwd'].add_wps(chromosome, chromArrayForward)
-            out_bws['rvs'].add_wps(chromosome, chromArrayReverse)
-            printMessage('Written %s to BigWig' %(chromosome), samplename)
-            
-            del chromArrayForward, chromArrayReverse
-            gc.collect()
+    '''
+    For each chromosome, extract WPS
+    '''
+    wps_func = partial(extract_aln, bed, int(window), int(wpsWindow), int(halfWPSwindow), upperBound,
+                    lowerBound, lenType, chrom_lengths, samplename)
+    p = Pool(24)
+    proceses = p.imap_unordered(wps_func, chrom_lengths.keys())
+    for process in proceses:
+        chromosome, chromArrayForward, chromArrayReverse = process                   
+        out_bws['fwd'].add_wps(chromosome, chromArrayForward)
+        out_bws['rvs'].add_wps(chromosome, chromArrayReverse)
+        printMessage('Written %s to BigWig' %(chromosome), samplename)
+        
+        del chromArrayForward, chromArrayReverse
+        gc.collect()
 
     #close all
     [bw.close() for bw in out_bws.values()]

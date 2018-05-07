@@ -18,5 +18,5 @@ do
             --outprefix=$RESULT_PATH/${SAMPLENAME} \
             --genome=$GENOME \
             --window=50000  \
-            --threads=12
+            --threads=4
 done

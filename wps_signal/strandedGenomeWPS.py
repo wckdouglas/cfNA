@@ -16,7 +16,7 @@ from sys import stderr, argv
 from functools import partial
 from multiprocessing import Pool
 import pyBigWig as pbw
-from numba import jit
+#from numba import jit
 import gc
 
 class bigWigFile:
@@ -64,14 +64,16 @@ def getOpt():
     parser.add_argument('-o','--outprefix',help='output prefix', default='out')
     parser.add_argument('-g','--genome',help='genome file (genome.fa)',required=True)
     parser.add_argument('-w','--window', help='Window size for calculating WPS in memory (default: 10000)', default = 100000, type=int)
+    parser.add_argument('--threads',help='Threads to use', default = 5, type=int)
     args = parser.parse_args()
     inFile = args.inFile
     outprefix = args.outprefix
     genome = args.genome
     window = args.window
+    threads = args.threads
     return inFile, outprefix, genome, window 
 
-@jit()
+#@jit()
 def push_WPS_to_Array(fields, halfWPSwindow, start, end, window, isize, wpsWindow):
     """
     for a given alignment, compute the regions that can be fully aligned and not
@@ -99,7 +101,7 @@ def push_WPS_to_Array(fields, halfWPSwindow, start, end, window, isize, wpsWindo
         transcriptAlnWPS[int(baseShifted):int(frag_end)] += wps
     return transcriptAlnWPS
 
-@jit()
+#@jit()
 def calculate_WPS(aln_file, chrom, window, wpsWindow, halfWPSwindow, upperBound, lowerBound, start, end):
     '''
     for each gene start site region:
@@ -174,7 +176,8 @@ def make_output(outprefix, lenType, chrom_lengths):
     return out_bw
 
 
-def runFile(bed, outprefix, genome, wpsWindow, window, upperBound, lowerBound, lenType, samplename):
+def runFile(bed, outprefix, genome, wpsWindow, window, upperBound, 
+            lowerBound, lenType, samplename, threads):
     wpsWindow = wpsWindow + 1
     halfWPSwindow = np.divide(wpsWindow,2)
     
@@ -187,7 +190,7 @@ def runFile(bed, outprefix, genome, wpsWindow, window, upperBound, lowerBound, l
     '''
     wps_func = partial(extract_aln, bed, int(window), int(wpsWindow), int(halfWPSwindow), upperBound,
                     lowerBound, lenType, chrom_lengths, samplename)
-    p = Pool(24)
+    p = Pool(threads)
     proceses = p.imap_unordered(wps_func, chrom_lengths.keys())
     for process in proceses:
         chromosome, chromArrayForward, chromArrayReverse = process                   
@@ -202,7 +205,7 @@ def runFile(bed, outprefix, genome, wpsWindow, window, upperBound, lowerBound, l
     [bw.close() for bw in out_bws.values()]
     return 0
 
-def main(inFile, outprefix, genome, window):
+def main(inFile, outprefix, genome, window, threads):
     '''
     main function for controling the work flow
     '''
@@ -214,10 +217,10 @@ def main(inFile, outprefix, genome, window):
     lenType = 'Short (%i-%ibp)' %(lowerBound, upperBound)
     wps_window = 5
 
-    runFile(inFile, outprefix, genome, wps_window, window, upperBound, lowerBound, lenType, samplename)
+    runFile(inFile, outprefix, genome, wps_window, window, upperBound, lowerBound, lenType, samplename, threads)
     map(runFile, args)
     return 0
 
 if __name__ == '__main__':
-    inFile, outprefix, genome, window = getOpt()
-    main(inFile, outprefix, genome, window)
+    inFile, outprefix, genome, window, threads = getOpt()
+    main(inFile, outprefix, genome, window, threads)

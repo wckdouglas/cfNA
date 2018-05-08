@@ -189,17 +189,16 @@ def runFile(bed, outprefix, genome, wpsWindow, window, upperBound,
     wps_func = partial(extract_aln, outprefix, bed, int(window), int(wpsWindow), int(halfWPSwindow), upperBound,
                     lowerBound, lenType, chrom_lengths, samplename)
     p = Pool(threads)
-    #npz_files = p.imap_unordered(wps_func, chrom_lengths.keys())
+    npz_files = p.imap_unordered(wps_func, chrom_lengths.keys())
     p.close()
     p.join()
 
-    npz_files = map(wps_func, ['chrX'])
     for (chromosome, npz_file) in npz_files:
         npz_arrays = np.load(npz_file)
         out_bws['fwd'].add_wps(chromosome, npz_arrays['fwd'])
         out_bws['rvs'].add_wps(chromosome, npz_arrays['rvs'])
         printMessage('Written %s to BigWig' %(chromosome), samplename)
-    #    os.remove(npz_file)
+        os.remove(npz_file)
         
     #close all
     [bw.close() for bw in out_bws.values()]

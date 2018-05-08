@@ -215,7 +215,6 @@ def main(inFile, outprefix, genome, window, threads):
     wps_window = 5
 
     runFile(inFile, outprefix, genome, wps_window, window, upperBound, lowerBound, lenType, samplename, threads)
-    map(runFile, args)
     return 0
 
 if __name__ == '__main__':

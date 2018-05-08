@@ -9,6 +9,7 @@ from libc.math cimport sqrt
 from operator import itemgetter
 import cython
 from cpython cimport bool
+import six
 
 cdef:
     long WINDOW_SIZE = 50000
@@ -99,7 +100,7 @@ def merge_and_find_peaks(peaks, int tolerance_unprotected=10):
         long new_start, new_end
         int i
 
-    previous_start, previous_end = peaks.next()
+    previous_start, previous_end = six.next(peaks)
     for i, (new_start, new_end) in enumerate(peaks):
         if (new_start - previous_end) <= tolerance_unprotected:
             previous_end = new_end

@@ -27,10 +27,9 @@ class bigWigFile:
     
     def add_wps(self, chromosome, chrom_array):
         chrom_length = self.chrom_dict[chromosome]
-        for s, e in make_regions(chrom_length, 50000, 0):
-            self.bw_file.addEntries(chromosome, 
-                        list(range(s,e)), 
-                        values=np.array(chrom_array[s:e], dtype=np.float64),
+        self.bw_file.addEntries(chromosome, 
+                        list(range(chrom_length)), 
+                        values=np.array(chrom_array, dtype=np.float64),
                         validate = False, 
                         span=1)
 
@@ -109,9 +108,9 @@ def calculate_WPS(aln_file, chrom, window, wpsWindow, halfWPSwindow, upperBound,
     '''
     transcriptWpsForward = np.zeros(end - start)
     transcriptWpsReverse = np.zeros(end - start)
-    for aln in aln_file.fetch(reference = chrom, 
+    for aln_count, aln in enumerate(aln_file.fetch(reference = chrom, 
                             start = start - halfWPSwindow, 
-                            end = end+halfWPSwindow):
+                            end = end+halfWPSwindow)):
         fields = aln.strip().split('\t')
         isize = int(fields[2]) - int(fields[1])
         strand = fields[5]
@@ -120,6 +119,7 @@ def calculate_WPS(aln_file, chrom, window, wpsWindow, halfWPSwindow, upperBound,
                 transcriptWpsReverse += push_WPS_to_Array(fields, halfWPSwindow, start, end, window, isize, wpsWindow)
             else:
                 transcriptWpsForward += push_WPS_to_Array(fields, halfWPSwindow, start, end, window, isize, wpsWindow)
+#    print('Parsed %i alignments ' %aln_count)
     return transcriptWpsForward, transcriptWpsReverse
 
 
@@ -190,13 +190,17 @@ def runFile(bed, outprefix, genome, wpsWindow, window, upperBound,
     wps_func = partial(extract_aln, outprefix, bed, int(window), int(wpsWindow), int(halfWPSwindow), upperBound,
                     lowerBound, lenType, chrom_lengths, samplename)
     p = Pool(threads)
-    npz_files = p.imap_unordered(wps_func, chrom_lengths.keys())
+    #npz_files = p.imap_unordered(wps_func, chrom_lengths.keys())
+    p.close()
+    p.join()
+
+    npz_files = map(wps_func, ['chrX'])
     for (chromosome, npz_file) in npz_files:
         npz_arrays = np.load(npz_file)
         out_bws['fwd'].add_wps(chromosome, npz_arrays['fwd'])
         out_bws['rvs'].add_wps(chromosome, npz_arrays['rvs'])
         printMessage('Written %s to BigWig' %(chromosome), samplename)
-        os.remove(npz_file)
+    #    os.remove(npz_file)
         
     #close all
     [bw.close() for bw in out_bws.values()]

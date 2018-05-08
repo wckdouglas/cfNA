@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 
 from __future__ import print_function
@@ -13,22 +12,19 @@ import glob
 from functools import partial
 import argparse
 import pyximport
-pyximport.install()
+pyximport.install(setup_args={'include_dirs': np.get_include()})
 from call_peak_tools import *
 from operator import itemgetter
+from multiprocessing import Pool
 #from memory_profiler import profile
 import gc
 
 def get_opt():
-    chromosomes = list(range(1,23))
-    chromosomes.extend(list('XY'))
-    chromosomes = map(lambda x: 'chr' + str(x), chromosomes)
     parser = argparse.ArgumentParser(description='Given a WPS file in bigwig format '+\
                                      'output peak coordinates in  bed file')
     parser.add_argument('-i', '--in_bigwig', help = 'Input bigWig', required=True)
-    parser.add_argument('-c', '--chrom',  help = 'Chromosome', required=True)#, choices = chromosomes)
     parser.add_argument('-o', '--out_bed', help = 'Output prefix', required=True)
-    parser.add_argument('-l','--length_type', help = 'short or long WPS?', default = 'Long',
+    parser.add_argument('-l','--length_type', help = 'short or long WPS?', default = 'Short',
                         choices = ['Short','Long'])
     parser.add_argument('-s','--strand', help='Which strand?, all peak would have the same strand',
                         choices = ['forward','reverse'], required=True)
@@ -97,9 +93,8 @@ def process_bigwig(out_bed, inputWig, length_type, strand, two_pass, chromosome)
 
     # read in data
     bw = pbw.open(inputWig)
-    chrom, length = bw.chroms().items()[0]
-    assert chrom == chromosome, 'Wrong chromosomes'
-    wps = bw.values(chrom,0,length, numpy=True)
+    length = bw.chroms()[chromosome]
+    wps = bw.values(chromosome, 0, length, numpy=True)
     bw.close()
     if length_type == 'Long':
         wps = adjust_median(wps, window=1000)
@@ -113,46 +108,52 @@ def process_bigwig(out_bed, inputWig, length_type, strand, two_pass, chromosome)
     print('[%s] Start calling peaks: Chrom: %s, %s' %(filename, chromosome, length_type), file=sys.stderr)
 
     peak_count = 0
-    with open(out_bed, 'w') as peak_bed:
+    temp_bed = out_bed + '.%s_temp' %(chromosome)
+    with open(temp_bed, 'w') as peak_bed:
         second_pass = not two_pass # if two pass is True, this is the first pass, only output high quality peak
-        peak_count = peak_caller(wps, peak_bed, chrom, strand, second_pass = second_pass, peak_count=peak_count)
+        peak_count = peak_caller(wps, peak_bed, chromosome, strand, second_pass = second_pass, peak_count=peak_count)
         ## second_pass = TRUE  out put everything
         ## else, only output high quanlity peak
-    print('Written %i peaks to %s' %(peak_count, out_bed), file=sys.stderr)
+    print('Written %i peaks to %s' %(peak_count, temp_bed), file=sys.stderr)
 
     if two_pass:
         ## two pass algorithm, filter out first pass peaks, and do peak calling again
         wps = filter_called_peaks(wps, out_bed)
         print('[%s] removed 1st pass peak regions' %(filename), file=sys.stderr)
-        with open(out_bed, 'a') as peak_bed:
-            peak_count += peak_caller(wps, peak_bed, chrom, strand, second_pass = True, peak_count=peak_count)
-        print('Written %i peaks to %s after 2nd pass' %(peak_count, out_bed), file=sys.stderr)
-    return 0
+        with open(temp_bed, 'a') as peak_bed:
+            peak_count += peak_caller(wps, peak_bed, chromosome, strand, second_pass = True, peak_count=peak_count)
+        print('Written %i peaks to %s after 2nd pass' %(peak_count, temp_bed), file=sys.stderr)
+    return temp_bed
     
+def get_chroms(bw_file):
+    bw = pbw.open(bw_file)
+    chromosomes_dict = bw.chroms()
+    bw.close()
+    return chromosomes_dict
 
 def main():
     args = get_opt()
     bigwig_file = args.in_bigwig
     length_type = args.length_type
     strand = args.strand
-    chromosome = args.chrom
     strand = '+' if strand == 'forward' else '-'
     two_pass = args.two_pass
+
+    chromosome_dict = get_chroms(bigwig_file)
     peak_func = partial(process_bigwig, args.out_bed, bigwig_file, length_type, strand, two_pass) 
-    peak_files = peak_func(chromosome)
+
+    p = Pool(24)
+    temp_files = p.imap(peak_func, chromosome_dict.keys())
+
+    peak_count = 0
+    with open(args.out_bed, 'w') as bed:
+        for temp in temp_files:
+            for i, line in enumerate(open(temp)):
+                bed.write(line)
+            os.remove(temp)
+            peak_count += i
+    print('Written %i peaks to %s' %(peak_count,args.out_bed), file = sys.stderr)
     return 0
 
-def alt_main():
-    bigwig_file = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/bed_files/genome_WPS/200_NT_3_S7_R1_001_no_sncRNA_repeats.chrX.Short.forward.bigWig'
-    length_type = 'Short'
-    strand = 'forward'
-    chromosome = 'chrX'
-    strand = '+' if strand == 'forward' else '-'
-    two_pass = False
-    out_bed = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/genome_peaks/200_PI_1_S11_R1_001.chr19.Short.forward.bed'
-    peak_func = partial(process_bigwig, out_bed, bigwig_file, length_type, strand, two_pass) 
-    peak_files = peak_func(chromosome)
-
 if __name__ == '__main__':
-#    alt_main()
     main()

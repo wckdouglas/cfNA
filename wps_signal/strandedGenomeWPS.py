@@ -30,7 +30,6 @@ class bigWigFile:
         self.bw_file.addEntries(chromosome, 
                         list(range(chrom_length)), 
                         values=np.array(chrom_array, dtype=np.float64),
-                        validate = False, 
                         span=1)
 
     def close(self):

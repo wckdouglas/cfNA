@@ -141,7 +141,7 @@ def extract_aln(outputprefix, bed, window, wpsWindow, halfWPSwindow,
         temp_file = '%s_%s.npz' %(outputprefix, chrom)
     np.savez(temp_file, fwd = chromArrayForward, rvs = chromArrayReverse)
     printMessage('Finished calculating %s WPS for chromosome %s' %(lenType, chrom), samplename)
-    return chrom, temp_file
+    return temp_file
 
 
 def parse_faidx(genome):
@@ -189,11 +189,11 @@ def runFile(bed, outprefix, genome, wpsWindow, window, upperBound,
     wps_func = partial(extract_aln, outprefix, bed, int(window), int(wpsWindow), int(halfWPSwindow), upperBound,
                     lowerBound, lenType, chrom_lengths, samplename)
     p = Pool(threads)
-    npz_files = p.imap_unordered(wps_func, chrom_lengths.keys())
+    npz_files = p.map(wps_func, chrom_lengths.keys())
     p.close()
     p.join()
 
-    for (chromosome, npz_file) in npz_files:
+    for (chromosome, npz_file) in zip(chrom_lengths.keys(), npz_files):
         npz_arrays = np.load(npz_file)
         out_bws['fwd'].add_wps(chromosome, npz_arrays['fwd'])
         out_bws['rvs'].add_wps(chromosome, npz_arrays['rvs'])

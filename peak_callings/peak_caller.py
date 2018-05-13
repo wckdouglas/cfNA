@@ -119,7 +119,7 @@ def process_bigwig(out_bed, inputWig, length_type, strand, two_pass, chromosome)
 
     if two_pass:
         ## two pass algorithm, filter out first pass peaks, and do peak calling again
-        wps = filter_called_peaks(wps, out_bed)
+        wps = filter_called_peaks(wps, temp_bed)
         print('[%s] removed 1st pass peak regions' %(filename), file=sys.stderr)
         with open(temp_bed, 'a') as peak_bed:
             peak_count += peak_caller(wps, peak_bed, chromosome, strand, second_pass = True, peak_count=peak_count)

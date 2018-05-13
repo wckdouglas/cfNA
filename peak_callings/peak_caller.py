@@ -30,6 +30,7 @@ def get_opt():
                         choices = ['forward','reverse'], required=True)
     parser.add_argument('--two_pass', help='2 pass peak calling, first pass will be very stringent', 
                         action='store_true')
+    parser.add_argument('--threads', type=int, default = 24, help='Number of threads to use (default: 24)')
     args = parser.parse_args()
     return args
 
@@ -86,8 +87,10 @@ def main():
     chromosome_dict = get_chroms(bigwig_file)
     peak_func = partial(process_bigwig, args.out_bed, bigwig_file, bigwig_control, strand, two_pass) 
 
-    p = Pool(24)
+    p = Pool(args.threads)
     temp_files = p.imap(peak_func, chromosome_dict.keys())
+    p.close()
+    p.join()
 
     peak_count = 0
     with open(args.out_bed, 'w') as bed:

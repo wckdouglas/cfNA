@@ -83,8 +83,9 @@ if run_concat:
 
 concat_df = pd.read_table(long_tablename)\
     .assign(samplename = lambda d: d.samplename + ':'+ d.dedup+':' + d.strand)\
+    .assign(grouped_type = lambda d: d.gene_type.map(change_gene_type)) \
     .pipe(pd.pivot_table,
-          index = ['gene_id','gene_name','gene_type'],
+          index = ['gene_id','gene_name','gene_type', 'grouped_type'],
           columns = 'samplename', 
           aggfunc=np.sum,
           fill_value = 0,

@@ -10,6 +10,7 @@ from operator import itemgetter
 import cython
 from cpython cimport bool
 import six
+import pyBigWig as pbw
 
 cdef:
     long WINDOW_SIZE = 50000
@@ -17,7 +18,7 @@ cdef:
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cal_zscore(wps, long start, long end):
+def cal_zscore(wps, control_bw, long start, long end):
     '''
     using z score algorithm as https://github.com/rthurman/hotspot/tree/master/hotspot-distr
     '''
@@ -55,6 +56,52 @@ def cal_zscore(wps, long start, long end):
     else:
         z_score = 0.0
     return z_score, peak_wps
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cal_binomial_control(chrom, wps, control_bw, long start, long end):
+    '''
+    If control file exist, use control distribution as background and use binomial
+    distribution to look at if the peak is hotspot
+    '''
+    cdef:
+        long center, window_start, window_end
+        double control_background, control_peak, test_background, test_peak
+        double p, expected, sigma, z_score
+
+    center = long((start + end) / 2)
+    window_start = center - HALF_WINDOW_SIZE
+    window_end = center + HALF_WINDOW_SIZE
+
+    if window_start < 0:
+        window_start = 1
+        window_end = WINDOW_SIZE
+    
+    elif window_end > len(wps):
+        window_end = len(wps)
+        window_start = window_end - window_end
+
+    control_wps = control_bw.values(chrom, window_start, window_end, numpy=True)
+    control_background = control_wps[control_wps>0].sum()
+    control_peak = control_bw.values(chrom, start, end, numpy=True).max()
+
+    test_wps = wps[window_start:window_end]
+    test_background = test_wps[test_wps>0].sum()
+    test_peak = wps[start:end].max() 
+    
+    p = control_peak / control_background
+    expected = test_background * p
+    
+    if expected > 0:
+        sigma = sqrt(expected * (1-p))
+        z_score = (test_peak - expected) / sigma 
+    else:
+        z_score = 0.0
+    return z_score, test_peak
+
+
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -195,7 +242,7 @@ cdef:
     int PEAK_SCORE_FILTER = 10
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef int write_short_peaks(wps, out_bed, chromosome, strand, bool second_pass=False, int peak_count=0):
+cpdef int write_short_peaks(wps, control_bigwig, out_bed, chromosome, strand, bool second_pass=False, int peak_count=0):
     '''
     using the input peak locations, pick out wps values,
     assign with z_score
@@ -209,7 +256,11 @@ cpdef int write_short_peaks(wps, out_bed, chromosome, strand, bool second_pass=F
 
     peaks = peak_iterator(wps)
     peak_regions = merge_and_find_peaks(peaks, tolerance_unprotected=5) 
-    zscore_calculator = partial(cal_zscore, wps)
+    if control_bigwig:
+        control_bw = pbw.open(control_bigwig)
+        zscore_calculator = partial(cal_binomial_control, chromosome, wps, control_bw)
+    else:
+        zscore_calculator = partial(cal_zscore, wps)
 
     # core algorithm
     for peak_iter_count, (peak_start, peak_end) in enumerate(peak_regions):
@@ -219,16 +270,21 @@ cpdef int write_short_peaks(wps, out_bed, chromosome, strand, bool second_pass=F
             z_score, peak_score = zscore_calculator(peak_start, peak_end)
             peak_center = long((peak_end + peak_start) /2)
             if (z_score >= Z_FILTER and peak_score >= PEAK_SCORE_FILTER) or second_pass:
-                peak_line = '{chrom}\t{start}\t{end}\t{name}\t'.format(chrom=chromosome,
-                                                                       start = peak_start,
-                                                                       end = peak_end,
-                                                                       name = peak_name)+\
-                            '{z_score}\t{strand}\t{peak_center}\t{peak_score}'.format(z_score = z_score,
-                                                                                      strand = strand,
-                                                                                      peak_center = peak_center,
-                                                                                      peak_score = peak_score)
+                peak_line = '{chrom}\t{start}\t{end}\t{name}\t' \
+                            '{z_score}\t{strand}\t{peak_center}\t{peak_score}'\
+                            .format(chrom=chromosome,
+                                    start = peak_start,
+                                    end = peak_end,
+                                    name = peak_name,
+                                    z_score = z_score,
+                                    strand = strand,
+                                    peak_center = peak_center,
+                                    peak_score = peak_score)
                 print(peak_line, file = out_bed)
                 peak_count += 1
         if peak_iter_count % 10000 == 0:
             print('[%s] Parsed %i peaks: %i-%i' %(out_bed.name, peak_iter_count, peak_start, peak_end), file = sys.stderr)
+
+    if control_bigwig:
+        control_bw.close()
     return peak_count

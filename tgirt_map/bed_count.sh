@@ -79,7 +79,7 @@ do
                 else
                     STRANDENESS=" -S "
                 fi
-                TEMP_FOLDER=$OUT_PATH/${SAMPLE_NAME}.$COUNT_TYPE.${STRAND}.$(basename $BED)_TEMP
+                TEMP_FOLDER=$OUT_PATH/${SAMPLE_NAME}.${COUNT_TYPE}.${STRAND}.$(basename $BED)_TEMP
                 echo mkdir -p $TEMP_FOLDER \
                     \; cat $BED \
                     $BAM_TO_BED \
@@ -87,7 +87,7 @@ do
                     $DEDUP_COMMAND $ADJUST_UMI \
                     \| bedtools coverage -b - -a $REF_BED -F 0.1 \
                         $STRANDENESS -counts \
-                    \> $OUT_PATH/${SAMPLE_NAME}.$COUNT_TYPE.$STRAND.counts  \
+                    \> $OUT_PATH/${SAMPLE_NAME}.${COUNT_TYPE}.${STRAND}.counts  \
                     \; rm -rf $TEMP_FOLDER
             done
         done

@@ -4,7 +4,7 @@ BED_PATH=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/bed_files
 TEST_BED=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/classifier/test.bed
 
 # sample DNA
-SAMPLE=500000
+SAMPLE=100000
 for i in Na1 NA2
 do
     zcat $BED_PATH/Qcf_${i}_R1_001.bed.gz \

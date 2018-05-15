@@ -13,8 +13,9 @@ def label_sample(x):
     else:
         return ''
 
-in_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/bed_files'
-out_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/merged_bed'
+project_path = '/scratch/02727/cdw2854/cell_Free_nucleotides/tgirt_map'
+in_path = project_path + '/bed_files'
+out_path = project_path + '/merged_bed'
 beds = glob.glob(in_path + '/*bed.gz') 
 beds.sort()
 

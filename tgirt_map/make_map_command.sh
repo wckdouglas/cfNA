@@ -6,7 +6,7 @@ RESULT_PATH=$PROJECT_PATH/tgirt_map_dedup
 RESULT_PATH=$PROJECT_PATH/tgirt_map
 REF_PATH=$REF/hg19/genome
 LOG_PATH=$RESULT_PATH/log
-THREADS=12
+THREADS=24
 
 mkdir -p $LOG_PATH
 
@@ -32,7 +32,7 @@ do
 	fi
 
 
-    if echo $SAMPLENAME | egrep -q 'L[12]'
+    if echo $SAMPLENAME | egrep -q 'L[12]|TEV3'
     then
         TTN=' '
         UMI=' '
@@ -51,10 +51,10 @@ do
 		-p $THREADS $UMI $TTN \
         --trim_aggressive ${polyA} \
 		--repeats $REF_PATH/rmsk.bed.gz \
-		--repeats_index $REF_PATH/repeat_mask/all_rmsk_From_bed \
+		--repeats_index $REF_PATH/repeats/all_rmsk_From_bed \
 		2\>\&1 \
 		\| tee $RESULT_PATH/log/${SAMPLENAME}.log
-done |  egrep -v  'TeI|GsI|SRR|[TG]0|try' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
+done |  egrep -v  'TeI|GsI|SRR|[TG]0|try|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
 #		--skip_trim  --skip_hisat --skip_premap --skip_bowtie --skip_post_process_bam --skip_remap \
 #		--repeats_index $REF_PATH/rmsk \
 #		--repeats_index $REF_PATH/repeat_mask/all_rmsk_From_bed \

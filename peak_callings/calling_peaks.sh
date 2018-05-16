@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROJECT_PATH=$WORK/cdw2854/cell_Free_nucleotides/tgirt_map
+PROJECT_PATH=$SCRATCH/cell_Free_nucleotides/tgirt_map
 WPS_PATH=$PROJECT_PATH/merged_bed/genome_WPS
 PEAK_PATH=$WPS_PATH/genome_peaks
 mkdir -p $PEAK_PATH

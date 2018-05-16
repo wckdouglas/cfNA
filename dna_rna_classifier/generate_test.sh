@@ -4,11 +4,11 @@ BED_PATH=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/bed_files
 TEST_BED=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/classifier/test.bed
 
 # sample DNA
-SAMPLE=100000
+SAMPLE=1000000
 for i in Na1 NA2
 do
     zcat $BED_PATH/Qcf_${i}_R1_001.bed.gz \
-        | awk '{print $0,"DNA"}' OFS='\t'  
+        | awk '($3-$2) < 400 {print $0,"DNA"}' OFS='\t'  
 done | shuf -n $SAMPLE > $TEST_BED 
 
 

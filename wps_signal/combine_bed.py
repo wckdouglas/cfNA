@@ -21,7 +21,7 @@ beds.sort()
 
 for regex, label in zip(['Q[Cc][Ff][0-9]+', 'Frag', 'L[12]', 'N[aA]', 'All'],
                         ['unfragmented','fragmented','polyA','alkaline', 'all']):
-    samples = filter(lambda x: re.search(regex, x), beds)
+    samples = filter(lambda x: re.search(regex, os.path.basename(x).split('no')[0]), beds)
 
     sample_df = pd.DataFrame({'bed': list(samples)}) \
             .assign(lab = lambda d: d.bed.map(label_sample))

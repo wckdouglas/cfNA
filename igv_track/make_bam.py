@@ -6,7 +6,7 @@ import re
 from picard import run_rna_seq_picard
 
 refflat = '/stor/work/Lambowitz/ref/hg19/genome/refFlat.txt'
-snc_annotation = os.environ['REF'] + '/hg19/genome/sncRNA_x_protein.sorted.bed.gz'
+snc_annotation = os.environ['REF'] + '/hg19/genome/sncRNA_rRNA_for_bam_filter.bed'
 protein_bed = os.environ['REF'] + '/hg19/genome/protein.bed'
 
 project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/'
@@ -14,8 +14,8 @@ folders = glob.glob(project_path + '/*001')
 folders.sort()
 
 
-for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All','N[aA]'],
-                        ['unfragmented','fragmented','polyA','untreated', 'alkaline_hydrolysis']):
+for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All','N[aA]','ED|DE','HS[123]'],
+                        ['unfragmented','fragmented','polyA','untreated', 'alkaline_hydrolysis','exonuclease','high_salt']):
     samples = filter(lambda x: re.search(regex, x), folders)
     if 'poly' in label:
         bam = 'primary.bam'
@@ -39,7 +39,7 @@ for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All
                         out_bam = merged_bam)
 
     command += '; bedtools intersect -abam {bam} -b {protein} '\
-            ' | bedtools intersect -abam - -b {sncRNA} -v '\
+            ' | bedtools intersect -abam - -b {sncRNA} -v -split '\
             '| samtools view -bF 1024 -F 256 -F 2048 ' \
             ' > {filtered_bam} '\
             .format(bam = merged_bam,

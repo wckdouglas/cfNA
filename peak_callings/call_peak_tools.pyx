@@ -12,13 +12,10 @@ from cpython cimport bool
 import six
 import pyBigWig as pbw
 
-cdef:
-    long WINDOW_SIZE = 50000
-    long HALF_WINDOW_SIZE = int(WINDOW_SIZE/2)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cal_zscore(wps, control_bw, long start, long end):
+def cal_zscore(wps, control_bw, long start, long end, long WINDOW_SIZE = 50000):
     '''
     using z score algorithm as https://github.com/rthurman/hotspot/tree/master/hotspot-distr
     '''
@@ -27,6 +24,7 @@ def cal_zscore(wps, control_bw, long start, long end):
         int peak_window, large_window_wps_sum
         double peak_wps
         double p, expected, sigma, z_score
+        long HALF_WINDOW_SIZE = int(WINDOW_SIZE/2)
 
     center = long((start + end) / 2)
     window_start = center - HALF_WINDOW_SIZE
@@ -60,7 +58,7 @@ def cal_zscore(wps, control_bw, long start, long end):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cal_binomial_control(chrom, wps, control_bw, long start, long end):
+def cal_binomial_control(chrom, wps, control_bw, long start, long end, long WINDOW_SIZE = 50000):
     '''
     If control file exist, use control distribution as background and use binomial
     distribution to look at if the peak is hotspot
@@ -69,6 +67,7 @@ def cal_binomial_control(chrom, wps, control_bw, long start, long end):
         long center, window_start, window_end
         double control_background, control_peak, test_background, test_peak
         double p, expected, sigma, z_score
+        long  HALF_WINDOW_SIZE = int(WINDOW_SIZE/2)
 
     center = long((start + end) / 2)
     window_start = center - HALF_WINDOW_SIZE
@@ -85,6 +84,7 @@ def cal_binomial_control(chrom, wps, control_bw, long start, long end):
     control_wps = control_bw.values(chrom, window_start, window_end, numpy=True)
     control_background = control_wps[control_wps>0].sum()
     control_peak = control_bw.values(chrom, start, end, numpy=True).max()
+    control_background = control_background or 1
 
     test_wps = wps[window_start:window_end]
     test_background = test_wps[test_wps>0].sum()
@@ -267,7 +267,11 @@ cpdef int write_short_peaks(wps, control_bigwig, out_bed, chromosome, strand, bo
         peak_width = peak_end - peak_start
         if 300 >= peak_width >= peak_width_threshold:
             peak_name = '%s_peak%i' %(chromosome, peak_count)
-            z_score, peak_score = zscore_calculator(peak_start, peak_end)
+            
+            scores = [zscore_calculator(peak_start, peak_end) for bg in [1000, 5000, 10000]]
+            z_scores, peak_scores = zip(*scores)
+            peak_score = peak_scores[0]
+            z_score = min(z_scores)
             peak_center = long((peak_end + peak_start) /2)
             if (z_score >= Z_FILTER and peak_score >= PEAK_SCORE_FILTER) or second_pass:
                 peak_line = '{chrom}\t{start}\t{end}\t{name}\t' \

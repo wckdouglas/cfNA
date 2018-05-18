@@ -9,7 +9,7 @@ for PEAK_FILE in `ls $PEAK_PATH | grep -v 'no' | cut -d '.' -f1  | sort | uniq`
 do
     echo cat $PEAK_PATH/${PEAK_FILE}.rvs.bed \
         $PEAK_PATH/${PEAK_FILE}.fwd.bed  \
-    \| awk \''$5 > 0 && $8 > 5'\' \
+    \| awk \''$5 != 0 && $8 > 3'\' \
     \| sort -k1,1 -k2,2n -k3,3n \
     \| bedtools intersect -wao -a - \
         -b $ANNOTATION_FILE \

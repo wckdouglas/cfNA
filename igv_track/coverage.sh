@@ -30,9 +30,6 @@ do
 			--filterRNAstrand $STRAND \
 			--outFileFormat bigwig \
 			--samFlagExclude 1024 \
-            --samFlagExclude 2048 \
-            --samFlagExclude 256 \
-            --samFlagExclude 512 \
 			--binSize 1
 	done
 done

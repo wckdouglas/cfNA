@@ -238,8 +238,8 @@ def filter_called_peaks(wps, out_bed):
     return wps
 
 cdef:
-    int Z_FILTER = 10
-    int PEAK_SCORE_FILTER = 10
+    int Z_FILTER = 2
+    int PEAK_SCORE_FILTER = 4
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cpdef int write_short_peaks(wps, control_bigwig, out_bed, chromosome, strand, bool second_pass=False, int peak_count=0):
@@ -255,7 +255,7 @@ cpdef int write_short_peaks(wps, control_bigwig, out_bed, chromosome, strand, bo
         str peak_line, peak_name
 
     peaks = peak_iterator(wps)
-    peak_regions = merge_and_find_peaks(peaks, tolerance_unprotected=5) 
+    peak_regions = merge_and_find_peaks(peaks, tolerance_unprotected=30) 
     if control_bigwig:
         control_bw = pbw.open(control_bigwig)
         zscore_calculator = partial(cal_binomial_control, chromosome, wps, control_bw)
@@ -265,13 +265,13 @@ cpdef int write_short_peaks(wps, control_bigwig, out_bed, chromosome, strand, bo
     # core algorithm
     for peak_iter_count, (peak_start, peak_end) in enumerate(peak_regions):
         peak_width = peak_end - peak_start
-        if 300 >= peak_width >= peak_width_threshold:
+        if 1000 >= peak_width >= peak_width_threshold:
             peak_name = '%s_peak%i' %(chromosome, peak_count)
             
             scores = [zscore_calculator(peak_start, peak_end) for bg in [1000, 5000, 10000]]
             z_scores, peak_scores = zip(*scores)
             peak_score = peak_scores[0]
-            z_score = min(z_scores)
+            z_score = max(z_scores)
             peak_center = long((peak_end + peak_start) /2)
             if (z_score >= Z_FILTER and peak_score >= PEAK_SCORE_FILTER) or second_pass:
                 peak_line = '{chrom}\t{start}\t{end}\t{name}\t' \

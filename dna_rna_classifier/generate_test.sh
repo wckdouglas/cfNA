@@ -7,7 +7,7 @@ TRAIN_BED=$OUT_PATH/train.bed
 TEMP=$OUT_PATH/temp
 
 # sample DNA
-SAMPLE=10000000
+SAMPLE=1000000
 HALF_SAMPLE=$(( $SAMPLE/2 ))
 TEST_SAMPLE=$(( $SAMPLE/10 ))
 
@@ -23,8 +23,8 @@ zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
 
 
 # sample RNA
+#    | bedtools intersect -a - -b $REF/hg19/genome/sncRNA_x_protein.sorted.bed.gz -v \
 zcat $BED_PATH/unfragmented.bed.gz \
-    | bedtools intersect -a - -b $REF/hg19/genome/sncRNA_x_protein.sorted.bed.gz -v \
     | awk '($3 - $2) < 100  {print $0,"RNA"}' OFS='\t' \
     | shuf -n $SAMPLE \
     >> $TRAIN_BED

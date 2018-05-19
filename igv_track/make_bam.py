@@ -51,8 +51,8 @@ for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All
                 .format(label = label, 
                         out_bam = merged_bam)
 
-    filtering_plus = ' awk \'{if (($1~/^@/)||($2==99)||($2==147)||($2==355)||($2==403)) print}\''
-    filtering_minus = 'awk \'{if (($1~/^@/)||($2==83)||($2==163)||($2== 339)||($2==419)) print}\''
+    filtering_plus = ' awk \'{if (($1~/^@/)|| ($2==99)||($2==147)|| ($2==355)||($2==403)|| ($2==1123)||($2==1171)) print}\''
+    filtering_minus = 'awk \'{if (($1~/^@/)|| ($2==83)||($2==163)|| ($2== 339)||($2==419)|| ($2==1187)||($2==1107)) print}\''
 
     command += '; sambamba sort -n -p -o {name_sorted} {merged_bam}'\
             '; samtools view -h {name_sorted} | {filtering_plus} ' \

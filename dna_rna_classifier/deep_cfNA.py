@@ -22,6 +22,9 @@ from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_sco
 from collections import defaultdict
 import random
 
+'''
+Only take in fragments from regular chromosomes
+'''
 acceptable_chrom = list(range(1,23))
 acceptable_chrom.extend(['X','Y'])
 acceptable_chrom = ['chr' + str(chrom) for chrom in acceptable_chrom]
@@ -63,6 +66,10 @@ def f1(y_true, y_pred):
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
 def deep_model():
+    '''
+    DanQ model 
+    https://github.com/uci-cbcl/DanQ/blob/master/DanQ-JASPAR_train.py
+    '''
     model = Sequential()
     model.add(Conv1D(filters=160, 
                   kernel_size = 26,
@@ -145,6 +152,9 @@ class data_generator():
         self.generator = get_padded_seq(self.bed, self.fasta)
 
     def data_gen(self):
+        '''
+        Populate reponse vector and feature array with desired batch size
+        '''
         X, Y = [], []
 
         label_counter = defaultdict(int)
@@ -165,11 +175,17 @@ class data_generator():
 
 
     def __next__(self):
+        '''
+        generator for Keras fit_generator
+        '''
         X, Y = self.data_gen()
         return np.array(X), np.array(Y)
 
 
 def fetch_validation(test_bed, fa_file):
+    '''
+    fetch sequences from test bed file and return feature arrays and test label
+    '''
     data = [data for data in generate_padded_data(test_bed, fa_file)]
     features, labels = zip(*data)
 
@@ -225,6 +241,9 @@ def training_sample(train_bed, fa_file):
 
 
 def validation_sample(test_bed, fa_file, model):
+    '''
+    Test model on unseen data
+    '''
     # validation of the model
     X_test, y_test = fetch_validation(test_bed, fa_file)
     print('Fetched test samples')

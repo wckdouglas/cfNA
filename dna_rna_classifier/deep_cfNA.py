@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 
 import tensorflow as tf
-from matplotlib import use as mpl_use
-mpl_use('Agg')
 from keras.models import Sequential, model_from_json
 from keras.layers import Dense, Conv1D,\
                          Flatten, MaxPool1D,  \
                          Dropout, LSTM, \
                          Bidirectional
 from keras import backend as K
+from keras.utils import plot_model
 import pysam
-import seaborn as sns
-import matplotlib.pyplot as plt
 import numpy as np
 from operator import itemgetter
 from sequencing_tools.fastq_tools import reverse_complement, \
@@ -86,6 +83,7 @@ def deep_model():
     model.compile(loss='binary_crossentropy', 
                 optimizer='rmsprop', 
                 metrics=[f1,'binary_accuracy'])
+    plot_model(model, to_file='model.png', show_shapes=True)
     return model
 
 def get_padded_seq(bed_file, fasta):
@@ -182,12 +180,23 @@ class data_generator():
         return np.array(X), np.array(Y)
 
 
-def fetch_validation(test_bed, fa_file):
+def fetch_validation(test_bed, fa_file, batch_size = 0):
     '''
     fetch sequences from test bed file and return feature arrays and test label
     '''
-    data = [data for data in generate_padded_data(test_bed, fa_file)]
-    features, labels = zip(*data)
+    label_count = defaultdict(int)
+    if batch_size > 0:
+        features = []
+        labels = []
+        for seq, label in generate_padded_data(test_bed, fa_file):
+            if label_count[label] < batch_size/2:
+                features.append(seq)
+                labels.append(label)
+                label_count[label] += 1
+    
+    else:
+        data = [data for data in generate_padded_data(test_bed, fa_file)]
+        features, labels = zip(*data)
 
     features = np.array(features)
     labels = np.array(labels)
@@ -230,9 +239,9 @@ def training_sample(train_bed, fa_file):
     model = deep_model()
     history = model.fit_generator(data_generator(train_bed, 
                                                  fa_file, 
-                                                batch_size = 10000),
-                                  epochs = 15,
-                                  steps_per_epoch = 100)
+                                                batch_size = 500),
+                                  epochs = 20,
+                                  steps_per_epoch = 1000)
 
 
     print('Fitted model')
@@ -263,6 +272,11 @@ def validation_sample(test_bed, fa_file, model):
 
 
 def plot_train(history):
+    from matplotlib import use as mpl_use
+    mpl_use('Agg')
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
     for key, vals in history.history.items():
@@ -284,6 +298,7 @@ def main():
     if train:
         history, model = training_sample(train_bed, fa_file)
         save_model(model, prefix = model_prefix)
+        plot_train(history)
 
     else:
         model = load_model(model_prefix)

@@ -91,7 +91,7 @@ for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All
             '| bedtools pairtobed -abam - -b {protein} -type both '\
             ' | bedtools pairtobed -abam - -b {sncRNA} -type neither '\
             '| samtools view -bF 1024 -F 256 -F 2048 ' \
-            ' > {filtered_bam} '\
+            '| sambamba sort -p -o {filtered_bam} -t {threads} /dev/stdin '\
             .format(merged_bam = merged_bam,
                     threads = threads,
                     sncRNA = snc_annotation,

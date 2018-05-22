@@ -69,7 +69,7 @@ for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All
             '; bedtools pairtobed -type neither -abam {plus_bam} -b {plus_bed} '\
             '| bedtools pairtobed -abam - -b {minus_bed} > {plus_anti_bam} '\
             '; sambamba merge -t {threads} /dev/stdout {plus_sense_bam} {minus_sense_bam} | samtools view -bF 1024 -@ {threads}| sambamba sort -t {threads} -o {protein_sense_bam} /dev/stdin'\
-            '; sambamba merge =t {threads} /dev/stdout  {plus_anti_bam} {minus_anti_bam} | samtools view -bF 1024 -@ {threads} | sambamba sort -t {threads} -o {protein_anti_bam} /dev/stdin '\
+            '; sambamba merge -t {threads} /dev/stdout  {plus_anti_bam} {minus_anti_bam} | samtools view -bF 1024 -@ {threads} | sambamba sort -t {threads} -o {protein_anti_bam} /dev/stdin '\
             .format(threads = threads,
                     merged_bam = merged_bam,
                     name_sorted = name_sorted_bam,
@@ -91,7 +91,7 @@ for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All
             '| bedtools pairtobed -abam - -b {protein} -type both '\
             ' | bedtools pairtobed -abam - -b {sncRNA} -type neither '\
             '| samtools view -bF 1024 -F 256 -F 2048 ' \
-            '| sambamba sort -p -o {filtered_bam} -t {threads} /dev/stdin '\
+            '| sambamba sort -p -t {threads} -o {filtered_bam}  /dev/stdin '\
             .format(merged_bam = merged_bam,
                     threads = threads,
                     sncRNA = snc_annotation,

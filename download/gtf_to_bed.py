@@ -19,7 +19,8 @@ def parse_extra_fields(extra_field):
     return info_dict
 
 if __name__ == '__main__':
-    for line in open(gtf,'r'):
+    infile = open(gtf)
+    for line in infile:
         if not line.startswith('#'):
             fields = line.strip().split('\t')
             if fields[2] == "gene":

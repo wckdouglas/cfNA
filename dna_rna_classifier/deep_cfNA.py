@@ -112,7 +112,6 @@ def get_padded_seq(bed_file, fasta):
                 padding_base = frag_size - seq_length
                 half_padding = int(padding_base/2)
                 seq = genome_fa.fetch(chrom, start, end)
-                seq = seq.upper()
                 seq = half_padding * 'N' + seq + (half_padding + 1) * 'N'
 
             else:
@@ -120,9 +119,10 @@ def get_padded_seq(bed_file, fasta):
                 seq = genome_fa.fetch(chrom, 
                                       int(center) - int(frag_size/2), 
                                       int(center) + int(frag_size/2))
-                seq = seq.upper() 
-                seq = reverse_complement(seq) if strand == "-" else seq
-            
+
+            seq = seq.upper() 
+            seq = reverse_complement(seq) if strand == "-" else seq
+        
             yield seq[:frag_size], label
 
 

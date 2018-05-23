@@ -40,3 +40,13 @@ gi|555853|gb|U13369.1|HSU13369  7935    12969   28S_rRNA        0       +       
 cat $ANNOTATION_PATH/rRNA.bed >> $ANNOTATION_PATH/genes.bed
 
 python split_bed_for_count.py $ANNOTATION_PATH
+
+#make rRNA tRNA
+python get_rRNA_fa.py > $ANNOTATION_PATH/rRNA.fa
+cat $ANNOTATION_PATH/tRNA.fa $ANNOTATION_PATH/rRNA.fa \
+    > $ANNOTATION_PATH/tRNA_rRNA.fa 
+echo made tRNA_rRNA fasta
+bowtie2-build $ANNOTATION_PATH/tRNA_rRNA.fa $ANNOTATION_PATH/tRNA_rRNA
+bowtie2-build $ANNOTATION_PATH/rRNA.fa $ANNOTATION_PATH/rRNA
+bowtie2-build $ANNOTATION_PATH/tRNA.fa $ANNOTATION_PATH/tRNA
+

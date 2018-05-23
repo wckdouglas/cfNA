@@ -46,7 +46,6 @@ def make_tRNA_info(filtered_lines):
     for tRNA_record in read_tRNA(filtered_lines):
         descriptor = tRNA_record[0]
         chrom = descriptor.split('.')[0]
-        chrom = chrom.replace('chr','')
         gene_range = re.search('\(([0-9]+-[0-9]+)\)',descriptor).group(1)
         start, end = gene_range.split('-')
 

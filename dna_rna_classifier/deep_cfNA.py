@@ -8,6 +8,8 @@ from keras.layers import Dense, Conv1D,\
                          Bidirectional
 from keras import backend as K
 from keras.utils import plot_model
+from keras.callbacks import TensorBoard
+
 import pysam
 import numpy as np
 from operator import itemgetter
@@ -237,11 +239,14 @@ def training_sample(train_bed, fa_file):
     '''
     
     model = deep_model()
+    tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,
+                            write_graph=True, write_images=False)
     history = model.fit_generator(data_generator(train_bed, 
                                                  fa_file, 
-                                                batch_size = 500),
-                                  epochs = 20,
-                                  steps_per_epoch = 1000)
+                                                batch_size = 100),
+                                  epochs = 10,
+                                  steps_per_epoch = 1000,
+                                  callbacks = [tensorboard])
 
 
     print('Fitted model')

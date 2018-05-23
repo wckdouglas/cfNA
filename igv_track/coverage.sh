@@ -7,7 +7,7 @@ GENOME=$REF/hg19/genome/hg19_size.tsv
 THREADS=12
 mkdir -p $COVERAGE_PATH 
 
-for BAM in $BAM_PATH/*bam
+for BAM in $BAM_PATH/*.bam
 do
 	SAMPLENAME=$(basename ${BAM%.bam})
 	for STRAND in forward reverse
@@ -32,4 +32,4 @@ do
 			--samFlagExclude 1024 \
 			--binSize 1
 	done
-done
+done | grep -v name_sort

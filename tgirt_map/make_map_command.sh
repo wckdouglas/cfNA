@@ -5,6 +5,7 @@ DATA_PATH=$PROJECT_PATH/data
 RESULT_PATH=$PROJECT_PATH/tgirt_map_dedup
 RESULT_PATH=$PROJECT_PATH/tgirt_map
 REF_PATH=$REF/hg19/genome
+NEW_GENE_PATH=$REF/hg19/new_genes
 LOG_PATH=$RESULT_PATH/log
 THREADS=24
 
@@ -43,18 +44,18 @@ do
 		-o $RESULT_PATH \
 		-x $REF_PATH/hg19_genome \
 		-y $REF_PATH/hg19_genome \
-		-b $REF_PATH \
-		-s $REF_PATH/splicesite.tsv \
-		-t $REF_PATH/tRNA \
-		-r $REF_PATH/rRNA \
-		-e $REF_PATH/tRNA_rRNA \
+		-b $NEW_GENE_PATH \
+		-s $NEW_GENE_PATH/splicesites.tsv \
+		-t $NEW_GENE_PATH/tRNA \
+		-r $NEW_GENE_PATH/rRNA \
+		-e $NEW_GENE_PATH/tRNA_rRNA \
 		-p $THREADS $UMI $TTN \
         --trim_aggressive ${polyA} \
 		--repeats $REF_PATH/rmsk.bed.gz \
 		--repeats_index $REF_PATH/repeats/all_rmsk_From_bed \
 		2\>\&1 \
 		\| tee $RESULT_PATH/log/${SAMPLENAME}.log
-done |  egrep -v  'TeI|GsI|SRR|[TG]0|try|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
+done |  egrep -v  'TEV|TeI|GsI|SRR|[TG]0|try|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
 #		--skip_trim  --skip_hisat --skip_premap --skip_bowtie --skip_post_process_bam --skip_remap \
 #		--repeats_index $REF_PATH/rmsk \
 #		--repeats_index $REF_PATH/repeat_mask/all_rmsk_From_bed \

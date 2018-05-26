@@ -11,7 +11,7 @@ if len(sys.argv) != 4:
 out_prefix = sys.argv[2]
 test_bed = out_prefix + '/test.bed'
 train_bed = out_prefix + '/train.bed'
-label_counter = defaultdict[int]
+label_counter = defaultdict(int)
 test_number = int(sys.argv[3])
 half_test = test_number//2
 
@@ -25,7 +25,7 @@ with open(sys.argv[1],'r') as inbed,\
         fields = bed_line.split('\t')
 
         if 'SRR' not in fields[3] \
-               and label_counter[fields[-1]] < half_test \
+               and label_counter[fields[-1]] < half_test:
             print(bed_line, file = test)
             test_count += 1
 

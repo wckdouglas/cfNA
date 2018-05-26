@@ -6,6 +6,7 @@ tRNA_REF=http://gtrnadb.ucsc.edu/genomes/eukaryota/Hsapi19/hg19-tRNAs.tar.gz
 
 #annotationes
 curl $GTF_LINK |zcat > $ANNOTATION_PATH/genes.gtf
+hisat2_extract_splice_sites.py $ANNOTATION_PATH/genes.gtf > $ANNOTATION_PATH/splicesites.tsv
 python gtf_to_bed.py $ANNOTATION_PATH/genes.gtf > $ANNOTATION_PATH/genes.bed
 
 #tRNA
@@ -49,4 +50,10 @@ echo made tRNA_rRNA fasta
 bowtie2-build $ANNOTATION_PATH/tRNA_rRNA.fa $ANNOTATION_PATH/tRNA_rRNA
 bowtie2-build $ANNOTATION_PATH/rRNA.fa $ANNOTATION_PATH/rRNA
 bowtie2-build $ANNOTATION_PATH/tRNA.fa $ANNOTATION_PATH/tRNA
+
+#make tRNA filter
+cat $ANNOTATION_PATH/tRNA.bed $ANNOTATION_PATH/rmsk_tRNA.bed $REF_PATH/genome/tRNA.bed \
+    | bedtools sort \
+    | bedtools merge -s -o first -c 4,5,6,7,8\
+    > $ANNOTATION_PATH/tRNA_comprehensive.bed
 

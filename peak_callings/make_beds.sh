@@ -1,6 +1,7 @@
 #!/bin/bash
 
 PROJECT_PATH=/scratch/02727/cdw2854/cell_Free_nucleotides/tgirt_map
+PROJECT_PATH=$WORK/cdw2854/cell_Free_nucleotides/tgirt_map
 BED_PATH=$PROJECT_PATH/bed_files
 WHITELIST=$REF/hg19/genome/wgEncodeDacMapabilityConsensusExcludable.bed.gz
 

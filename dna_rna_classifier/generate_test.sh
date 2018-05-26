@@ -9,20 +9,20 @@ TEMP=$OUT_PATH/temp
 # sample DNA
 SAMPLE_SIZE=20000000
 ##from shendure
-#zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
-#    | awk '($3-$2) < 100 {print $0,"DNA"}' OFS='\t'  \
-#    | shuf -n $((10*$SAMPLE_SIZE)) \
-#    > $TRAIN_BED
+zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
+    | awk '($3-$2) < 100 {print $0,"DNA"}' OFS='\t'  \
+    | shuf -n $((10*$SAMPLE_SIZE)) \
+    > $TRAIN_BED
 #
 #zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
 #    | awk '($3-$2) > 100 && ($3-$2) < 400 {print $0,"DNA"}' OFS='\t'  \
 #    | shuf -n $SAMPLE_SIZE \
 #    >> $TRAIN_BED
 #
-#zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
-#    | awk '($3-$2) > 100 && ($3-$2) < 400 {print $0,"DNA"}' OFS='\t'  \
-#    | shuf -n $SAMPLE_SIZE \
-#    >> $TRAIN_BED
+zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
+    | awk '($3-$2) > 100 && ($3-$2) < 400 {print $0,"DNA"}' OFS='\t'  \
+    | shuf -n $SAMPLE_SIZE \
+    >> $TRAIN_BED
 #
 #zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
 #    | awk '($3-$2) < 100 {print $0,"DNA"}' OFS='\t'  \
@@ -39,6 +39,6 @@ SAMPLE_SIZE=20000000
 #
 TOTAL=$(cat $TEMP | wc -l)
 TEST_SAMPLE=$(expr $TOTAL / 100)
-#cat $TRAIN_BED | shuf > $TEMP
+cat $TRAIN_BED | shuf > $TEMP
 echo python validation_bed.py $TEMP $OUT_PATH $TEST_SAMPLE
 #rm $TEMP

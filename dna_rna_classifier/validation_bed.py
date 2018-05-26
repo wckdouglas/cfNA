@@ -35,3 +35,4 @@ with open(sys.argv[1],'r') as inbed,\
 message  = 'Parsed {all} lines\n'\
         'Test sample: {test}\n'\
         'Train sample: {train}'.format(all = line_num, test = test_count, train = train_count) 
+print(message)

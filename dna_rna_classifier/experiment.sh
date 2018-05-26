@@ -5,7 +5,6 @@ OUT_PATH=$PROJECT_PATH/classifier
 deep-cfNA predict \
     --inbed $BED_PATH/Qcf_All1_R1_001.bed.gz \
     --genome $REF/hg19/genome/hg19_genome.fa \
-    --batch_size 10000 \
     --out $OUT_PATH/untreated.classified.bed.gz \
     --model_prefix $OUT_PATH/deef_cfNA    
 echo 'Predicted NA'

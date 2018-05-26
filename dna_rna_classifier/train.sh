@@ -1,6 +1,6 @@
 WORK_DIR=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/classifier/
 
-deep-cfNA train \
+echo deep-cfNA train \
     --train_bed_positive $WORK_DIR/train_RNA.bed \
     --train_bed_negative $WORK_DIR/train_DNA.bed \
     --validation_bed $WORK_DIR/test.bed \

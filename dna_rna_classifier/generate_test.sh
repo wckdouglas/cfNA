@@ -30,15 +30,15 @@ zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
 #    >> $TRAIN_BED
 #
 #
-## sample RNA
-##    | bedtools intersect -a - -b $REF/hg19/genome/sncRNA_x_protein.sorted.bed.gz -v \
-#zcat $BED_PATH/unfragmented.bed.gz \
-#    | awk '($3 - $2) < 100  {print $0,"RNA"}' OFS='\t' \
-#    >> $TRAIN_BED
+# sample RNA
+#    | bedtools intersect -a - -b $REF/hg19/genome/sncRNA_x_protein.sorted.bed.gz -v \
+zcat $BED_PATH/unfragmented.bed.gz \
+    | awk '($3 - $2) < 100  {print $0,"RNA"}' OFS='\t' \
+    >> $TRAIN_BED
 #
 #
 TOTAL=$(cat $TEMP | wc -l)
-TEST_SAMPLE=$(expr $TOTAL / 100)
+TEST_SAMPLE=$(expr $TOTAL / 50)
 cat $TRAIN_BED | shuf > $TEMP
-echo python validation_bed.py $TEMP $OUT_PATH $TEST_SAMPLE
+python validation_bed.py $TEMP $OUT_PATH 100000
 #rm $TEMP

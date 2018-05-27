@@ -32,7 +32,10 @@ do
 done
 
 
-bedtools bamtobed -i $OUT_PATH/classified.bam \
+samtools view -h $OUT_PATH/classified.bam \
+    |  awk '$1~"^@" || $0~"RG:Z:RNA"' \
+    | samtools view -b \
+    | bedtools bamtobed -i - \
     | bedtools coverage -counts -b - \
             -a $REF/hg19/new_genes/genes.bed \
     | sort -k9,9nr \

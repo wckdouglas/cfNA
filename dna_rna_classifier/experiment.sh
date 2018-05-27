@@ -30,3 +30,10 @@ for NA in RNA DNA
 do
     rm $OUT_PATH/${NA}.classified.bam
 done
+
+
+bedtools bamtobed -i $OUT_PATH/classified.bam \
+    | bedtools coverage -counts -b - \
+            -a $REF/hg19/new_genes/genes.bed \
+    | sort -k9,9nr \
+    > $OUT_PATH/classified.counts

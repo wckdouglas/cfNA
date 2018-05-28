@@ -18,6 +18,10 @@ class Deep_cfNA(nn.Module):
         self.linear1 = nn.Linear(128, 50) #(128 input from 2x64 LSTM)
         self.linear2 = nn.Linear(50, 25) 
         self.linear3 = nn.Linear(25, 1)
+
+        self.linear1A = nn.Linear(26, 128)
+        self.linear1B = nn.Linear(128, 1)
+
     
     def forward(self, x):
         y = self.conv_1d(x)
@@ -25,15 +29,15 @@ class Deep_cfNA(nn.Module):
         y = F.max_pool1d(y, kernel_size=50, stride=13)
         y = F.dropout(y, p = 0.2)
         y, (hidden, cell) = self.LSTM(y)
+        y = y[:,-1]
         y = F.dropout(y, p = 0.5)
-        y = F.max_pool2d(y, kernel_size = (160,1))
         y = self.linear1(y)
         y = self.linear2(y)
         y = self.linear3(y)
         y = F.sigmoid(y)
         return y
 
-def calculate_metrics(y, pred_y, loss):
+def calculate_metrics(y, pred_y, epoch, loss):
     '''
     Output some metrics
     '''

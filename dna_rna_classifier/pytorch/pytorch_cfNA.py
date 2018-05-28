@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import torch
+from multiprocessing import cpu_count
+torch.set_num_threads(cpu_count())
 import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
@@ -9,8 +11,8 @@ import pyximport
 pyximport.install()
 from utils.bed_utils import progress, data_generator, prediction_generator
 from utils.model import Deep_cfNA, calculate_metrics
-import torch.multiprocessing as mp
-torch.set_num_threads(24)
+import time
+N_PADDED=False
 
 
 def validate(test_bed, fa, model_file):
@@ -24,7 +26,7 @@ def validate(test_bed, fa, model_file):
     pred_Y = []
     Y = []
 
-    for X, lines in prediction_generator(test_bed, fa, batch_size = 500):
+    for X, lines in prediction_generator(test_bed, fa, batch_size = 500, N_padded=N_PADDED):
         pred = model(X)
         pred_Y.extend(pred.reshape(-1).numpy())
         y = [line.split('\t')[-1] for line in lines]
@@ -33,10 +35,10 @@ def validate(test_bed, fa, model_file):
     loss = F.binary_cross_entropy(torch.Tensor(pred_Y), torch.Tensor(y))
     calculate_metrics(Y, pred_Y, loss.item())
 
-
-def deep_train(rank, data_iterator, model, epochs = 5, steps=500):
+#@profile
+def deep_train(data_iterator, model, epochs = 5, steps=500):
     optimizer = optim.RMSprop(model.parameters(), lr = 0.001)
-    print('[CPU %i] Start training.....' %(rank + 1))
+    print('Start training.....' )
 
     for epoch in range(epochs):
         for step in range(steps):
@@ -45,7 +47,7 @@ def deep_train(rank, data_iterator, model, epochs = 5, steps=500):
                     X.shape==(data_iterator.batch_size + 1,5,400), \
                     X.shape
             pred_y = model(Variable(X))
-            pred_y = pred_y.reshape(-1)
+            pred_y = pred_y.view(-1)
             loss = F.binary_cross_entropy(pred_y, y)
             
             # update gradient
@@ -58,24 +60,19 @@ def deep_train(rank, data_iterator, model, epochs = 5, steps=500):
 
 
 
-def train(rank, RNA_bed, DNA_bed, fa, model):
-    batch = 200
+def train(RNA_bed, DNA_bed, fa, model):
+    batch = 500
     data_iterator = data_generator(RNA_bed, DNA_bed, fa, 
-                                   batch_size=batch, N_padded = False)
-    deep_train(rank, data_iterator, model, epochs = 5)
+                                   batch_size=batch, N_padded = N_PADDED)
+    deep_train(data_iterator, model, epochs = 5, steps = 10000)
 
 def train_wrapper(RNA_bed, DNA_bed, fa, model_file):
     model = Deep_cfNA()
+    model.train()
     model.share_memory()
-
-    processes = []
-    for rank in range(2):
-        p = mp.Process(target=train, args=(rank, RNA_bed, DNA_bed, fa, model))
-        p.start()
-        processes.append(p)
-    for p in processes:
-        p.join()
-
+    
+        
+    train(RNA_bed, DNA_bed, fa, model)
 
     if model_file:
         torch.save(model.state_dict(), model_file)

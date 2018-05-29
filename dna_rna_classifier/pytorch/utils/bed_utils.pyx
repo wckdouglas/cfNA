@@ -10,9 +10,12 @@ from sequencing_tools.io_tools import xopen
 from libc.stdint cimport uint32_t
 import torch
 from libc.stdlib cimport rand, RAND_MAX
+cdef extern from "stdlib.h":
+    double drand48()
+    void srand48(long int seedval)
 
 cpdef double random():
-        return rand()/RAND_MAX
+    return rand()/RAND_MAX
 
 
 cdef list acceptable_chrom 
@@ -114,7 +117,7 @@ def generate_padded_data(bed_file, fasta):
 
 class data_generator():
     
-    def __init__(self, bed_pos, bed_neg, fasta, batch_size=1000, N_padded=True):
+    def __init__(self, bed_pos, bed_neg, fasta, batch_size=1000, N_padded=True, seed = 0):
         '''
         Wrapper for generating one-hot-encoded sequences
 
@@ -133,6 +136,7 @@ class data_generator():
         self.RNA_generator = self.init_generator(self.RNA)
         self.DNA_generator = self.init_generator(self.DNA)
         self.label_counter = defaultdict(int) #make sure classes label is balanced
+        srand48(seed)
 
     def init_generator(self, bed):
         return fetch_trainings(bed, self.fasta, self.N_padded)
@@ -168,7 +172,7 @@ class data_generator():
         
         if set(seq).issubset(acceptable_nuc):
             
-            if self.label_counter[na_label] <= self.half_batch and random() >= 0.5:
+            if self.label_counter[na_label] <= self.half_batch and random() >= 0.2:
                 label = 1 if na_label == "DNA" else 0
 
                 self.X.append(dna_encoder.transform(seq).transpose())
@@ -233,7 +237,7 @@ def prediction_generator(test_bed, fa_file, batch_size = 1000, N_padded=True):
 
 
 
-def progress(total, progress, epoch, epochs):
+def progress(total, progress, epoch):
     """
     Displays or updates a console progress bar.
 
@@ -244,8 +248,8 @@ def progress(total, progress, epoch, epochs):
     if progress >= 1.:
         progress, status = 1, "\r\n"
     block = int(round(barLength * progress))
-    text = "\r[Epoch {}/{}]: [{}] {:.0f}% {}".format(
-        epoch, epochs,
+    text = "\r[Epoch {}]: [{}] {:.0f}% {}".format(
+        epoch,
         "#" * block + "-" * (barLength - block), 
         round(progress * 100, 0),
         status)

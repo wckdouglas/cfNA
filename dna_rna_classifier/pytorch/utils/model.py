@@ -11,7 +11,7 @@ class Deep_cfNA(nn.Module):
     def __init__(self):
         super(Deep_cfNA, self).__init__()
         self.conv_1d = nn.Conv1d(in_channels=5, #(ACTGN)
-                                 out_channels=160, #(160 neurons/filters)
+                                 out_channels=10, #(10 neurons/filters)
                                 kernel_size=26, #(scanning 26 nucleotides at a time)
                                 stride=1) #(moving 1 nucleotide at a time) 
         self.LSTM = nn.LSTM(input_size=26,hidden_size=64, bidirectional=True) #(64 neurons)
@@ -22,7 +22,15 @@ class Deep_cfNA(nn.Module):
         self.linear1A = nn.Linear(26, 128)
         self.linear1B = nn.Linear(128, 1)
 
-    
+
+    def initialize_weight(self):
+        for name, param in self.named_parameters():
+            if 'bias' in name:
+                nn.init.constant_(param, 0.0)
+            elif 'weight' in name:
+                nn.init.xavier_normal_(param)
+
+
     def forward(self, x):
         y = self.conv_1d(x)
         y = F.relu(y)

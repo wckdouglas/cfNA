@@ -13,7 +13,7 @@ pyximport.install()
 from utils.bed_utils import progress, data_generator, prediction_generator
 from utils.model import Deep_cfNA, calculate_metrics
 import time
-N_PADDED=False
+N_PADDED=True
 
 
 def validate(test_bed, fa, model_file):
@@ -36,60 +36,57 @@ def validate(test_bed, fa, model_file):
     loss = F.binary_cross_entropy(torch.Tensor(pred_Y), torch.Tensor(y))
     calculate_metrics(Y, pred_Y, loss.item())
 
-#@profile
 def deep_train(data_iterator, model, epoch=0, steps=500):
-    optimizer = optim.RMSprop(model.parameters(), lr = 0.001)
+    '''
+    training for one epoch
+    '''
+    optimizer = optim.Adam(model.parameters(), lr = 0.001)
     print('Start training epoch %i.....' %epoch)
-
     for step in range(steps):
+        start = time.time()
+        optimizer.zero_grad()
+
+        # get data
         X, y = next(data_iterator)
         assert X.shape==(data_iterator.batch_size,5, 400) or \
                 X.shape==(data_iterator.batch_size + 1,5,400), \
                 X.shape
-        pred_y = model(Variable(X))
+
+        #get prediction (forward)
+        pred_y = model(X)
         pred_y = pred_y.view(-1)
         assert sum(pred_y != pred_y).item() == 0, pred_y
         loss = F.binary_cross_entropy(pred_y, y)
         
         # update gradient
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        end = time.time()
 
-        progress(steps, step, epoch + 1)
+        status = '%i/%i step\tloss:%.3f\tused: %.3fs' \
+                %(step, steps, loss.item(), end-start)
+        progress(steps, step, epoch + 1, status)
     calculate_metrics(y, pred_y, epoch + 1, loss.item())
 
 
-
-def train(args):
-    RNA_bed, DNA_bed, fa, model, epoch = args
-    batch = 500
-    data_iterator = data_generator(RNA_bed, DNA_bed, fa, 
-                                   batch_size=batch, N_padded = N_PADDED,
-                                   seed = epoch)
-    deep_train(data_iterator, model, epoch, steps = 10000)
-
-def train_multiprocess(RNA_bed, DNA_bed, fa, model_file):
-    ncores = mp.cpu_count()
-    ncores = 16
-    epochs = 16
-
-
+def train(RNA_bed, DNA_bed, fa):
+    '''
+    control training
+    '''
     model = Deep_cfNA()
     model.train()
     model.initialize_weight()
-    model.share_memory()
-    
-    args=[(RNA_bed, DNA_bed, fa, model, epoch) for epoch in range(epochs)]
-    p = mp.Pool(ncores)
-    p.map(train, args)
-    p.close()
-    p.join()
-        
 
-    if model_file:
-        torch.save(model.state_dict(), model_file)
-        print('Saved: ', model_file)
+    batch = 500
+    epochs = 5
+    for epoch in range(epochs):
+        data_iterator = data_generator(RNA_bed, DNA_bed, fa, 
+                                       batch_size=batch, 
+                                       N_padded = N_PADDED,
+                                       seed = epoch)
+        deep_train(data_iterator, model, epoch + 1, steps = 10000)
+
+    return model
             
 
 def main():
@@ -100,7 +97,11 @@ def main():
     fa = '/stor/work/Lambowitz/ref/hg19/genome/hg19_genome.fa'
     model_file = work_dir + '/pytorch_cfNA.pt'
 
-    train_multiprocess(RNA_bed, DNA_bed, fa, model_file)
+    model = train(RNA_bed, DNA_bed, fa)
+
+    if model_file:
+        torch.save(model.state_dict(), model_file)
+        print('Saved: ', model_file)
 
 
 

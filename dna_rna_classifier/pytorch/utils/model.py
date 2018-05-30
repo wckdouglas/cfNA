@@ -19,9 +19,6 @@ class Deep_cfNA(nn.Module):
         self.linear2 = nn.Linear(50, 25) 
         self.linear3 = nn.Linear(25, 1)
 
-        self.linear1A = nn.Linear(26, 128)
-        self.linear1B = nn.Linear(128, 1)
-
 
     def initialize_weight(self):
         for name, param in self.named_parameters():
@@ -32,12 +29,15 @@ class Deep_cfNA(nn.Module):
 
 
     def forward(self, x):
+        '''
+        get prediction, needed for pytorch.nn.Module
+        '''
         y = self.conv_1d(x)
         y = F.relu(y)
         y = F.max_pool1d(y, kernel_size=50, stride=13)
         y = F.dropout(y, p = 0.2)
-        y, (hidden, cell) = self.LSTM(y)
-        y = y[:,-1]
+        y, (hidden, cell) = self.LSTM(y) # bidirectional LSTM concat
+        y = y[:,-1]  # last time stamp from LSTM layer
         y = F.dropout(y, p = 0.5)
         y = self.linear1(y)
         y = self.linear2(y)
@@ -55,8 +55,8 @@ def calculate_metrics(y, pred_y, epoch, loss):
     recall = recall_score(y, pred_label)
     f1 = f1_score(y, pred_label)
     print('\nMini-batch: ', epoch, 
-          ' Loss: ', loss, 
-          'Accuracy: ', accuracy, 
-          ' F1: ', f1, 
-          ' Precision: ', precision, 
-          ' Recall: ', recall)
+          ' Loss: ', round(loss,3), 
+          'Accuracy: ', round(accuracy, 3), 
+          ' F1: ', round(f1,3), 
+          ' Precision: ', round(precision,3), 
+          ' Recall: ', round(recall,3))

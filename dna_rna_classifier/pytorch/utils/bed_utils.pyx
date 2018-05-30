@@ -187,7 +187,9 @@ class data_generator():
         generator for Keras fit_generator
         '''
         X, Y = self.data_gen()
-        return torch.Tensor(X), torch.Tensor(Y)
+        X = torch.Tensor(X)
+        X.requires_grad_()
+        return X, torch.Tensor(Y)
 
 
 def prediction_generator(test_bed, fa_file, batch_size = 1000, N_padded=True):
@@ -237,22 +239,22 @@ def prediction_generator(test_bed, fa_file, batch_size = 1000, N_padded=True):
 
 
 
-def progress(total, progress, epoch):
+def progress(total, progress, epoch, status):
     """
     Displays or updates a console progress bar.
 
     Original source: https://stackoverflow.com/a/15860757/1391441
     """
-    barLength, status = 20, '%i/%i minibatch' %(progress, total)
+    barLength = 20
     progress = float(progress) / float(total)
     if progress >= 1.:
         progress, status = 1, "\r\n"
     block = int(round(barLength * progress))
-    text = "\r[Epoch {}]: [{}] {:.0f}% {}".format(
-        epoch,
-        "#" * block + "-" * (barLength - block), 
-        round(progress * 100, 0),
-        status)
+    text = "\r[Epoch {epoch}]: [{bar}] {percentage}% {status}".format(
+        epoch = epoch,
+        bar = "#" * block + "-" * (barLength - block), 
+        percentage = round(progress * 100, 0),
+        status = status)
     sys.stdout.write(text)
     if progress < 1:
         sys.stdout.flush()

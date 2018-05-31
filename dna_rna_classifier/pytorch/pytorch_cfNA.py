@@ -45,7 +45,8 @@ def deep_train(data_iterator, model, epoch=0, steps=500):
     '''
     training for one epoch
     '''
-    optimizer = optim.Adam(model.parameters(), lr = 0.001)
+    optimizer = optim.Adam(model.parameters(), 
+                              lr = 0.001)
     print('Start training epoch %i.....' %epoch)
     losses = []
     for step in range(steps):
@@ -80,7 +81,7 @@ def plot_loss(losses, steps, epoch):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.plot(losses)
-    ax.vlines(x = steps*range(1, epoch), 
+    ax.vlines(x = steps*np.arange(1, epoch), 
               ymin = min(losses),
               ymax = max(losses))
     ax.set_xlabel('Iteration')
@@ -97,8 +98,8 @@ def train(RNA_bed, DNA_bed, fa):
     model.initialize_weight()
 
     batch = 500
-    epochs = 5
-    steps = 10000
+    epochs = 1
+    steps = 100
     losses = []
     for epoch in range(epochs):
         data_iterator = data_generator(RNA_bed, DNA_bed, fa, 

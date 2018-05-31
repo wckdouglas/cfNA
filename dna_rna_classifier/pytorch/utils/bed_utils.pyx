@@ -29,6 +29,8 @@ acceptable_chrom = ['chr' + str(chrom) for chrom in acceptable_chrom]
 frag_size = 400 #length of the one-hot sequence
 acceptable_nuc = list('ACTGN')
 dna_encoder = onehot_sequence_encoder(''.join(acceptable_nuc))
+label_encoder = {'DNA':0,
+                 'RNA':1}
 
 
 cdef str padded_seq(str chrom, str start_str, str end_str , str strand, genome_fa, N_padded = True):
@@ -111,7 +113,7 @@ def generate_padded_data(bed_file, fasta):
 
     for i, (seq, na_label) in enumerate(fetch_trainings(bed_file, fasta)):
         if set(seq).issubset(acceptable_nuc):
-            label = 1 if na_label == "DNA" else 0
+            label = label_encoder[na_label]
             yield dna_encoder.transform(seq), label
 
 
@@ -173,7 +175,7 @@ class data_generator():
         if set(seq).issubset(acceptable_nuc):
             
             if self.label_counter[na_label] <= self.half_batch and random() >= 0.2:
-                label = 1 if na_label == "DNA" else 0
+                label = label_encoder[na_label]
 
                 self.X.append(dna_encoder.transform(seq).transpose())
                 self.Y.append(label)

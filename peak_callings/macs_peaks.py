@@ -45,7 +45,7 @@ def main():
     bed_path = project_path + '/stranded'
     peak_path = project_path + '/MACS2'
     annotated_path = peak_path + '/annotated'
-    out_table = annotated_path + '/untreated.annotated_peaks.tsv'
+    out_table = annotated_path + '/unfragmented.annotated_peaks.tsv'
     annotation_file = os.environ['REF'] + '/hg19/genome/all_annotation.bed.gz'
     if not os.path.isdir(annotated_path):
         os.mkdir(annotated_path)

@@ -92,4 +92,4 @@ do
             done
         done
     done
-done
+done | grep 'Q[Cc][Ff]'

@@ -13,9 +13,17 @@ minus_bed = os.environ['REF'] + '/hg19/new_genes/protein_minus.bed'
 threads = 6
 
 project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/'
+merge_path = project_path + '/merged_bam'
+filter_path = merge_path + '/filtered_bam'
 folders = glob.glob(project_path + '/*001')
 folders.sort()
 
+def make_dir(p):
+    if not os.path.isdir(p):
+        os.mkdir(p)
+
+make_dir(merge_path)
+make_dir(filter_path)
 
 for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All','N[aA]','ED|DE','HS[123]'],
                         ['unfragmented','fragmented','polyA','untreated', 'alkaline_hydrolysis','exonuclease','high_salt']):
@@ -27,8 +35,6 @@ for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All
     bam_files = list(map(lambda x: x + '/Combined/%s' %bam, samples))
 
 
-    merge_path = project_path + '/merged_bam'
-    filter_path = merge_path + '/filtered_bam'
     merged_bam = merge_path + '/' + label + '.bam' 
     name_sorted_bam = merge_path + '/' + label + '.name_sort.bam' 
     filtered_bam = filter_path + '/' + label + '.bam'

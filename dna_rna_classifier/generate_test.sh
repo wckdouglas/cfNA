@@ -7,30 +7,38 @@ TRAIN_BED=$OUT_PATH/train.bed
 TEMP=$OUT_PATH/temp
 
 # sample DNA
-SAMPLE=1000000
-HALF_SAMPLE=$(( $SAMPLE/2 ))
-TEST_SAMPLE=$(( $SAMPLE/10 ))
-
-zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
-    | awk '($3-$2) > 100 && ($3-$2) < 200 {print $0,"DNA"}' OFS='\t'  \
-    | shuf -n $HALF_SAMPLE \
+SAMPLE_SIZE=10000000
+##from shendure
+zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
+    | awk '($3-$2) < 100 {print $0,"DNA"}' OFS='\t'  \
+    | shuf -n $((10*$SAMPLE_SIZE)) \
     > $TRAIN_BED
+#
+zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
+    | awk '($3-$2) > 100 && ($3-$2) < 400 {print $0,"DNA"}' OFS='\t'  \
+    | shuf -n $SAMPLE_SIZE \
+    >> $TRAIN_BED
+#
+zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
+    | awk '($3-$2) > 100 && ($3-$2) < 400 {print $0,"DNA"}' OFS='\t'  \
+    | shuf -n $SAMPLE_SIZE \
+    >> $TRAIN_BED
 
 zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
     | awk '($3-$2) < 100 {print $0,"DNA"}' OFS='\t'  \
-    | shuf -n $HALF_SAMPLE \
-    >> $TRAIN_BED 
+    | shuf -n $((10*$SAMPLE_SIZE)) \
+    >> $TRAIN_BED
 
 
 # sample RNA
 #    | bedtools intersect -a - -b $REF/hg19/genome/sncRNA_x_protein.sorted.bed.gz -v \
 zcat $BED_PATH/unfragmented.bed.gz \
     | awk '($3 - $2) < 100  {print $0,"RNA"}' OFS='\t' \
-    | shuf -n $SAMPLE \
     >> $TRAIN_BED
-
-
+#
+#
+TOTAL=$(cat $TEMP | wc -l)
+TEST_SAMPLE=$(expr $TOTAL / 50)
 cat $TRAIN_BED | shuf > $TEMP
-head -n $TEST_SAMPLE $TEMP > ${TEST_BED}
-tail -n +$TEST_SAMPLE $TEMP > ${TRAIN_BED}
-rm $TEMP
+python validation_bed.py $TEMP $OUT_PATH 100000
+#rm $TEMP

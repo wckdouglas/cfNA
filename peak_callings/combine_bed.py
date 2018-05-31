@@ -20,6 +20,9 @@ out_path = project_path + '/merged_bed'
 beds = glob.glob(in_path + '/*bed.gz') 
 beds.sort()
 
+if not os.path.isdir(out_path):
+    os.mkdir(out_path)
+
 for regex, label in zip(['Q[Cc][Ff][0-9]+', 'Frag', 'L[12]', 'N[aA]', 'All'],
                         ['unfragmented','fragmented','polyA','alkaline', 'all']):
     samples = filter(lambda x: re.search(regex, os.path.basename(x).split('no')[0]), beds)

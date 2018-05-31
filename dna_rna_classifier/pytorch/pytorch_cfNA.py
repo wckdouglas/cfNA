@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
+from matplotlib import use as mpl_use
+mpl_use('Agg')
+import matplotlib.pyplot as plt
 import torch
 from multiprocessing import cpu_count
-torch.set_num_threads(cpu_count())
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.multiprocessing as mp
@@ -13,6 +15,9 @@ pyximport.install()
 from utils.bed_utils import progress, data_generator, prediction_generator
 from utils.model import Deep_cfNA, calculate_metrics
 import time
+
+## SET
+torch.set_num_threads(cpu_count())
 N_PADDED=True
 
 
@@ -42,6 +47,7 @@ def deep_train(data_iterator, model, epoch=0, steps=500):
     '''
     optimizer = optim.Adam(model.parameters(), lr = 0.001)
     print('Start training epoch %i.....' %epoch)
+    losses = []
     for step in range(steps):
         start = time.time()
         optimizer.zero_grad()
@@ -57,6 +63,7 @@ def deep_train(data_iterator, model, epoch=0, steps=500):
         pred_y = pred_y.view(-1)
         assert sum(pred_y != pred_y).item() == 0, pred_y
         loss = F.binary_cross_entropy(pred_y, y)
+        losses.append(loss)
         
         # update gradient
         loss.backward()
@@ -67,6 +74,18 @@ def deep_train(data_iterator, model, epoch=0, steps=500):
                 %(step, steps, loss.item(), end-start)
         progress(steps, step, epoch + 1, status)
     calculate_metrics(y, pred_y, epoch + 1, loss.item())
+    return losses
+
+def plot_loss(losses, steps, epoch):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(losses)
+    ax.vlines(x = steps*range(1, epoch), 
+              ymin = min(losses),
+              ymax = max(losses))
+    ax.set_xlabel('Iteration')
+    ax.set_ylabel('Loss (cross entropy)')
+    fig.savefig('loss.png')
 
 
 def train(RNA_bed, DNA_bed, fa):
@@ -79,13 +98,18 @@ def train(RNA_bed, DNA_bed, fa):
 
     batch = 500
     epochs = 5
+    steps = 10000
+    losses = []
     for epoch in range(epochs):
         data_iterator = data_generator(RNA_bed, DNA_bed, fa, 
                                        batch_size=batch, 
                                        N_padded = N_PADDED,
                                        seed = epoch)
-        deep_train(data_iterator, model, epoch + 1, steps = 10000)
+        l = deep_train(data_iterator, model, epoch + 1, steps = steps)
+        losses.extend(l)
 
+    # output result
+    plot_loss(losses, steps, epochs)
     return model
             
 

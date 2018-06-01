@@ -5,7 +5,7 @@ import glob
 import re
 from picard import run_rna_seq_picard
 
-refflat = '/stor/work/Lambowitz/ref/hg19/new_genes/protein.refflat'
+refflat = '/stor/work/Lambowitz/ref/hg19/new_genes/proteins.refflat'
 snc_annotation = os.environ['REF'] + '/hg19/new_genes/sncRNA_rRNA_for_bam_filter.bed'
 protein_bed = os.environ['REF'] + '/hg19/new_genes/protein.bed'
 plus_bed = os.environ['REF'] + '/hg19/new_genes/protein_plus.bed'

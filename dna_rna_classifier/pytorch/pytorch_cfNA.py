@@ -12,7 +12,8 @@ import numpy as np
 from torch.autograd import Variable
 import pyximport
 pyximport.install()
-from utils.bed_utils import progress, data_generator, prediction_generator
+from deep_cfNA.bed_utils import data_generator, prediction_generator
+from utils.progress import progress
 from utils.model import Deep_cfNA, calculate_metrics
 import time
 
@@ -33,6 +34,7 @@ def validate(test_bed, fa, model_file):
     Y = []
 
     for X, lines in prediction_generator(test_bed, fa, batch_size = 500, N_padded=N_PADDED):
+        X = tensor_adapter(X)
         pred = model(X)
         pred_Y.extend(pred.reshape(-1).numpy())
         y = [line.split('\t')[-1] for line in lines]
@@ -40,6 +42,17 @@ def validate(test_bed, fa, model_file):
     
     loss = F.binary_cross_entropy(torch.Tensor(pred_Y), torch.Tensor(y))
     calculate_metrics(Y, pred_Y, loss.item())
+
+def tensor_adapter(X, y=None):
+    X  = torch.Tensor([x.transpose() for x in X])
+
+    if y is not None:
+        X.requires_grad_()
+        y = torch.Tensor(y)
+        return X, y
+    
+    else:
+        return X
 
 def deep_train(data_iterator, model, epoch=0, steps=500):
     '''
@@ -55,6 +68,7 @@ def deep_train(data_iterator, model, epoch=0, steps=500):
 
         # get data
         X, y = next(data_iterator)
+        X, y = tensor_adapter(X, y=y)
         assert X.shape==(data_iterator.batch_size,5, 400) or \
                 X.shape==(data_iterator.batch_size + 1,5,400), \
                 X.shape
@@ -99,7 +113,7 @@ def train(RNA_bed, DNA_bed, fa):
 
     batch = 500
     epochs = 1
-    steps = 100
+    steps = 10000
     losses = []
     for epoch in range(epochs):
         data_iterator = data_generator(RNA_bed, DNA_bed, fa, 

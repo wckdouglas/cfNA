@@ -46,9 +46,9 @@ do
 		-y $REF_PATH/hg19_genome \
 		-b $NEW_GENE_PATH \
 		-s $NEW_GENE_PATH/splicesites.tsv \
-		-t $NEW_GENE_PATH/tRNA \
+		-t $NEW_GENE_PATH/tRNA_yRNA \
 		-r $NEW_GENE_PATH/rRNA \
-		-e $NEW_GENE_PATH/tRNA_rRNA \
+		-e $NEW_GENE_PATH/tRNA_rRNA_yRNA \
 		-p $THREADS $UMI $TTN \
         --trim_aggressive ${polyA} \
 		--repeats $REF_PATH/rmsk.bed.gz \

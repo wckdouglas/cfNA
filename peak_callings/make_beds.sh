@@ -30,13 +30,14 @@ do
 		then
 			DEMUL=" "
 		else
-			DEMUL="| deduplicate_bed.py --infile - --outfile - --threshold 1 -d '_' "
+			DEMUL="| deduplicate_bed.py --infile - --outfile - --threshold 1 -d '_' --ct 6 "
             DEMUL=" $DEMUL | poisson_umi_adjustment.py -i - -o - --umi 6 "
 		fi
 
 		echo mkdir -p $TMP_FOLDER \
 			\; cat $PROJECT_PATH/$IN_NAME \
-			\| bam_to_bed.py -i - \
+			\| bam_to_bed.py --in_bam - --add_cigar \
+            \| awk \''$7!~"N"'\' \
 			\| sort -k1,1 -k2,2n -k3,3n -k6,6 --temporary-directory=$TMP_FOLDER \
 			\| bedtools intersect -v -a - \
 				-b $WHITELIST \

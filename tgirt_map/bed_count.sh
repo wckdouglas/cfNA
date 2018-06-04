@@ -2,7 +2,7 @@
 
 PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map
 COUNT_PATH=$PROJECT_PATH/Counts/all_counts
-REF_BED_PATH=$REF/hg19/genome
+REF_BED_PATH=$REF/hg19/new_genes
 mkdir -p $COUNT_PATH
 
 for SAMPLE_NAME in $(ls $PROJECT_PATH | egrep '001$')
@@ -37,23 +37,23 @@ do
 
             if  echo $BED | grep -q "_no_sncRNA_"
             then
-                REF_BED=$REF_BED_PATH/genes.sorted.bed.gz
+                REF_BED=$REF_BED_PATH/genes.bed
                 OUT_PATH=$COUNT_PATH/counts
             elif echo $BED | egrep -q 'sncRNA.bam$'
             then
-                REF_BED=$REF_BED_PATH/sncRNA_x_protein.sorted.bed.gz
+                REF_BED=$REF_BED_PATH/sncRNA_x_protein.bed
                 OUT_PATH=$COUNT_PATH/sncRNA
             elif echo $BED | egrep -q 'tRNA_remap.bam$'
             then
-                REF_BED=$REF_BED_PATH/tRNA_count.sorted.bed.gz
+                REF_BED=$REF_BED_PATH/tRNA_yRNA.count.bed
                 OUT_PATH=$COUNT_PATH/tRNA
             elif echo $BED | egrep -q 'rRNA_remap.bam$'
             then
-                REF_BED=$REF_BED_PATH/rDNA.bed.gz
+                REF_BED=$REF_BED_PATH/rRNA.bed
                 OUT_PATH=$COUNT_PATH/rRNA
             elif echo $BED | egrep -q 'repeats.bam$'
             then
-                REF_BED=$REF_BED_PATH/rmsk.bed.gz
+                REF_BED=$REF/hg19/genome/rmsk.bed.gz
                 OUT_PATH=$COUNT_PATH/repeats
             fi
             mkdir -p $OUT_PATH

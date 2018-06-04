@@ -7,9 +7,11 @@ from picard import run_rna_seq_picard
 
 refflat = '/stor/work/Lambowitz/ref/hg19/new_genes/proteins.refflat'
 snc_annotation = os.environ['REF'] + '/hg19/new_genes/sncRNA_rRNA_for_bam_filter.bed'
+rmsk_annotation = os.environ['REF'] + '/hg19/genome/rmsk.bed'
 protein_bed = os.environ['REF'] + '/hg19/new_genes/protein.bed'
 plus_bed = os.environ['REF'] + '/hg19/new_genes/protein_plus.bed'
 minus_bed = os.environ['REF'] + '/hg19/new_genes/protein_minus.bed'
+minus_bed = os.environ['REF'] + '/hg19/new_genes/'
 threads = 6
 
 project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/'
@@ -68,8 +70,12 @@ for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All
             '| samtools view -b@ {threads} - > {plus_bam} '\
             '; samtools view -h@ {threads} {name_sorted} | {filtering_minus} '\
             '| samtools view -b@ {threads} - > {minus_bam} '\
-            '; bedtools pairtobed -abam {plus_bam} -b {sncRNA} -type neither | bedtools pairtobed -abam - -b {plus_bed} > {plus_sense_bam} '\
-            '; bedtools pairtobed -abam {minus_bam} -b {sncRNA} -type neither | bedtools pairtobed -abam - -b {minus_bed} > {minus_sense_bam} '\
+            '; bedtools pairtobed -abam {plus_bam} -b {sncRNA} -type neither  '\
+                '| bedtools pairtobed -abam - -b {rmsk} -type neither '\
+                '| bedtools pairtobed -abam - -b {plus_bed} > {plus_sense_bam} '\
+            '; bedtools pairtobed -abam {minus_bam} -b {sncRNA} -type neither '\
+                '| bedtools pairtobed -abam - -b {rmsk} -type neither '\
+                '| bedtools pairtobed -abam - -b {minus_bed} > {minus_sense_bam} '\
             '; bedtools pairtobed -type neither -abam {minus_bam} -b {minus_bed} '\
             '| bedtools pairtobed -abam - -b {plus_bed} > {minus_anti_bam} '\
             '; bedtools pairtobed -type neither -abam {plus_bam} -b {plus_bed} '\
@@ -84,6 +90,7 @@ for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All
                     plus_bam = plus_bam,
                     minus_bam = minus_bam,
                     sncRNA = snc_annotation, 
+                    rmsk = rmsk_annotation,
                     plus_bed = plus_bed,
                     minus_bed = minus_bed,
                     plus_sense_bam = plus_sense_bam,

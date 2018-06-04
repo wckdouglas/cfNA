@@ -2,6 +2,8 @@
 
 from __future__ import print_function
 from Bio import Entrez, SeqIO
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 import sys
 
 rRNA_gene = ['gi|23898|emb|X12811.1| Human 5S DNA',

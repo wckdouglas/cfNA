@@ -16,7 +16,7 @@ def read_count_file(file_count, samplename, count_file, count_type, strand, dedu
                                 usecols = [0, 6],
                                 names = ['gene_name', 'read_count']) \
             .assign(gene_id = lambda d: d.gene_name) \
-            .assign(gene_type = 'tRNA') 
+            .assign(gene_type = lambda d: np.where(d.gene_id.str.contains('^RNY'),'Y_RNA','tRNA'))
     else:
         count_mat = pd.read_table(count_file, usecols=[3,6,7,8],
               names=['gene_name','gene_type','gene_id','read_count']) 

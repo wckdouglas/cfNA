@@ -30,6 +30,7 @@ cat $ANNOTATION_PATH/tRNA/mt_tRNA.fa $ANNOTATION_PATH/tRNA/nucleo_tRNA.fa > $ANN
 
 
 #make rRNA
+python get_rRNA_fa.py > $ANNOTATION_PATH/rRNA.fa
 echo 'gi|23898|emb|X12811.1|  274     394     5S_rRNA 0       +       5S_rRNA 5S_rRNA
 gi|555853|gb|U13369.1|HSU13369  3657    5527    18S_rRNA        0       +       18S_rRNA        18S_rRNA
 gi|555853|gb|U13369.1|HSU13369  6623    6779    5.8S_rRNA       0       +       5.8S_rRNA       5.8S_rRNA
@@ -48,10 +49,14 @@ cat $ANNOTATION_PATH/tRNA.bed $ANNOTATION_PATH/rmsk_tRNA.bed $REF_PATH/genome/tR
     > $ANNOTATION_PATH/tRNA_comprehensive.bed
 
 #yRNA
-python download_yRNA.py > $ANNOTATION_PATH/yRNA.fa 
+cat $ANNOTATION_PATH/genes.bed \
+| grep --color=no 'RNY' \
+| bedtools getfasta -bed - -fi $GENOME_PATH/hg19_genome.fa -s -name \
+| seqkit seq -u \
+| seqkit rmdup -w 1000 -s  \
+> $ANNOTATION_PATH/yRNA.fa 
 
 #make rRNA tRNA
-python get_rRNA_fa.py > $ANNOTATION_PATH/rRNA.fa
 cat $ANNOTATION_PATH/tRNA.fa $ANNOTATION_PATH/rRNA.fa $ANNOTATION_PATH/yRNA.fa\
     > $ANNOTATION_PATH/tRNA_rRNA_yRNA.fa 
 

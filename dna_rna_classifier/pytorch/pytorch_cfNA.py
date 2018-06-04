@@ -113,7 +113,7 @@ def train(RNA_bed, DNA_bed, fa):
 
     batch = 500
     epochs = 1
-    steps = 10000
+    steps = 100
     losses = []
     for epoch in range(epochs):
         data_iterator = data_generator(RNA_bed, DNA_bed, fa, 

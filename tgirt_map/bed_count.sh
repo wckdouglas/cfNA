@@ -30,7 +30,7 @@ do
         do
             if [[ $BED == *bam ]]
             then
-                BAM_TO_BED=" | bam_to_bed.py -i - --add_cigar"
+                BAM_TO_BED=" | bam_to_bed.py -i - --add_cigar | tee ${BED%.bam}.bed "
             else
                 BAM_TO_BED=" "
             fi

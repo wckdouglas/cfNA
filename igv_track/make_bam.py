@@ -11,7 +11,6 @@ rmsk_annotation = os.environ['REF'] + '/hg19/genome/rmsk.bed'
 protein_bed = os.environ['REF'] + '/hg19/new_genes/protein.bed'
 plus_bed = os.environ['REF'] + '/hg19/new_genes/protein_plus.bed'
 minus_bed = os.environ['REF'] + '/hg19/new_genes/protein_minus.bed'
-minus_bed = os.environ['REF'] + '/hg19/new_genes/'
 threads = 6
 
 project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/'

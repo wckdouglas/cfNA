@@ -11,10 +11,14 @@ class Deep_cfNA(nn.Module):
     def __init__(self):
         super(Deep_cfNA, self).__init__()
         self.conv_1d = nn.Conv1d(in_channels=5, #(ACTGN)
-                                 out_channels=10, #(10 neurons/filters)
+                                 out_channels=160, #(10 neurons/filters)
                                 kernel_size=26, #(scanning 26 nucleotides at a time)
                                 stride=1) #(moving 1 nucleotide at a time) 
-        self.LSTM = nn.LSTM(input_size=26,hidden_size=64, bidirectional=True) #(64 neurons)
+        self.max_pool = nn.MaxPool1d(kernel_size = 50, stride = 13)
+        self.LSTM = nn.LSTM(input_size=160,
+                            hidden_size=64, 
+                            batch_first = True,
+                            bidirectional=True) #(64 neurons)
         self.linear1 = nn.Linear(128, 50) #(128 input from 2x64 LSTM)
         self.linear2 = nn.Linear(50, 25) 
         self.linear3 = nn.Linear(25, 1)
@@ -31,11 +35,18 @@ class Deep_cfNA(nn.Module):
     def forward(self, x):
         '''
         get prediction, needed for pytorch.nn.Module
+        input: (batch_size, num_feature, seq_length)
         '''
+
         y = self.conv_1d(x)
         y = F.relu(y)
-        y = F.max_pool1d(y, kernel_size=50, stride=13)
+        y = self.max_pool(y)
         y = F.dropout(y, p = 0.2)
+
+        '''
+        change input to (batch_size, seq_length, num_feature) for LSTM layer
+        '''
+        y = y.transpose(1,2)
         y, (hidden, cell) = self.LSTM(y) # bidirectional LSTM concat
         y = y[:,-1]  # last time stamp from LSTM layer
         y = F.dropout(y, p = 0.5)

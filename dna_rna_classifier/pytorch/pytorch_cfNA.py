@@ -34,7 +34,7 @@ def validate(test_bed, fa, model_file):
     Y = []
 
     for X, lines in prediction_generator(test_bed, fa, batch_size = 500, N_padded=N_PADDED):
-        X = tensor_adapter(X)
+        X = tensor_convertor(X)
         pred = model(X)
         pred_Y.extend(pred.reshape(-1).numpy())
         y = [line.split('\t')[-1] for line in lines]
@@ -43,7 +43,7 @@ def validate(test_bed, fa, model_file):
     loss = F.binary_cross_entropy(torch.Tensor(pred_Y), torch.Tensor(y))
     calculate_metrics(Y, pred_Y, loss.item())
 
-def tensor_adapter(X, y=None):
+def tensor_convertor(X, y=None):
     X  = torch.Tensor([x.transpose() for x in X])
 
     if y is not None:
@@ -68,7 +68,7 @@ def deep_train(data_iterator, model, epoch=0, steps=500):
 
         # get data
         X, y = next(data_iterator)
-        X, y = tensor_adapter(X, y=y)
+        X, y = tensor_convertor(X, y=y)
         assert X.shape==(data_iterator.batch_size,5, 400) or \
                 X.shape==(data_iterator.batch_size + 1,5,400), \
                 X.shape
@@ -111,20 +111,24 @@ def train(RNA_bed, DNA_bed, fa):
     model.train()
     model.initialize_weight()
 
-    batch = 500
-    epochs = 1
-    steps = 100
-    losses = []
-    for epoch in range(epochs):
+    batch_size = 500
+    epochs = 40
+    steps = 10000
+
+    losses = [10000]
+    epoch = 0
+    l = 0
+    while epoch < epochs or l > losses[-1]:
         data_iterator = data_generator(RNA_bed, DNA_bed, fa, 
-                                       batch_size=batch, 
+                                       batch_size=batch_size, 
                                        N_padded = N_PADDED,
                                        seed = epoch)
         l = deep_train(data_iterator, model, epoch + 1, steps = steps)
         losses.extend(l)
+        epoch += 1
 
     # output result
-    plot_loss(losses, steps, epochs)
+    plot_loss(losses[1:], steps, epochs)
     return model
             
 

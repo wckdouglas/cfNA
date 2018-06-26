@@ -6,5 +6,5 @@ echo deep-cfNA train \
     --validation_bed $WORK_DIR/test.bed \
     --genome $REF/hg19/genome/hg19_genome.fa \
     --model_prefix $WORK_DIR/deep_cfNA \
-    --epochs 30 --steps 50000
+    --epochs 30 --steps 50000 --update
 

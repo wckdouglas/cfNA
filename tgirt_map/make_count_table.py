@@ -14,12 +14,14 @@ def read_count_file(file_count, samplename, count_file, count_type, strand, dedu
     if tRNA:
         count_mat = pd.read_table(count_file, 
                                 usecols = [0, 6],
-                                names = ['gene_name', 'read_count']) \
+                                names = ['gene_name', 'read_count'],
+                                engine='python') \
             .assign(gene_id = lambda d: d.gene_name) \
             .assign(gene_type = lambda d: np.where(d.gene_id.str.contains('^RNY'),'Y_RNA','tRNA'))
     else:
         count_mat = pd.read_table(count_file, usecols=[3,6,7,8],
-              names=['gene_name','gene_type','gene_id','read_count']) 
+              names=['gene_name','gene_type','gene_id','read_count'],
+              engine='python') 
     
     if repeat:
         count_mat = count_mat \
@@ -75,7 +77,7 @@ if run_concat:
     p.close()
     p.join()
 
-    concat_df = pd.concat(dfs, axis=0)  \
+    concat_df = pd.concat(dfs, axis=0, sort=True)  \
             .groupby(['samplename','strand','gene_type','gene_name','gene_id', 'dedup'], as_index=False)\
             .agg({'read_count':'sum'})
     concat_df.to_csv(long_tablename, sep = '\t', index=False)

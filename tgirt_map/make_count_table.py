@@ -11,17 +11,23 @@ from multiprocessing import Pool
 
 def read_count_file(file_count, samplename, count_file, count_type, strand, dedup, 
                     tRNA=False, repeat=False, sncRNA = False):
+#    print(count_file)
     if tRNA:
         count_mat = pd.read_table(count_file, 
                                 usecols = [0, 6],
                                 names = ['gene_name', 'read_count'],
-                                engine='python') \
+                                engine='python',
+                                ) \
             .assign(gene_id = lambda d: d.gene_name) \
             .assign(gene_type = lambda d: np.where(d.gene_id.str.contains('^RNY'),'Y_RNA','tRNA'))
     else:
         count_mat = pd.read_table(count_file, usecols=[3,6,7,8],
-              names=['gene_name','gene_type','gene_id','read_count'],
-              engine='python') 
+                  names=['gene_name','gene_type','gene_id','read_count'],
+                  engine='python')  \
+            .groupby(['gene_name','gene_type','gene_id'], as_index=False)\
+            .sum() \
+            .assign(gene_type = lambda d: np.where(d.gene_type == ".", 'No features', d.gene_type)) 
+
     
     if repeat:
         count_mat = count_mat \

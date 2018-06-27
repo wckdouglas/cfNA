@@ -18,8 +18,10 @@ do
         if [[ $COUNT_TYPE == "dedup" ]]
         then
             DEDUP_COMMAND=" | deduplicate_bed.py -i - -d '_' -f 0  "
+            COUNT_COMMAND=" | awk '{print \$7,\$8,\$9,\$10,\$11,\$12,\$13,\$14}' OFS='\t'"
         else
             DEDUP_COMMAND=" "
+            COUNT_COMMAND=" | awk '{print \$8,\$9,\$10,\$11,\$12,\$13,\$14,\$15}' OFS='\t'"
         fi
         
         for BED in $ALL_ALN_PATH/primary_no_sncRNA_tRNA_rRNA_repeats.bam \
@@ -86,7 +88,7 @@ do
                     \| sort -k1,1 -k2,2n -k3,3n -k6,6 --temporary-directory=$TEMP_FOLDER \
                     $DEDUP_COMMAND $ADJUST_UMI \
                     \| bedtools intersect -a - -b $REF_BED -F 0.1 $STRANDENESS -wao \
-                    \| awk \''{print $7,$8,$9,$10,$11,$12,$13,$14}'\' OFS=\''\t'\' \
+                    $COUNT_COMMAND \
                     \| sort \
                     \| uniq -c \
                     \| awk \' '{print $2,$3,$4,$5,$6,$7,$8, $9, $1}'  \' OFS=\''\t'\' \

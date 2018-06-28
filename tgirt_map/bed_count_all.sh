@@ -87,7 +87,8 @@ do
                     $BAM_TO_BED \
                     \| sort -k1,1 -k2,2n -k3,3n -k6,6 --temporary-directory=$TEMP_FOLDER \
                     $DEDUP_COMMAND $ADJUST_UMI \
-                    \| bedtools intersect -a - -b $REF_BED -F 0.1 $STRANDENESS -wao \
+                    \| bedtools intersect -a - -b $REF_BED -f 0.1 $STRANDENESS -wao \
+                    \| tee ${BED%.bam}.intersected.bed \
                     $COUNT_COMMAND \
                     \| sort \
                     \| uniq -c \

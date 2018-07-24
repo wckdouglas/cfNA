@@ -3,11 +3,21 @@ ANNOTATION_PATH=$REF_PATH/new_genes
 GENOME_PATH=$REF_PATH/genome
 GTF_LINK=ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_28/GRCh37_mapping/gencode.v28lift37.annotation.gtf.gz
 tRNA_REF=http://gtrnadb.ucsc.edu/genomes/eukaryota/Hsapi19/hg19-tRNAs.tar.gz
+piRNA=http://www.regulatoryrna.org/database/piRNA/download/archive/v1.0/bed/piR_hg19_v1.0.bed.gz
 
 #annotationes
 curl $GTF_LINK |zcat > $ANNOTATION_PATH/genes.gtf
 hisat2_extract_splice_sites.py $ANNOTATION_PATH/genes.gtf > $ANNOTATION_PATH/splicesites.tsv
 python gtf_to_bed.py $ANNOTATION_PATH/genes.gtf > $ANNOTATION_PATH/genes.bed
+
+
+#piRNA
+curl $piRNA \
+    | zcat \
+    | sort -k1,1 -k2,2n -k3,3n \
+    | awk '{print $0, "piRNA","piRNA"}' OFS='\t' \
+    | bgzip \
+    > $ANNOTATION_PATH/piRNA.bed.gz
 
 #tRNA
 curl $tRNA_REF > $ANNOTATION_PATH/tRNA.tar.gz
@@ -38,6 +48,7 @@ gi|555853|gb|U13369.1|HSU13369  7935    12969   28S_rRNA        0       +       
 | awk '{print $1,$2,$3,$4,$5,$6,"rDNA",$8}' OFS='\t' \
 > $ANNOTATION_PATH/rRNA.bed
 cat $ANNOTATION_PATH/rRNA.bed >> $ANNOTATION_PATH/genes.bed
+zcat $ANNOTATION_PATH/piRNA.bed.gz >> $ANNOTATION_PATH/genes.bed
 
 python split_bed_for_count.py $ANNOTATION_PATH
 

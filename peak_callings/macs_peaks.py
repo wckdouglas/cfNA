@@ -40,17 +40,24 @@ def collapse_col(x):
     return ','.join(x)
 
 
-def main():
+def make_table(HEPG2=None):
     project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/merged_bed'
     bed_path = project_path + '/stranded'
     peak_path = project_path + '/MACS2'
     annotated_path = peak_path + '/annotated'
-    out_table = annotated_path + '/unfragmented.annotated_peaks.tsv'
-    annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz'
+    
+    if not HEPG2:
+        out_table = annotated_path + '/unfragmented.annotated_peaks.tsv'
+        annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz'
+    else:
+        out_table = annotated_path + '/unfragmented.annotated_peaks_hepg2.tsv'
+        annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation_hepG2.bed.gz'
+
+
     if not os.path.isdir(annotated_path):
         os.mkdir(annotated_path)
 
-    broad_peaks = glob.glob(peak_path + '/*_peaks.broadPeak')
+    broad_peaks = glob.glob(peak_path + '/unfrag*_peaks.broadPeak')
 
     bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks]) \
         .sort_values([0,1,2])
@@ -75,6 +82,10 @@ def main():
         .sort_values('log10q', ascending=False)\
         .to_csv(out_table, sep='\t', index=False)
     print('Written %s' %out_table)
+
+def main():
+    HEPG2s=[True, False]
+    [make_table(HEPG2) for HEPG2 in HEPG2s]
 
 if __name__ == '__main__':
     main()

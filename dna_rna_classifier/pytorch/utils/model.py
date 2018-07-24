@@ -21,7 +21,8 @@ class Deep_cfNA(nn.Module):
                             bidirectional=True) #(64 neurons)
         self.linear1 = nn.Linear(128, 50) #(128 input from 2x64 LSTM)
         self.linear2 = nn.Linear(50, 25) 
-        self.linear3 = nn.Linear(25, 1)
+        self.linear3 = nn.Linear(25, 10) 
+        self.linear4 = nn.Linear(10, 1)
 
 
     def initialize_weight(self):
@@ -53,6 +54,7 @@ class Deep_cfNA(nn.Module):
         y = self.linear1(y)
         y = self.linear2(y)
         y = self.linear3(y)
+        y = self.linear4(y)
         y = F.sigmoid(y)
         return y
 

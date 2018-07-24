@@ -9,10 +9,10 @@ TEMP=$OUT_PATH/temp
 # sample DNA
 SAMPLE_SIZE=10000000
 ##from shendure
-zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
-    | awk '($3-$2) < 100 {print $0,"DNA"}' OFS='\t'  \
-    | shuf -n $((10*$SAMPLE_SIZE)) \
-    > $TRAIN_BED
+#zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
+#    | awk '($3-$2) < 100 {print $0,"DNA"}' OFS='\t'  \
+#    | shuf -n $((10*$SAMPLE_SIZE)) \
+#    > $TRAIN_BED
 #
 zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
     | awk '($3-$2) > 100 && ($3-$2) < 400 {print $0,"DNA"}' OFS='\t'  \

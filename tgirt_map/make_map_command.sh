@@ -1,6 +1,12 @@
 #!/bin/bash
-
 PROJECT_PATH=$SCRATCH/cell_Free_nucleotides
+
+
+### local cloud
+###
+PROJECT_PATH=$WORK/cdw2854/cell_Free_nucleotides
+
+
 DATA_PATH=$PROJECT_PATH/data
 RESULT_PATH=$PROJECT_PATH/tgirt_map_dedup
 RESULT_PATH=$PROJECT_PATH/tgirt_map
@@ -8,6 +14,9 @@ REF_PATH=$REF/hg19/genome
 NEW_GENE_PATH=$REF/hg19/new_genes
 LOG_PATH=$RESULT_PATH/log
 THREADS=24
+
+
+
 
 mkdir -p $LOG_PATH
 

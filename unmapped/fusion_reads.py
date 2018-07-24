@@ -7,6 +7,11 @@ import pandas as pd
 from multiprocessing import Pool
 import sys
 
+def check_fusion(read):
+    sup_read = read.is_supplementary
+    proper_flag = not read.is_proper_pair and read.isize == 0
+    return sup_read or proper_flag
+
 
 def read_flag_stat(filename):
     info = open(filename,'r').readlines()
@@ -22,7 +27,8 @@ def bam_fusion(bam_file):
     fusion_read = set()
     with pysam.Samfile(bam_file,'r') as bam:
         for aln in bam:
-            if not aln.is_unmapped and (not aln.is_proper_pair or aln.is_supplementary):
+            if not aln.is_unmapped and \
+                    check_fusion(aln):
                 fusion_read.add(aln.query_name)
     return len(fusion_read)
 

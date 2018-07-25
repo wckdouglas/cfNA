@@ -30,13 +30,13 @@ def filter_bed(type_pattern, filename):
             .to_csv(bed_file_name, header=False, index=False, sep='\t')
     print('Written: ', bed_file_name)
 
-patterns = ['miRNA|misc_RNA|snoRNA|snRNA',
+patterns = ['miRNA|misc_RNA|snoRNA|snRNA|piRNA',
               'protein_coding',
-             'miRNA|misc_RNA|snoRNA|snRNA|tRNA|scRNA',
+             'miRNA|misc_RNA|snoRNA|snRNA|tRNA|scRNA|piRNA',
              'rRNA|rDNA',
-             '18S_rRNA|28S_rRNA|5.8S_rRNA|5S_rRNA|miRNA|misc_RNA|rRNA|snoRNA|snRNA|tRNA|scRNA',
+             '18S_rRNA|28S_rRNA|5.8S_rRNA|5S_rRNA|miRNA|misc_RNA|rRNA|snoRNA|snRNA|tRNA|scRNA|piRNA',
              'rRNA',
-             'miRNA|misc_RNA|rRNA|snoRNA|snRNA|tRNA']
+             'miRNA|misc_RNA|rRNA|snoRNA|snRNA|tRNA|piRNA']
 filenames = ['sncRNA_no_tRNA',
                'protein',
               'sncRNA_x_protein',

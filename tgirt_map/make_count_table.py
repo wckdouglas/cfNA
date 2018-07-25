@@ -78,10 +78,10 @@ run_concat = True
 long_tablename = count_path + '/all_counts.tsv'
 spreaded_tablename = count_path + '/spreaded_all_counts.tsv'
 if run_concat:
-    p = Pool(24)
-    dfs = p.map(read_function, iterable)
-    p.close()
-    p.join()
+#    p = Pool(24)
+    dfs = map(read_function, iterable)
+#    p.close()
+#    p.join()
 
     concat_df = pd.concat(dfs, axis=0, sort=True)  \
             .groupby(['samplename','strand','gene_type','gene_name','gene_id', 'dedup'], as_index=False)\

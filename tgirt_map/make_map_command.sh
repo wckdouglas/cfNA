@@ -33,7 +33,7 @@ do
 	fi
 
 
-    if echo $SAMPLENAME | egrep -q 'L[12]|TEV3'
+    if echo $SAMPLENAME | egrep -q 'L[12E]|TEV3'
     then
         TTN=' '
         UMI=' '

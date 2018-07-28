@@ -5,19 +5,20 @@ OUT_PATH=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/classifier
 TEST_BED=$OUT_PATH/test.bed
 TRAIN_BED=$OUT_PATH/train.bed
 TEMP=$OUT_PATH/temp
+rm $TRAIN_BED; touch $TRAIN_BED
 
 # sample DNA
-SAMPLE_SIZE=10000000
+SAMPLE_SIZE=20000000
 ##from shendure
 #zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
 #    | awk '($3-$2) < 100 {print $0,"DNA"}' OFS='\t'  \
 #    | shuf -n $((10*$SAMPLE_SIZE)) \
 #    > $TRAIN_BED
 #
-zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
-    | awk '($3-$2) > 100 && ($3-$2) < 400 {print $0,"DNA"}' OFS='\t'  \
-    | shuf -n $SAMPLE_SIZE \
-    >> $TRAIN_BED
+#zcat /stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/bed_files/SRR2130051.bed.gz \
+#    | awk '($3-$2) > 100 && ($3-$2) < 400 {print $0,"DNA"}' OFS='\t'  \
+#    | shuf -n $SAMPLE_SIZE \
+#    >> $TRAIN_BED
 #
 zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
     | awk '($3-$2) > 100 && ($3-$2) < 400 {print $0,"DNA"}' OFS='\t'  \

@@ -40,24 +40,24 @@ def collapse_col(x):
     return ','.join(x)
 
 
-def make_table(HEPG2=None):
+def make_table(HEPG2=None, base_name = 'unfragmented'):
     project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/merged_bed'
     bed_path = project_path + '/stranded'
     peak_path = project_path + '/MACS2'
     annotated_path = peak_path + '/annotated'
     
     if not HEPG2:
-        out_table = annotated_path + '/unfragmented.annotated_peaks.tsv'
+        out_table = annotated_path + '/%s.annotated_peaks.tsv' %base_name
         annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz'
     else:
-        out_table = annotated_path + '/unfragmented.annotated_peaks_hepg2.tsv'
+        out_table = annotated_path + '/%s.annotated_peaks_hepg2.tsv' %base_name
         annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation_hepG2.bed.gz'
 
 
     if not os.path.isdir(annotated_path):
         os.mkdir(annotated_path)
 
-    broad_peaks = glob.glob(peak_path + '/unfrag*_peaks.broadPeak')
+    broad_peaks = glob.glob(peak_path + '/%s*_peaks.broadPeak' %base_name)
 
     bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks]) \
         .sort_values([0,1,2])
@@ -85,7 +85,10 @@ def make_table(HEPG2=None):
 
 def main():
     HEPG2s=[True, False]
-    [make_table(HEPG2) for HEPG2 in HEPG2s]
+    base_names = ['unfragmented', 'exonuclease'] 
+    for HEPG2 in HEPG2s:
+        for base_name in base_names:
+            make_table(HEPG2=HEPG2, base_name = base_name) 
 
 if __name__ == '__main__':
     main()

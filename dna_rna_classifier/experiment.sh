@@ -1,5 +1,5 @@
 PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map
-BED_PATH=$PROJECT_PATH/bed_files
+BED_PATH=$PROJECT_PATH/merged_bed
 OUT_PATH=$PROJECT_PATH/classifier
 
 DEEP_BED=$OUT_PATH/untreated.classified.bed.gz
@@ -11,10 +11,10 @@ LENGTH_BED=$OUT_PATH/untreated.classified.length_annotated.bed.gz
 
 
 deep-cfNA predict \
-    --inbed $BED_PATH/Qcf_All1_R1_001.bed.gz \
+    --inbed $BED_PATH/all.bed.gz \
     --genome $REF/hg19/genome/hg19_genome.fa \
     --out $DEEP_BED \
-    --model_prefix $OUT_PATH/deef_cfNA    
+    --model_prefix $OUT_PATH/deep_cfNA    
 echo 'Predicted NA'
 
 

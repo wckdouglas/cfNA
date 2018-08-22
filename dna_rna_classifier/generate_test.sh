@@ -26,7 +26,7 @@ zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
     >> $TRAIN_BED
 
 zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
-    | awk '($3-$2) < 100 {print $0,"DNA"}' OFS='\t'  \
+    | awk '($3-$2) <= 100 {print $0,"DNA"}' OFS='\t'  \
     | shuf -n $((10*$SAMPLE_SIZE)) \
     >> $TRAIN_BED
 
@@ -34,19 +34,17 @@ zcat $BED_PATH/alkaline.no_sncRNA.bed.gz \
 # sample RNA
 #    | bedtools intersect -a - -b $REF/hg19/genome/sncRNA_x_protein.sorted.bed.gz -v \
 zcat $BED_PATH/unfragmented.bed.gz \
-    \| bedtools intersect -a - -b $REF/hg19/new_genes/tRNA_yRNA.bed -v \
-    \| bedtools intersect -a - -b $REF/hg19/genome/tRNA.bed -v \
-    \| bedtools intersect -a - -b $REF/hg19/new_genes/rmsk_tRNA.bed -v \
-    \| bedtools intersect -a - -b $REF/hg19/new_genes/rmsk_rRNA.bed -v \
-    \| bedtools intersect -a - -b $REF/hg19/new_genes/rmsk_yRNA.bed -v \
-    \| bedtools intersect -a - -b $REF/hg19/new_genes/refseq_rRNA.bed -v \
-    \| bedtools intersect -a - -b $REF/hg19/new_genes/rRNA_for_bam_filter.bed -v \
-    | awk '($3 - $2) < 100  {print $0,"RNA"}' OFS='\t' \
+    | bedtools intersect -a - -b $REF/hg19/new_genes/tRNA_yRNA.bed -v \
+    | bedtools intersect -a - -b $REF/hg19/genome/tRNA.bed -v \
+    | bedtools intersect -a - -b $REF/hg19/new_genes/rmsk_tRNA.bed -v \
+    | bedtools intersect -a - -b $REF/hg19/new_genes/rmsk_rRNA.bed -v \
+    | bedtools intersect -a - -b $REF/hg19/new_genes/rmsk_yRNA.bed -v \
+    | bedtools intersect -a - -b $REF/hg19/new_genes/refseq_rRNA.bed -v \
+    | bedtools intersect -a - -b $REF/hg19/new_genes/rRNA_for_bam_filter.bed -v \
+    | awk '($3 - $2) <= 100  {print $0,"RNA"}' OFS='\t' \
     >> $TRAIN_BED
 #
 #
-TOTAL=$(cat $TEMP | wc -l)
-TEST_SAMPLE=$(expr $TOTAL / 50)
 cat $TRAIN_BED | shuf > $TEMP
 python validation_bed.py $TEMP $OUT_PATH 100000
 #rm $TEMP

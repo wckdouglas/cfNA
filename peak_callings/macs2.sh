@@ -5,7 +5,7 @@ STRANDED_BED_PATH=$BED_PATH/stranded
 OUT_PATH=$BED_PATH/MACS2
 mkdir -p $OUT_PATH
 
-for SAMPLE in unfragmented all
+for SAMPLE in unfragmented all exonuclease
 do
     for STRAND in fwd rvs
     do
@@ -17,6 +17,7 @@ do
             --nomodel \
             --format BEDPE \
             --keep-dup all \
-            --gsize hs --broad
+            --gsize hs --broad \
+            --qvalue 0.05
     done
 done

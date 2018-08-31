@@ -30,7 +30,7 @@ do
 			--filterRNAstrand $STRAND \
 			--outFileFormat bigwig \
 			--samFlagExclude 1024 \
-			--binSize 1 \
-            --normalizeUsingRPKM 
+			--binSize 1 #\
+#            --normalizeUsingRPKM 
 	done
 done | grep -v name_sort

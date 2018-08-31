@@ -15,7 +15,7 @@ cat $GENOME_PATH/RBP.bed \
             $GENE_PATH/piRNA.bed \
 | sort -k1,1 -k2,2n -k3,3n \
 | bgzip \
-> $GENE_PATH/all_annotation.bed.gz
+> $GENE_PATH/all_annotation_K562.bed.gz
 
 cat $GENOME_PATH/RBP.bed \
 | awk '$8 > 2' \
@@ -27,4 +27,4 @@ cat $GENOME_PATH/RBP.bed \
             $GENE_PATH/piRNA.bed \
 | sort -k1,1 -k2,2n -k3,3n \
 | bgzip \
-> $GENE_PATH/all_annotation_hepG2.bed.gz
+> $GENE_PATH/all_annotation.bed.gz

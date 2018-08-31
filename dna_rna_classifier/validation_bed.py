@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 from collections import defaultdict
@@ -35,9 +35,9 @@ with open(sys.argv[1],'r') as inbed,\
         chrom = fields[0]
         if chrom in chroms:
             label = fields[-1]
+            seq_length = int(fields[2]) - int(fields[1])
 
-            if not fields[3].startswith('SRR') \
-                   and label_counter[label] <= half_test:
+            if label_counter[label] <= half_test and seq_length < 100:
                 print(bed_line, file = test)
                 label_counter[label] += 1
                 test_count += 1

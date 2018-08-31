@@ -45,7 +45,7 @@ for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All
                 .format(threads = threads,
                         out_bam = merged_bam)
 
-    command += filter_protein_bam(merged_bam, filter_path, refflat)
+    command += filter_protein_bam(merged_bam, filter_path, label, refflat)
     print(command)
 
 

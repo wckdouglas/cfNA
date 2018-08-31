@@ -15,14 +15,17 @@ class Deep_cfNA(nn.Module):
                                 kernel_size=26, #(scanning 26 nucleotides at a time)
                                 stride=1) #(moving 1 nucleotide at a time) 
         self.max_pool = nn.MaxPool1d(kernel_size = 50, stride = 13)
+        """
         self.LSTM = nn.LSTM(input_size=160,
-                            hidden_size=64, 
-                            batch_first = True,
-                            bidirectional=True) #(64 neurons)
+                          hidden_size=64, 
+                          batch_first = True,
+                          bidirectional=True) #(64 neurons)
         self.linear1 = nn.Linear(128, 50) #(128 input from 2x64 LSTM)
-        self.linear2 = nn.Linear(50, 25) 
-        self.linear3 = nn.Linear(25, 10) 
-        self.linear4 = nn.Linear(10, 1)
+        """
+        self.linear0 = nn.Linear(4160, 160)
+        self.linear1 = nn.Linear(160, 25)
+        self.linear2 = nn.Linear(25, 10) 
+        self.linear3 = nn.Linear(10, 1)
 
 
     def initialize_weight(self):
@@ -44,17 +47,24 @@ class Deep_cfNA(nn.Module):
         y = self.max_pool(y)
         y = F.dropout(y, p = 0.2)
 
+        """
         '''
-        change input to (batch_size, seq_length, num_feature) for LSTM layer
-        '''
+        #change input to (batch_size, seq_length, num_feature) for LSTM layer
+        #'''
         y = y.transpose(1,2)
         y, (hidden, cell) = self.LSTM(y) # bidirectional LSTM concat
         y = y[:,-1]  # last time stamp from LSTM layer
         y = F.dropout(y, p = 0.5)
+        """
+        batch_size = y.size(0)
+        y = y.view(batch_size, -1)
+        y = self.linear0(y)
+        y = F.dropout(y, p = 0.2)
         y = self.linear1(y)
+        #y = self.linear2(y)
+        y = F.dropout(y, p = 0.2)
         y = self.linear2(y)
         y = self.linear3(y)
-        y = self.linear4(y)
         y = F.sigmoid(y)
         return y
 

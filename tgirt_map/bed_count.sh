@@ -60,7 +60,7 @@ do
 
             if [[ $COUNT_TYPE == "dedup"  ]]
             then
-                if echo $BED | egrep -q 'sncRNA.bam$|tRNA_remap.bam$'
+                if echo $BED | egrep -q 'sncRNA.bam$|_remap.bam$'
                 then
                     ADJUST_UMI=' -t 0 |  poisson_umi_adjustment.py -i - -o - --umi 6 '
                 else

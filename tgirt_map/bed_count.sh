@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map
+PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map
 COUNT_PATH=$PROJECT_PATH/Counts/all_counts
 REF_BED_PATH=$REF/hg19/new_genes
 mkdir -p $COUNT_PATH

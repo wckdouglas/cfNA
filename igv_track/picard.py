@@ -157,7 +157,7 @@ def run_qc(refflat, outpath, outpath_dedup, sample_path):
 
 def main():
     refflat = '/stor/work/Lambowitz/ref/hg19/new_genes/proteins.refflat'
-    project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map'
+    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
     outpath_dedup = project_path + '/picard_qc'
     outpath = project_path + '/picard_qc_all'
     if not os.path.isdir(outpath):

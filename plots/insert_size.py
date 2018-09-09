@@ -27,7 +27,7 @@ def bed_fragments(bed_file):
     return size_dict
 
 def sample_fragments(sample_folder):
-    trRNA_bed_file = sample_folder + '/rRNA_tRNA_premap/tRNA_rRNA.dedup.bed'
+    tRNA_bed_file = sample_folder + '/tRNA/tRNA_rRNA.dedup.bed'
     samplename = os.path.basename(sample_folder)
 
     print('Running %s' %samplename)
@@ -41,7 +41,7 @@ def sample_fragments(sample_folder):
 
 
 def main():
-    project_path='/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map'
+    project_path='/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
     insert_size_path = project_path + '/fragment_sizes'
     if not os.path.isdir(insert_size_path):
         os.mkdir(insert_size_path)

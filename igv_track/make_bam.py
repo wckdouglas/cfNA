@@ -8,7 +8,7 @@ from picard import run_rna_seq_picard, filter_protein_bam
 refflat = '/stor/work/Lambowitz/ref/hg19/new_genes/proteins.refflat'
 threads = 6
 
-project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/'
+project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/'
 merge_path = project_path + '/merged_bam'
 filter_path = merge_path + '/filtered_bam'
 folders = glob.glob(project_path + '/*001')

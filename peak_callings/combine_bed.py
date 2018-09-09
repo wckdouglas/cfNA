@@ -15,6 +15,7 @@ def label_sample(x):
 
 project_path = '/scratch/02727/cdw2854/cell_Free_nucleotides/tgirt_map'
 project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map'
+project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 in_path = project_path + '/bed_files'
 out_path = project_path + '/merged_bed'
 beds = glob.glob(in_path + '/*bed.gz') 
@@ -23,7 +24,7 @@ beds.sort()
 if not os.path.isdir(out_path):
     os.mkdir(out_path)
 
-for regex, label in zip(['Q[Cc][Ff][0-9]+', 'Frag', 'L[12]', 'N[aA]', 'All','Exo|[DE][DE]'],
+for regex, label in zip(['Q[Cc][Ff][0-9]+|Exo|[DE][DE]', 'Frag', 'L[12]', 'N[aA]', 'All','Exo|[DE][DE]'],
                         ['unfragmented','fragmented','polyA','alkaline', 'all','exonuclease']):
     samples = filter(lambda x: re.search(regex, os.path.basename(x).split('no')[0]), beds)
 

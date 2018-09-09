@@ -273,7 +273,7 @@ def annotate_peaks(annotation_file, bed):
 def make_table(all=None, base_name = 'unfragmented'):
     #test:
     # all, base_name = True,  'unfragmented'
-    project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/merged_bed'
+    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bed'
     bed_path = project_path + '/stranded'
     peak_path = project_path + '/MACS2'
     annotated_path = peak_path + '/annotated'

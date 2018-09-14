@@ -29,6 +29,8 @@ def label_sample(x, salt = False):
         return 'DNase I + Exo I'
     elif re.search('[aA]ll|[Uu]nt', x):
         return 'Untreated'
+    elif re.search('Phos', x):
+        return 'DNase I + Phosphatase'
     elif re.search('[Qq][cC][Ff][0-9]+|[uU]nf', x):
         if salt:
             return 'Low salt (200mM)'

@@ -35,7 +35,7 @@ def sample_fragments(sample_folder):
 
     all_bed_file = bed_folder + '/' + samplename + '.bed.gz'
 
-    size_dict = bed_fragments(trRNA_bed_file)
+    size_dict = bed_fragments(tRNA_bed_file)
     size_dict = add_dict(size_dict, bed_fragments(all_bed_file))
     return size_dict
 

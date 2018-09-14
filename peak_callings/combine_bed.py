@@ -24,7 +24,7 @@ beds.sort()
 if not os.path.isdir(out_path):
     os.mkdir(out_path)
 
-for regex, label in zip(['Q[Cc][Ff][0-9]+|Exo|[DE][DE]', 'Frag', 'L[12]', 'N[aA]', 'All','Exo|[DE][DE]'],
+for regex, label in zip(['Q[Cc][Ff][0-9]+|Exo|[DE][DE]', 'Frag', 'L[12]', 'N[aA][0-9]+', 'All','Exo|[DE][DE]'],
                         ['unfragmented','fragmented','polyA','alkaline', 'all','exonuclease']):
     samples = filter(lambda x: re.search(regex, os.path.basename(x).split('no')[0]), beds)
 

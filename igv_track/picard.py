@@ -97,14 +97,18 @@ def filter_protein_bam(in_bam, filter_path, label, refflat, threads = 6, return_
 
 
 
-def run_dedup(name_sorted_bam_file, sorted_bam, dedup_bam):
+def run_dedup(name_sorted_bam_file, sorted_bam, dedup_bam, samplename, dry=False):
     sort_command = 'cat %s ' %name_sorted_bam_file +\
         '| bam_umi_tag.py -i - -t RX ' \
         '| samtools view -bF 256 -F4 -F2048 '\
+        '| samtools addreplacerg -r ID:{id_name} -r SM:{id_name}  - '\
+        '| samtools view -b '\
         '| sambamba sort -n -o /dev/stdout /dev/stdin '\
         '| picard FixMateInformation ADD_MATE_CIGAR=true '\
         ' ASSUME_SORTED=true INPUT=/dev/stdin OUTPUT=/dev/stdout ' \
-        '| sambamba sort -o %s /dev/stdin' %sorted_bam 
+        '| sambamba sort -o {sorted_bam} /dev/stdin' \
+        .format(sorted_bam = sorted_bam ,
+                id_name = samplename.replace('_R1_001',''))
     
     metric_file = dedup_bam.replace('.bam','.dedup_metric')
     umi_metric_file = dedup_bam.replace('.bam','.umi_metric')
@@ -120,9 +124,13 @@ def run_dedup(name_sorted_bam_file, sorted_bam, dedup_bam):
                     '| samtools view -bF 1024 ' +\
                     '> {DEDUP_BAM}'.format(DEDUP_BAM = dedup_bam) +\
                     '; samtools index {DEDUP_BAM}'.format(DEDUP_BAM=dedup_bam)
+
+    command = sort_command + '; ' + dedup_command
     
-    os.system(sort_command)
-    os.system(dedup_command)
+    if dry:
+        print(command)
+    else:
+        os.system(command)
     #print(sort_command)
     #print(dedup_command)
 
@@ -148,7 +156,7 @@ def run_qc(refflat, outpath, outpath_dedup, sample_path):
     sorted_bam_file = bam_file.replace('.bam','.sorted.bam')
     dedup_bam = bam_file.replace('.bam','.deduplicated.bam')
 
-    run_dedup(bam_file, sorted_bam_file, dedup_bam)
+    run_dedup(bam_file, sorted_bam_file, dedup_bam, samplename, dry=False)
     filter_protein_bam(sorted_bam_file, outpath, samplename, refflat)
     filter_protein_bam(dedup_bam, outpath_dedup, samplename, refflat, return_command=True)
     run_rna_seq_picard(refflat, outpath, sorted_bam_file, samplename)
@@ -166,7 +174,7 @@ def main():
         os.mkdir(outpath_dedup)
 
     samples = glob.glob(project_path + '/Q*001')
-    samples = filter(lambda x: not re.search('L[12]',x), samples)
+    samples = filter(lambda x: not re.search('L[12E]',x), samples)
     picard_func = partial(run_qc, refflat, outpath, outpath_dedup)
     p = Pool(24)
     p.map(picard_func, samples)

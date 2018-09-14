@@ -261,7 +261,7 @@ def annotate_peaks(annotation_file, bed):
         .assign(gtype = lambda d: np.where(d.gtype.str.contains('srpRNA'), 
                                              'misc_RNA',
                                              d.gtype)) \
-        .assign(gtype = lambda d: np.where(d.gname.isin(["BC200",'7SK','7SL']), 
+        .assign(gtype = lambda d: np.where(d.gname.isin(["BC200",'7SK','7SL','VTRNA2-1']), 
                                             'misc_RNA', 
                                             d.gtype)) \
         .assign(gtype_rank = lambda d: d.gtype.map(rank_type))   \

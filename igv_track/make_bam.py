@@ -21,8 +21,14 @@ def make_dir(p):
 make_dir(merge_path)
 make_dir(filter_path)
 
-for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All','N[aA]','ED|DE','HS[123]'],
-                        ['unfragmented','fragmented','polyA','untreated', 'alkaline_hydrolysis','exonuclease','high_salt']):
+sample_regexes = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 
+                  'L[12]','All','N[aA][0-9]+',
+                  'ED|DE','HS[123]','genome']
+sample_names = ['unfragmented','fragmented',
+                'polyA','untreated', 'alkaline_hydrolysis',
+                'exonuclease','high_salt','genome-sim'] 
+
+for regex, label in zip(sample_regexes,sample_names):
     samples = filter(lambda x: re.search(regex, x), folders)
     if 'poly' in label:
         bam = 'primary.bam'

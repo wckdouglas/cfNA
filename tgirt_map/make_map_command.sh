@@ -1,18 +1,19 @@
 #!/bin/bash
-PROJECT_PATH=$SCRATCH/cell_Free_nucleotides
+PROJECT_PATH=$SCRATCH/cfNA
 
 
 ### local cloud
 ###
-PROJECT_PATH=$WORK/cdw2854/cell_Free_nucleotides
+#PROJECT_PATH=$WORK/cdw2854/cell_Free_nucleotides
 
 
-DATA_PATH=$PROJECT_PATH/data
-RESULT_PATH=$PROJECT_PATH/tgirt_map_dedup
+DATA_PATH=$SCRATCH/cell_Free_nucleotides/data
 RESULT_PATH=$PROJECT_PATH/tgirt_map
+#RESULT_PATH=$PROJECT_PATH/tgirt_map_new_penalty
 REF_PATH=$REF/hg19/genome
 NEW_GENE_PATH=$REF/hg19/new_genes
 LOG_PATH=$RESULT_PATH/log
+UNIVEC=$REF/UniVec/UniVec_Core
 THREADS=24
 
 
@@ -51,6 +52,7 @@ do
 
 	echo tgirt_count.py -1 $FQ1 -2 $FQ2 \
 		-o $RESULT_PATH \
+        --univec=$UNIVEC \
 		-x $REF_PATH/hg19_genome \
 		-y $REF_PATH/hg19_genome \
 		-b $NEW_GENE_PATH \
@@ -64,7 +66,7 @@ do
 		--repeats_index $REF_PATH/repeats/all_rmsk_From_bed \
 		2\>\&1 \
 		\| tee $RESULT_PATH/log/${SAMPLENAME}.log
-done |  egrep -v  'TEV|TeI|GsI|SRR|[TG]0|try|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
+done |  egrep -v  'TEV|TeI|GsI|SRR|[TG]0|200|450|[NO][QN]|try' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
 #		--skip_trim  --skip_hisat --skip_premap --skip_bowtie --skip_post_process_bam --skip_remap \
 #		--repeats_index $REF_PATH/rmsk \
 #		--repeats_index $REF_PATH/repeat_mask/all_rmsk_From_bed \

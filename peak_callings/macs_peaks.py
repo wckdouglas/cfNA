@@ -12,7 +12,8 @@ from operator import itemgetter
 import glob
 import sys
 from functools import partial
-
+import mappy 
+from sequencing_tools.fastq_tools import reverse_complement
 
 preference_RNA = ['misc_RNA','srpRNA','SRP_RNA','vault_RNA','tRNA','snoRNA', 
                   'snRNA','scRNA','miRNA', 'rRNA','piRNA','RBP','SINE','SINE?',
@@ -47,6 +48,27 @@ def merge_type(x):
         return 'misc RNA'
     else:
         return x
+
+
+def is_mt(seq, rnr=False):
+    is_chrM = 'not_MT'
+    chrom_path = '/stor/work/Lambowitz/ref/hg19'
+    if rnr:
+        genome = chrom_path + '/new_genes/mt_rnr.fa'
+    else:
+        genome = chrom_path + '/genome/chrM.minimap2_idx'
+
+    aligner = mappy.Aligner(genome,preset='sr')
+    if list(aligner.map(seq)):
+        is_chrM = 'is_MT'
+    return is_chrM
+
+fa = pysam.Fastafile('/stor/work/Lambowitz/ref/hg19/genome/hg19_genome.fa')
+def fetch_seq(chrom, start, end, strand):
+    seq = fa.fetch(chrom, int(start), int(end))
+    seq = seq.upper()
+    return seq if strand == "+" else reverse_complement(seq)
+
 
 
 def is_junction_exon(junctions, chrom,start, end, strand):
@@ -115,53 +137,6 @@ def collapse_col(x):
     return ','.join(x)
 
 
-def make_table_old(all=None, base_name = 'unfragmented'):
-    project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/merged_bed'
-    bed_path = project_path + '/stranded'
-    peak_path = project_path + '/MACS2'
-    annotated_path = peak_path + '/annotated'
-    
-    if all:
-        out_table = annotated_path + '/%s.annotated_peaks.tsv' %base_name
-        annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz'
-    else:
-        out_table = annotated_path + '/%s.annotated_peaks_k562.tsv' %base_name
-        annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation_k562.bed.gz'
-
-
-    if not os.path.isdir(annotated_path):
-        os.mkdir(annotated_path)
-
-    broad_peaks = glob.glob(peak_path + '/%s*_peaks.broadPeak' %base_name)
-
-    bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks], sort=False) \
-        .sort_values([0,1,2]) \
-        .reindex()
-
-    inbed = BedTool()\
-        .from_dataframe(bed)\
-        .intersect(wao=True, b=annotation_file) \
-        .to_dataframe(names = ['chrom','start','end',
-                                'peakname','score','strand','fc',
-                                'log10p','log10q','pileup','gstart','gend',
-                                'gname','gstrand','gtype','gid','overlapped'],
-                      usecols = [0,1,2,3,4,5,6,7,8,9,11,12, 13, 15, 16, 17, 18]) \
-        .drop_duplicates() \
-        .assign(strand = lambda d: np.where(d.peakname.str.contains('fwd'), '+','-'))\
-        .groupby(['chrom','start','end',
-                    'peakname','score','strand', 
-                    'fc','log10p',
-                    'log10q','pileup'], 
-                 as_index=False)\
-        .agg({'gname': collapse_col,
-            'gstrand': collapse_col,
-            'gtype': collapse_col,
-            'gid': collapse_col}) \
-        .sort_values('log10q', ascending=False)\
-        .to_csv(out_table, sep='\t', index=False)
-    print('Written %s' %out_table)
-
-
 small_RNA = ['misc_RNA','srpRNA','SRP_RNA',
             'vault_RNA','tRNA','snoRNA', 
             'snRNA','scRNA','miRNA']
@@ -182,6 +157,9 @@ def select_annotation(peak_rows):
         .pipe(lambda d: d[d.gtype_rank == d.gtype_rank.min()])
     
     if max_overlapped.shape[0] > 1 and max_overlapped.gtype.unique()[0] == 'RBP':
+        '''
+        output all overlapping RBP
+        '''
         max_overlapped = max_overlapped \
             .groupby(['gtype','strand','gstrand'], as_index=False)\
             .agg({'gname':collapse_col})
@@ -299,7 +277,9 @@ def make_table(all=None, base_name = 'unfragmented'):
 
     inbed = annotate_peaks(annotation_file, bed)  
 
-    df = resolve_annotation(inbed) 
+    df = resolve_annotation(inbed)  
+#        .assign(seq = lambda d: list(map(fetch_seq, d.chrom, d.start, d.end, d.strand)))\
+#        .assign(chrM = lambda d: d.seq.map(is_mt))
     df.to_csv(out_table, sep='\t', index=False)
     print('Written %s' %out_table)
     assert bed.shape[0] == df.shape[0], 'Peak lost!!!'

@@ -22,9 +22,6 @@ def index_table(table_name):
     print('Indexed %s' %table_name)
 
 
-
-
-
 def add_gene(table_name):
     protein_bed = '/stor/work/Lambowitz/ref/hg19/new_genes/protein.bed.gz'
     BedTool(table_name) \
@@ -66,15 +63,17 @@ def make_table(out_table, bam_file):
     print('Written %s' %out_table)
 
 
-
-
-def main():
-    project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/merged_bam'
-    bam_file = project_path + '/unfragmented.bam'
-    out_table = project_path + '/unfragmentd.spliced.tsv'
+def run(bam_file, out_table):
     make_table(out_table, bam_file)
     add_gene(out_table)
     index_table(out_table)
+
+
+def main():
+    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam'
+    bam_file = project_path + '/unfragmented.bam'
+    out_table = project_path + '/unfragmentd.spliced.tsv'
+    run(bam_file, out_table)
 
 if __name__ == '__main__':
     main()

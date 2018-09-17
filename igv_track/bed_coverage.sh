@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map
+PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map
 BED_PATH=$PROJECT_PATH/merged_bed
 COVERAGE_PATH=$BED_PATH/coverage
 GENOME=$REF/hg19/genome/hg19_genome.fa.fai

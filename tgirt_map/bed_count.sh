@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map
+PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map
 COUNT_PATH=$PROJECT_PATH/Counts/all_counts
 REF_BED_PATH=$REF/hg19/new_genes
 mkdir -p $COUNT_PATH
@@ -60,7 +60,7 @@ do
 
             if [[ $COUNT_TYPE == "dedup"  ]]
             then
-                if echo $BED | egrep -q 'sncRNA.bam$|tRNA_remap.bam$'
+                if echo $BED | egrep -q 'sncRNA.bam$|_remap.bam$'
                 then
                     ADJUST_UMI=' -t 0 |  poisson_umi_adjustment.py -i - -o - --umi 6 '
                 else

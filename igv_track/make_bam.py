@@ -8,7 +8,7 @@ from picard import run_rna_seq_picard, filter_protein_bam
 refflat = '/stor/work/Lambowitz/ref/hg19/new_genes/proteins.refflat'
 threads = 6
 
-project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/'
+project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/'
 merge_path = project_path + '/merged_bam'
 filter_path = merge_path + '/filtered_bam'
 folders = glob.glob(project_path + '/*001')
@@ -21,8 +21,14 @@ def make_dir(p):
 make_dir(merge_path)
 make_dir(filter_path)
 
-for regex, label in zip(['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 'L[12]','All','N[aA]','ED|DE','HS[123]'],
-                        ['unfragmented','fragmented','polyA','untreated', 'alkaline_hydrolysis','exonuclease','high_salt']):
+sample_regexes = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 
+                  'L[12]','All','N[aA][0-9]+',
+                  'ED|DE','HS[123]','genome']
+sample_names = ['unfragmented','fragmented',
+                'polyA','untreated', 'alkaline_hydrolysis',
+                'exonuclease','high_salt','genome-sim'] 
+
+for regex, label in zip(sample_regexes,sample_names):
     samples = filter(lambda x: re.search(regex, x), folders)
     if 'poly' in label:
         bam = 'primary.bam'

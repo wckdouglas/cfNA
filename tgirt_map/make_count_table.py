@@ -48,7 +48,7 @@ def read_function(args):
     return read_count_file(file_count, samplename, count_file, count_type, strand, dedup, 
                            tRNA=tRNA, repeat=repeat, sncRNA = sncRNA)
 
-count_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/Counts/all_counts'
+count_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts'
 count_types = os.listdir(count_path)
 count_types = map(lambda x: count_path + '/' + x, count_types)
 count_files = []

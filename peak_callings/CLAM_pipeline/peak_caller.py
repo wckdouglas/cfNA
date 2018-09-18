@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 
 from __future__ import print_function
@@ -17,6 +16,7 @@ pyximport.install(setup_args={'include_dirs': np.get_include()})
 from call_peak_tools import *
 from operator import itemgetter
 from multiprocessing import Pool
+import re
 #from memory_profiler import profile
 import gc
 
@@ -71,9 +71,14 @@ def process_bigwig(out_bed, inputWig, controlWig, strand, two_pass, chromosome):
     return temp_bed
     
 def get_chroms(bw_file):
+    '''
+    Get chromosomes and lengths
+    '''
     bw = pbw.open(bw_file)
     chromosomes_dict = bw.chroms()
     bw.close()
+    regular_chromosome = re.compile('chr[0-9]+$|chr[MXY]$')
+    chromosome_dict = {key:value for key,value in chromosomes_dict.items() if regular_chromosome.search(key)}
     return chromosomes_dict
 
 def main():

@@ -81,10 +81,13 @@ def cal_binomial_control(chrom, wps, control_bw, long start, long end, long WIND
         window_end = len(wps)
         window_start = window_end - window_end
 
-    control_wps = control_bw.values(chrom, window_start, window_end, numpy=True)
-    control_background = control_wps[control_wps>0].sum()
-    control_peak = control_bw.values(chrom, start, end, numpy=True).max()
-    control_background = control_background or 1
+    try:
+        control_wps = control_bw.values(chrom, window_start, window_end, numpy=True)
+        control_background = control_wps[control_wps>0].sum()
+        control_peak = control_bw.values(chrom, start, end, numpy=True).max()
+        control_background = control_background or 1
+    except RuntimeError:
+        control_background = 1
 
     test_wps = wps[window_start:window_end]
     test_background = test_wps[test_wps>0].sum()

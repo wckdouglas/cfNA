@@ -84,6 +84,7 @@ cat $ANNOTATION_PATH/tRNA.fa \
     $ANNOTATION_PATH/miRNA_hairpin.fa \
     $ANNOTATION_PATH/vaultRNA.fa  \
     > $ANNOTATION_PATH/smallRNA.fa 
+python smallRNA_bed.py $ANNOTATION_PATH/smallRNA.fa > $ANNOTATION_PATH/smallRNA.bed
 
 cat $ANNOTATION_PATH/tRNA.fa $ANNOTATION_PATH/yRNA.fa > $ANNOTATION_PATH/tRNA_yRNA.fa
 cat $ANNOTATION_PATH/genes.bed | awk '$4~"RNY|Y_RNA"' > $ANNOTATION_PATH/yRNA.bed

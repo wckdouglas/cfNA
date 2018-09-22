@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROJECT_PATH=/scratch/02727/cdw2854/cell_Free_nucleotides/tgirt_map
+PROJECT_PATH=/scratch/02727/cdw2854/cfNA/tgirt_map
 #PROJECT_PATH=$WORK/cdw2854/cell_Free_nucleotides/tgirt_map
 BED_PATH=$PROJECT_PATH/bed_files
 WHITELIST=$REF/hg19/genome/wgEncodeDacMapabilityConsensusExcludable.bed.gz
@@ -31,7 +31,7 @@ do
 			DEMUL=" "
 		else
 			DEMUL="| deduplicate_bed.py --infile - --outfile - --threshold 1 -d '_' --ct 6 "
-            DEMUL=" $DEMUL | poisson_umi_adjustment.py -i - -o - --umi 6 "
+            DEMUL=" $DEMUL | poisson_umi_adjustment.py -i - -o - --umi 6 --prefix $SAMPLENAME "
 		fi
 
 		echo mkdir -p $TMP_FOLDER \
@@ -48,4 +48,4 @@ do
 			\; tabix -f $OUT_NAME \
 			\; rm -rf $TMP_FOLDER
 	done
-done
+done  | egrep -v 'genome-sim'

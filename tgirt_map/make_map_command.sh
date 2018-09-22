@@ -7,7 +7,7 @@ PROJECT_PATH=$SCRATCH/cfNA
 #PROJECT_PATH=$WORK/cdw2854/cell_Free_nucleotides
 
 
-DATA_PATH=$SCRATCH/cell_Free_nucleotides/data
+DATA_PATH=$PROJECT_PATH/data
 RESULT_PATH=$PROJECT_PATH/tgirt_map
 #RESULT_PATH=$PROJECT_PATH/tgirt_map_new_penalty
 REF_PATH=$REF/hg19/genome
@@ -51,22 +51,22 @@ do
     fi
 
 	echo tgirt_count.py -1 $FQ1 -2 $FQ2 \
-		-o $RESULT_PATH \
-        --univec=$UNIVEC \
-		-x $REF_PATH/hg19_genome \
-		-y $REF_PATH/hg19_genome \
-		-b $NEW_GENE_PATH \
-		-s $NEW_GENE_PATH/splicesites.tsv \
-		-t $NEW_GENE_PATH/tRNA_yRNA \
-		-r $NEW_GENE_PATH/rRNA \
-		-e $NEW_GENE_PATH/tRNA_rRNA_yRNA \
+		--outdir $RESULT_PATH \
+        --univec $UNIVEC \
+		--hisat_index $REF_PATH/hg19_genome \
+		--bowtie2_index $REF_PATH/hg19_genome \
+		--bedpath $NEW_GENE_PATH \
+		--splicesite $NEW_GENE_PATH/splicesites.tsv \
+		--rRNA_mt_index $NEW_GENE_PATH/rRNA_mt \
+        --smRNA_index $NEW_GENE_PATH/smallRNA \
 		-p $THREADS $UMI $TTN \
         --trim_aggressive ${polyA} \
 		--repeats $REF_PATH/rmsk.bed.gz \
 		--repeats_index $REF_PATH/repeats/all_rmsk_From_bed \
+        --skip_trim \
 		2\>\&1 \
 		\| tee $RESULT_PATH/log/${SAMPLENAME}.log
-done |  egrep -v  'TEV|TeI|GsI|SRR|[TG]0|200|450|[NO][QN]|try' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
+done |  egrep -v  'TEV|TeI|GsI|SRR|[TG]0|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
 #		--skip_trim  --skip_hisat --skip_premap --skip_bowtie --skip_post_process_bam --skip_remap \
 #		--repeats_index $REF_PATH/rmsk \
 #		--repeats_index $REF_PATH/repeat_mask/all_rmsk_From_bed \

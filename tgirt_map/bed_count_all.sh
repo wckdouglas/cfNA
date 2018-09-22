@@ -9,26 +9,27 @@ for SAMPLE_NAME in $(ls $PROJECT_PATH | egrep '001$')
 do
 	SAMPLE_FOLDER=$PROJECT_PATH/$SAMPLE_NAME
     ALL_ALN_PATH=$SAMPLE_FOLDER/Combined
-    tRNA_PATH=$SAMPLE_FOLDER/tRNA
-    rRNA_PATH=$SAMPLE_FOLDER/rRNA
+    SMALL_RNA_PATH=$SAMPLE_FOLDER/smallRNA
+    rRNA_PATH=$SAMPLE_FOLDER/rRNA_mt
 
     #Count all genes
     for BED in $ALL_ALN_PATH/primary_no_sncRNA_tRNA_rRNA_repeats.bam \
                 $ALL_ALN_PATH/sncRNA.bam \
-                $tRNA_PATH/tRNA_remap.bam \
-                $rRNA_PATH/rRNA_remap.bam \
+                $SMALL_RNA_PATH/aligned.bam \
+                $rRNA_PATH/aligned.bam \
                 $ALL_ALN_PATH/repeats.bam 
     do
         if [[ $BED == *bam ]]
         then
-            BAM_TO_BED=" | bam_to_bed.py -i - --add_cigar  "
+            BAM_TO_BED="| samtools view -bF 4 -F 256 -F 2048 "
+            BAM_TO_BED="$BAM_TO_BED  | bam_to_bed.py -i - --add_cigar --primary "
         else
             BAM_TO_BED=" "
         fi
         
         TEMP_FOLDER=$PROJECT_PATH/${SAMPLE_NAME}.$(basename $BED)_TEMP
         TEMP_BED=${BED%.bam}.bed.gz
-        BASE_COMMAND="mkdir -p $TEMP_FOLDER; cat $BED $BAM_TO_BED\
+        BASE_COMMAND="mkdir -p $TEMP_FOLDER ; cat $BED $BAM_TO_BED\
             | sort -k1,1 -k2,2n -k3,3n -k6,6 --temporary-directory=$TEMP_FOLDER \
             | bgzip \
             > $TEMP_BED "
@@ -63,15 +64,15 @@ do
             then
                 REF_BED=$REF_BED_PATH/sncRNA_x_protein.bed
                 OUT_PATH=$COUNT_PATH/sncRNA
-            elif echo $BED | egrep -q 'tRNA_remap.bam$'
+            elif echo $BED | egrep -q 'smallRNA/aligned.bam$'
             then
-                REF_BED=$REF_BED_PATH/tRNA_yRNA.count.bed
-                OUT_PATH=$COUNT_PATH/tRNA
+                REF_BED=$REF_BED_PATH/smallRNA.bed
+                OUT_PATH=$COUNT_PATH/smallRNA
                 SUM_COMMAND=" |awk  '{print \$2,\$3,\$4,\$5,\$6,\$7, \$1}'   OFS='\t'  "
-            elif echo $BED | egrep -q 'rRNA_remap.bam$'
+            elif echo $BED | egrep -q 'rRNA_mt/aligned.bam$'
             then
-                REF_BED=$REF_BED_PATH/rRNA.bed
-                OUT_PATH=$COUNT_PATH/rRNA
+                REF_BED=$REF_BED_PATH/rRNA_mt.bed
+                OUT_PATH=$COUNT_PATH/rRNA_mt
             elif echo $BED | egrep -q 'repeats.bam$'
             then
                 REF_BED=$REF/hg19/genome/rmsk.bed.gz
@@ -81,7 +82,7 @@ do
 
             if [[ $COUNT_TYPE == "dedup"  ]]
             then
-                if echo $BED | egrep -q 'sncRNA.bam$|tRNA_remap.bam$'
+                if echo $BED | egrep -q 'sncRNA.bam$|aligned.bam$'
                 then
                     ADJUST_UMI=' -t 0 --ct 6|  poisson_umi_adjustment.py -i - -o - --umi 6 '
                 else

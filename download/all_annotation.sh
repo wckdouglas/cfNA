@@ -4,6 +4,14 @@ REF_PATH=$REF/hg19
 GENOME_PATH=$REF_PATH/genome
 GENE_PATH=$REF_PATH/new_genes
 
+
+DASHR=http://dashr2.lisanwanglab.org/downloads/dashr.v2.sncRNA.annotation.hg19.bed
+
+
+curl $DASHR \
+    | python dashr_db.py\
+    >$GENE_PATH/dashr.bed
+
 cat $GENOME_PATH/RBP.bed \
 | grep -v HepG2 \
 | awk '$8 > 2' \
@@ -13,6 +21,7 @@ cat $GENOME_PATH/RBP.bed \
             $GENOME_PATH/rmsk.bed \
             $GENOME_PATH/hg19_refseq.bed \
             $GENE_PATH/piRNA.bed \
+            $GENE_PATH/dashr.bed \
 | sort -k1,1 -k2,2n -k3,3n \
 | bgzip \
 > $GENE_PATH/all_annotation_K562.bed.gz
@@ -25,6 +34,7 @@ cat $GENOME_PATH/RBP.bed \
             $GENOME_PATH/rmsk.bed \
             $GENOME_PATH/hg19_refseq.bed \
             $GENE_PATH/piRNA.bed \
+            $GENE_PATH/dashr.bed \
 | sort -k1,1 -k2,2n -k3,3n \
 | bgzip \
 > $GENE_PATH/all_annotation.bed.gz

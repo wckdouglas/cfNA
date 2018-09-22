@@ -18,6 +18,7 @@ curl $piRNA \
     | awk '{print $0, "piRNA","piRNA"}' OFS='\t' \
     | bgzip \
     > $ANNOTATION_PATH/piRNA.bed.gz
+zcat $ANNOTATION_PATH/piRNA.bed.gz >> $ANNOTATION_PATH/genes.bed
 
 #tRNA
 curl $tRNA_REF > $ANNOTATION_PATH/tRNA.tar.gz
@@ -40,15 +41,9 @@ cat $ANNOTATION_PATH/tRNA/mt_tRNA.fa $ANNOTATION_PATH/tRNA/nucleo_tRNA.fa > $ANN
 
 
 #make rRNA
-python get_rRNA_fa.py > $ANNOTATION_PATH/rRNA.fa
-echo 'gi|23898|emb|X12811.1|  274     394     5S_rRNA 0       +       5S_rRNA 5S_rRNA
-gi|555853|gb|U13369.1|HSU13369  3657    5527    18S_rRNA        0       +       18S_rRNA        18S_rRNA
-gi|555853|gb|U13369.1|HSU13369  6623    6779    5.8S_rRNA       0       +       5.8S_rRNA       5.8S_rRNA
-gi|555853|gb|U13369.1|HSU13369  7935    12969   28S_rRNA        0       +       28S_rRNA        28S_rRNA' \
-| awk '{print $1,$2,$3,$4,$5,$6,"rDNA",$8}' OFS='\t' \
-> $ANNOTATION_PATH/rRNA.bed
-cat $ANNOTATION_PATH/rRNA.bed >> $ANNOTATION_PATH/genes.bed
-zcat $ANNOTATION_PATH/piRNA.bed.gz >> $ANNOTATION_PATH/genes.bed
+python get_rRNA.py $GENOME_PATH/hg19_genome.fa $ANNOTATION_PATH/genes.bed \
+            $ANNOTATION_PATH/rRNA_mt.bed $ANNOTATION_PATH/rRNA_mt.fa 
+cat $ANNOTATION_PATH/rRNA_mt.bed | awk '$7!~/Mt/' >> $ANNOTATION_PATH/genes.bed
 
 python split_bed_for_count.py $ANNOTATION_PATH
 
@@ -61,23 +56,43 @@ cat $ANNOTATION_PATH/tRNA.bed $ANNOTATION_PATH/rmsk_tRNA.bed $REF_PATH/genome/tR
 
 #yRNA
 cat $ANNOTATION_PATH/genes.bed \
-| grep --color=no 'RNY' \
-| bedtools getfasta -bed - -fi $GENOME_PATH/hg19_genome.fa -s -name \
-| seqkit seq -u \
-| seqkit rmdup -w 1000 -s  \
-> $ANNOTATION_PATH/yRNA.fa 
+    | grep --color=no 'RNY' \
+    | awk '$4!~/[pP]/' \
+    | python get_fa.py $GENOME_PATH/hg19_genome.fa $ANNOTATION_PATH/yRNA.bed $ANNOTATION_PATH/yRNA.fa
+
+cat $ANNOTATION_PATH/genes.bed \
+     | awk '$4~/.*7SK$|7SL[0-9]+$/' \
+     | awk '{print $0, $3-$2}' OFS='\t' \
+     | awk  '$NF~/299|330/' \
+     | python get_fa.py $GENOME_PATH/hg19_genome.fa $ANNOTATION_PATH/srp.bed $ANNOTATION_PATH/srp.fa
+
+cat $ANNOTATION_PATH/genes.bed \
+    | grep --color=no 'VTRNA' \
+    | awk '$4!~/[pP]/' \
+    | python get_fa.py $GENOME_PATH/hg19_genome.fa $ANNOTATION_PATH/vaultRNA.bed  $ANNOTATION_PATH/vaultRNA.fa
+
+
+curl ftp://mirbase.org/pub/mirbase/CURRENT/hairpin.fa.gz \
+    | seqkit grep -n -r -p 'Homo sapien' \
+    > $ANNOTATION_PATH/miRNA_hairpin.fa 
+
 
 #make rRNA tRNA
-cat $ANNOTATION_PATH/tRNA.fa $ANNOTATION_PATH/rRNA.fa $ANNOTATION_PATH/yRNA.fa\
-    > $ANNOTATION_PATH/tRNA_rRNA_yRNA.fa 
+cat $ANNOTATION_PATH/tRNA.fa \
+    $ANNOTATION_PATH/yRNA.fa\
+    $ANNOTATION_PATH/srp.fa \
+    $ANNOTATION_PATH/miRNA_hairpin.fa \
+    $ANNOTATION_PATH/vaultRNA.fa  \
+    > $ANNOTATION_PATH/smallRNA.fa 
+python smallRNA_bed.py $ANNOTATION_PATH/smallRNA.fa > $ANNOTATION_PATH/smallRNA.bed
 
 cat $ANNOTATION_PATH/tRNA.fa $ANNOTATION_PATH/yRNA.fa > $ANNOTATION_PATH/tRNA_yRNA.fa
 cat $ANNOTATION_PATH/genes.bed | awk '$4~"RNY|Y_RNA"' > $ANNOTATION_PATH/yRNA.bed
 cat $ANNOTATION_PATH/yRNA.bed $ANNOTATION_PATH/tRNA.bed > $ANNOTATION_PATH/tRNA_yRNA.bed
 
 echo made tRNA_rRNA fasta
-bowtie2-build $ANNOTATION_PATH/tRNA_rRNA_yRNA.fa $ANNOTATION_PATH/tRNA_rRNA_yRNA
-bowtie2-build $ANNOTATION_PATH/rRNA.fa $ANNOTATION_PATH/rRNA
+bowtie2-build $ANNOTATION_PATH/smallRNA.fa $ANNOTATION_PATH/smallRNA
+bowtie2-build $ANNOTATION_PATH/rRNA_mt.fa $ANNOTATION_PATH/rRNA_mt
 bowtie2-build $ANNOTATION_PATH/tRNA.fa $ANNOTATION_PATH/tRNA
 bowtie2-build $ANNOTATION_PATH/yRNA.fa $ANNOTATION_PATH/yRNA
 bowtie2-build $ANNOTATION_PATH/tRNA_yRNA.fa $ANNOTATION_PATH/tRNA_yRNA

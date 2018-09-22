@@ -267,7 +267,7 @@ def make_table(all=None, base_name = 'unfragmented'):
     if not os.path.isdir(annotated_path):
         os.mkdir(annotated_path)
 
-    broad_peaks = glob.glob(peak_path + '/%s*_peaks.broadPeak' %base_name)
+    broad_peaks = glob.glob(peak_path + '/%s.*_peaks.broadPeak' %base_name)
     print('Merging: ', ', '.join(map(os.path.basename, broad_peaks)))
 
     bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks], sort=False) \

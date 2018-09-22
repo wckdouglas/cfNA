@@ -50,8 +50,12 @@ def filter_protein_bam(in_bam, filter_path, label, refflat, threads = 6, return_
             '| bedtools pairtobed -abam - -b {plus_bed} > {minus_anti_bam} '\
             '; bedtools pairtobed -type neither -abam {plus_bam} -b {plus_bed} '\
             '| bedtools pairtobed -abam - -b {minus_bed} > {plus_anti_bam} '\
-            '; sambamba merge -t {threads} /dev/stdout {plus_sense_bam} {minus_sense_bam} | samtools view -bF 1024 -@ {threads}| sambamba sort -t {threads} -o {protein_sense_bam} /dev/stdin'\
-            '; sambamba merge -t {threads} /dev/stdout  {plus_anti_bam} {minus_anti_bam} | samtools view -bF 1024 -@ {threads} | sambamba sort -t {threads} -o {protein_anti_bam} /dev/stdin '\
+            '; sambamba merge -t {threads} /dev/stdout {plus_sense_bam} {minus_sense_bam} '\
+            '| samtools view -bF 1024 -@ {threads} '\
+            '| sambamba sort -t {threads} -o {protein_sense_bam} /dev/stdin'\
+            '; sambamba merge -t {threads} /dev/stdout  {plus_anti_bam} {minus_anti_bam} '\
+            '| samtools view -bF 1024 -@ {threads} '\
+            '| sambamba sort -t {threads} -o {protein_anti_bam} /dev/stdin '\
             .format(threads = threads,
                     in_bam = in_bam,
                     name_sorted = name_sorted_bam,

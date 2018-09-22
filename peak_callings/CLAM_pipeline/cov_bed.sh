@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map_old/CLAM
+PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/CLAM
 BED_PATH=$PROJECT_PATH/BED_files
 BW_PATH=$PROJECT_PATH/bigWig_files
 GENOME_REF=$REF/hg19/genome/hg19_genome.fa

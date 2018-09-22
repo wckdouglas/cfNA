@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CLAM_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map_old/CLAM
+CLAM_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/CLAM
 BIGWIG_PATH=$CLAM_PATH/bigWig_files
 OUT_PATH=$CLAM_PATH/peaks
 mkdir -p $OUT_PATH

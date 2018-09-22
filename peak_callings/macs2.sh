@@ -1,8 +1,8 @@
 #!/bin/bash
 
-BED_PATH=/stor/work/Lambowitz/cdw2854/cfNA/merged_bed
+BED_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bed
 STRANDED_BED_PATH=$BED_PATH/stranded
-OUT_PATH=$BED_PATH/MACS2/narrow
+OUT_PATH=$BED_PATH/MACS2
 mkdir -p $OUT_PATH
 
 for SAMPLE in unfragmented all exonuclease unfragmented_1 unfragmented_2

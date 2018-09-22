@@ -1,3 +1,4 @@
+
 from __future__ import division, print_function
 from builtins import range, zip
 import numpy as np
@@ -11,6 +12,35 @@ import cython
 from cpython cimport bool
 import six
 import pyBigWig as pbw
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef double compute_zscore(double background_sum, double window_p, double observed):
+    '''
+    Calculate binomial z-score
+
+    mu = np
+    sigma = sqrt(np * (1-p) )
+
+    z_score = (x - mu)/sigma
+
+    p: ratio between small window and large window (window_p)
+    n: number of tags to distribute (background_sum)
+    x: observed tag at small window
+
+    '''
+    cdef:
+        double expected, sigma, z_score
+
+    if window_p == 1.0 or window_p == 0.0:
+        z_score = 0.0
+    else:
+        expected = background_sum * window_p
+        sigma = sqrt(expected * (1-window_p))
+        z_score = (observed - expected) / sigma 
+    return z_score
+
 
 
 @cython.boundscheck(False)
@@ -46,22 +76,20 @@ def cal_zscore(wps, control_bw, long start, long end, long WINDOW_SIZE = 50000):
     large_window_wps_sum = window_wps[window_wps>0].sum()
     peak_wps = wps[start:end].max() 
 
-    expected = large_window_wps_sum * p
-    
-    if expected > 0:
-        sigma = sqrt(expected * (1-p))
-        z_score = (peak_wps - expected) / sigma 
-    else:
-        z_score = 0.0
+    z_score = compute_zscore(large_window_wps_sum, p, peak_wps)
     return z_score, peak_wps
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cal_binomial_control(chrom, wps, control_bw, long start, long end, long WINDOW_SIZE = 50000):
+def cal_binomial_control(chrom, wps, control_bw, long peak_start, long peak_end, long WINDOW_SIZE = 50000):
     '''
     If control file exist, use control distribution as background and use binomial
     distribution to look at if the peak is hotspot
+
+
+    Under-estimating z-score, currently summing coverage signal over the whole window, which
+    is much larger number than read counts.
     '''
     cdef:
         long center, window_start, window_end
@@ -69,7 +97,7 @@ def cal_binomial_control(chrom, wps, control_bw, long start, long end, long WIND
         double p, expected, sigma, z_score
         long  HALF_WINDOW_SIZE = int(WINDOW_SIZE/2)
 
-    center = long((start + end) / 2)
+    center = long((peak_start + peak_end) / 2)
     window_start = center - HALF_WINDOW_SIZE
     window_end = center + HALF_WINDOW_SIZE
 
@@ -79,28 +107,20 @@ def cal_binomial_control(chrom, wps, control_bw, long start, long end, long WIND
     
     elif window_end > len(wps):
         window_end = len(wps)
-        window_start = window_end - window_end
+        window_start = window_end - WINDOW_SIZE
 
-    try:
-        control_wps = control_bw.values(chrom, window_start, window_end, numpy=True)
-        control_background = control_wps[control_wps>0].sum()
-        control_peak = control_bw.values(chrom, start, end, numpy=True).max()
-        control_background = control_background or 1
-    except RuntimeError:
-        control_background = 1
+    control_wps = control_bw.values(chrom, window_start, window_end, numpy=True)
+    control_background = control_wps[control_wps>0].sum()
+    control_peak = control_bw.values(chrom, peak_start, peak_end, numpy=True).max()
+    control_background = control_background or 1
 
     test_wps = wps[window_start:window_end]
     test_background = test_wps[test_wps>0].sum()
-    test_peak = wps[start:end].max() 
+    test_peak = wps[peak_start:peak_end].max() 
     
     p = control_peak / control_background
-    expected = test_background * p
     
-    if expected > 0:
-        sigma = sqrt(expected * (1-p))
-        z_score = (test_peak - expected) / sigma 
-    else:
-        z_score = 0.0
+    z_score = compute_zscore(test_background,  p, test_peak)
     return z_score, test_peak
 
 
@@ -271,7 +291,7 @@ cpdef int write_short_peaks(wps, control_bigwig, out_bed, chromosome, strand, bo
         if 1000 >= peak_width >= peak_width_threshold:
             peak_name = '%s_peak%i' %(chromosome, peak_count)
             
-            scores = [zscore_calculator(peak_start, peak_end) for bg in [1000, 5000, 10000]]
+            scores = [zscore_calculator(peak_start, peak_end , WINDOW_SIZE=bg) for bg in [1000, 5000, 10000]]
             z_scores, peak_scores = zip(*scores)
             peak_score = peak_scores[0]
             z_score = max(z_scores)

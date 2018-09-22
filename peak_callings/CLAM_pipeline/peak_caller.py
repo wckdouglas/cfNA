@@ -25,7 +25,13 @@ def get_opt():
                                      'output peak coordinates in  bed file')
     parser.add_argument('-i', '--in_bigwig', help = 'Input bigWig', required=True)
     parser.add_argument('-c', '--control_bigwig', help = 'Control bigWig')
-    parser.add_argument('-o', '--out_bed', help = 'Output prefix', required=True)
+    parser.add_argument('-o', '--out_bed', 
+                        help = """
+                                Peak output bed file (8 columns)
+                                1. chrom\n2. start\n3. end\n4. peakname\n5. max z-score (1000,5000,10000bp)
+                                6. peak strand\n7.peak center\n8. max pileup at peak
+                               """,
+                        required=True)
     parser.add_argument('-s','--strand', help='Which strand?, all peak would have the same strand',
                         choices = ['forward','reverse'], required=True)
     parser.add_argument('--two_pass', help='2 pass peak calling, first pass will be very stringent', 
@@ -77,8 +83,6 @@ def get_chroms(bw_file):
     bw = pbw.open(bw_file)
     chromosomes_dict = bw.chroms()
     bw.close()
-    regular_chromosome = re.compile('chr[0-9]+$|chr[MXY]$')
-    chromosome_dict = {key:value for key,value in chromosomes_dict.items() if regular_chromosome.search(key)}
     return chromosomes_dict
 
 def main():
@@ -90,6 +94,8 @@ def main():
     two_pass = args.two_pass
 
     chromosome_dict = get_chroms(bigwig_file)
+    regular_chromosome = re.compile('chr[0-9]+$|chr[XY]$')
+    chromosome_dict = {key:value for key,value in chromosome_dict.items() if regular_chromosome.search(key)}
     peak_func = partial(process_bigwig, args.out_bed, bigwig_file, bigwig_control, strand, two_pass) 
 
     p = Pool(args.threads)

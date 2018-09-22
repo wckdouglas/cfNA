@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map_old/CLAM
+PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/CLAM
 BW_PATH=$PROJECT_PATH/bigWig_files
 BG_PATH=$PROJECT_PATH/bedgraph_files
 mkdir -p $BG_PATH

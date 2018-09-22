@@ -31,7 +31,6 @@ def output_merge_bed(sample_df, outname):
 
 
 
-project_path = '/scratch/02727/cdw2854/cell_Free_nucleotides/tgirt_map'
 project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map'
 project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 in_path = project_path + '/bed_files'

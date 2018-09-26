@@ -10,16 +10,15 @@ from multiprocessing import Pool
 
 
 def read_count_file(file_count, samplename, count_file, count_type, strand, dedup, 
-                    tRNA=False, repeat=False, sncRNA = False):
+                    smallRNA=False, rRNA_mt=False, repeat=False, sncRNA = False):
 #    print(count_file)
-    if tRNA:
+    if smallRNA or rRNA_mt:
         count_mat = pd.read_table(count_file, 
-                                usecols = [0, 6],
-                                names = ['gene_name', 'read_count'],
-                                engine='python',
-                                ) \
-            .assign(gene_id = lambda d: d.gene_name) \
-            .assign(gene_type = lambda d: np.where(d.gene_id.str.contains('^RNY'),'Y_RNA','tRNA'))
+                                usecols = [0, 3, 6, 8],
+                                names = ['gene_name', 'gene_id','gene_type', 'read_count'],
+                                engine='python')  \
+                .assign(gene_type = lambda d: np.where(d.gene_id.str.contains('_rRNA'), 'rRNA',
+                                                        np.where(d.gene_type.str.contains('tRNA'), 'tRNA', d.gene_type)))
     else:
         count_mat = pd.read_table(count_file, usecols=[3,6,7,8],
                   names=['gene_name','gene_type','gene_id','read_count'],
@@ -44,9 +43,10 @@ def read_count_file(file_count, samplename, count_file, count_type, strand, dedu
             .assign(dedup = dedup) 
 
 def read_function(args):
-    file_count, samplename, count_file, count_type, strand, dedup, tRNA, repeat, sncRNA = args
+    file_count, samplename, count_file, count_type, strand, dedup, smallRNA, rRNA_mt, repeat, sncRNA = args
+    print('Running %s' %count_file)
     return read_count_file(file_count, samplename, count_file, count_type, strand, dedup, 
-                           tRNA=tRNA, repeat=repeat, sncRNA = sncRNA)
+                           smallRNA=smallRNA, rRNA_mt=rRNA_mt, repeat=repeat, sncRNA = sncRNA)
 
 count_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts'
 count_types = os.listdir(count_path)
@@ -67,21 +67,22 @@ print(sample_df.head())
 print ('Combining %i files' %sample_df.shape[0])
 iterable = []
 for i, row in sample_df.iterrows():
-    tRNA = row['count_type'] == 'tRNA'
+    smallRNA = row['count_type'] == 'smallRNA'
+    rRNA_mt = row['count_type'] == 'rRNA_mt'
     repeat = row['count_type'] == 'repeats'
-    sncRNA = row['count_type'] == "sncRNA"
+    sncRNA = row['count_type'] == "sncRNA" 
     iterable.append((i, row['samplename'], row['count_file'],
                     row['count_type'], row['strand'], row['dedup'],
-                    tRNA, repeat, sncRNA))
+                    smallRNA, rRNA_mt, repeat, sncRNA))
 
 run_concat = True
 long_tablename = count_path + '/all_counts.tsv'
 spreaded_tablename = count_path + '/spreaded_all_counts.tsv'
 if run_concat:
-#    p = Pool(24)
+    #p = Pool(24)
     dfs = map(read_function, iterable)
-#    p.close()
-#    p.join()
+    #p.close()
+    #p.join()
 
     concat_df = pd.concat(dfs, axis=0, sort=True)  \
             .groupby(['samplename','strand','gene_type','gene_name','gene_id', 'dedup'], as_index=False)\

@@ -27,31 +27,36 @@ do
             BAM_TO_BED=" "
         fi
         
-        TEMP_FOLDER=$PROJECT_PATH/${SAMPLE_NAME}.$(basename $BED)_TEMP
+        TEMP_FOLDER=$PROJECT_PATH/${SAMPLE_NAME}.$(basename $(dirname $BED)).$(basename $BED)_TEMP
         TEMP_BED=${BED%.bam}.bed.gz
         BASE_COMMAND="mkdir -p $TEMP_FOLDER ; cat $BED $BAM_TO_BED\
             | sort -k1,1 -k2,2n -k3,3n -k6,6 --temporary-directory=$TEMP_FOLDER \
             | bgzip \
             > $TEMP_BED "
-        COMMAND=$BASE_COMMAND
+        COMMAND=""
 
         for COUNT_TYPE in all dedup
         do
             if [[ $COUNT_TYPE == "dedup" ]]
             then
                 DEDUP_COMMAND=" | deduplicate_bed.py -i - -d '_' -f 0  "
-                COUNT_COMMAND=" | awk '{print \$7,\$8,\$9,\$10,\$11,\$12,\$13,\$14}' OFS='\t'"
-                if echo $BED | egrep -q 'tRNA_remap.bam$'
+                COUNT_COMMAND=" | cut -f7-14 "
+                if echo $BED | egrep -q 'sncRNA.bam$|aligned.bam$'
                 then
-                    COUNT_COMMAND="| awk '{print \$7,\$8,\$9,\$10,\$11,\$12}' OFS='\t'"
+                    COUNT_COMMAND=" | cut -f7-14 "
+                fi
+
+                if echo $BED | egrep -q 'genome-sim'
+                then
+                    DEDUP_COMMAND="| sort -k1,1 -k2,2n -k3,3n -k6,6n -u "
                 fi
 
             else
                 DEDUP_COMMAND=" "
-                COUNT_COMMAND=" | awk '{print \$8,\$9,\$10,\$11,\$12,\$13,\$14,\$15}' OFS='\t'"
-                if echo $BED | egrep -q 'tRNA_remap.bam$'
+                COUNT_COMMAND=" | cut -f8-15 "
+                if echo $BED | egrep -q 'smallRNA/aligned.bam$|rRNA_mt/aligned.bam$'
                 then
-                    COUNT_COMMAND="| awk '{print \$8,\$9,\$10,\$11,\$12, \$13}' OFS='\t'"
+                    COUNT_COMMAND="| cut-f8-13 "
                 fi
             fi
         
@@ -68,7 +73,6 @@ do
             then
                 REF_BED=$REF_BED_PATH/smallRNA.bed
                 OUT_PATH=$COUNT_PATH/smallRNA
-                SUM_COMMAND=" |awk  '{print \$2,\$3,\$4,\$5,\$6,\$7, \$1}'   OFS='\t'  "
             elif echo $BED | egrep -q 'rRNA_mt/aligned.bam$'
             then
                 REF_BED=$REF_BED_PATH/rRNA_mt.bed
@@ -80,11 +84,16 @@ do
             fi
             mkdir -p $OUT_PATH
 
+            # UMI adjust
             if [[ $COUNT_TYPE == "dedup"  ]]
             then
-                if echo $BED | egrep -q 'sncRNA.bam$|aligned.bam$'
+                if echo $BED | egrep -q 'sncRNA.bam$|aligned.bam$' 
                 then
-                    ADJUST_UMI=' -t 0 --ct 6|  poisson_umi_adjustment.py -i - -o - --umi 6 '
+                    ADJUST_UMI=' -t 0 --ct 6 |  poisson_umi_adjustment.py -i - -o - --umi 6 '
+                    if echo $BED | egrep -q 'genome-sim'
+                    then
+                        ADJUST_UMI=' '
+                    fi
                 else
                     ADJUST_UMI=' '
                 fi
@@ -103,17 +112,17 @@ do
                 fi
                 COMMAND="$COMMAND; zcat $TEMP_BED \
                     $DEDUP_COMMAND $ADJUST_UMI \
-                    | bedtools intersect -a - -b $REF_BED -f 0.1 $STRANDENESS -wao \
+                    | bedtools intersect -a - -b $REF_BED $STRANDENESS -wao \
                     | bgzip \
                     | tee ${BED%.bam}.${COUNT_TYPE}.${STRAND}.intersected.bed.gz  \
                     | zcat \
                     $COUNT_COMMAND \
-                    | sort \
+                    | sort --temporary-directory=$TEMP_FOLDER \
                     | uniq -c \
                      $SUM_COMMAND \
                     > $OUT_PATH/${SAMPLE_NAME}.${COUNT_TYPE}.${STRAND}.counts"
             done
         done
-        echo "$COMMAND; rm -rf $TEMP_FOLDER"
+        echo "$BASE_COMMAND $COMMAND; rm -rf $TEMP_FOLDER"
     done
 done | egrep 'Q[Cc][Ff]|genome'

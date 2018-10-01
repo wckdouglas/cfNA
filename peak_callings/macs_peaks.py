@@ -122,14 +122,18 @@ def process_broad(broad_peak, bed_path):
             peak_chrom, peak_start, peak_end = itemgetter(0,1,2)(peak_fields)
             peak_start, peak_end = int(peak_start), int(peak_end)
             coverage = np.zeros(peak_end - peak_start)
+            sample_count = set()
             for fragments in tab.fetch(peak_chrom, peak_start, peak_end):
-                frag_start, frag_end = itemgetter(1,2)(fragments.split('\t'))
+                frag_start, frag_end, frag_name = itemgetter(1,2,3)(fragments.split('\t'))
                 frag_start, frag_end = int(frag_start), int(frag_end)
                 frag_start = max(frag_start, peak_start)
                 frag_end = min(frag_end, peak_end)
                 coverage[(frag_start-peak_start):(frag_end-peak_start)] += 1
+                sample_count.add(frag_name.split(':')[0])
             pileup = coverage.max()
+            sample_count = len(sample_count)
             peak_fields.append(pileup)
+            peak_fields.append(sample_count)
             rows.append(peak_fields)
     return pd.DataFrame(rows)
 
@@ -195,7 +199,7 @@ def resolve_annotation(inbed):
         .groupby(['chrom','start','end',
                     'peakname','score','is_sense', 
                     'fc','log10p',
-                    'log10q','pileup'])\
+                    'log10q','pileup','sample_count'])\
         .apply(select_annotation, meta={'gname':'f8',
                                         'gtype':'f8',
                                         'strand':'f8',
@@ -207,7 +211,7 @@ def resolve_annotation(inbed):
         .drop_duplicates() \
         .sort_values('log10q', ascending=False)  \
         .assign(gtype = lambda d: d.gtype.map(merge_type)) \
-        .drop('level_10', axis=1)  \
+        .drop('level_11', axis=1)  \
         .pipe(retype_junctions)
     
     sense_df = strand_df(df, strand = 'sense')
@@ -225,9 +229,9 @@ def annotate_peaks(annotation_file, bed):
         .intersect(wao=True, b=annotation_file) \
         .to_dataframe(names = ['chrom','start','end',
                                 'peakname','score','strand','fc',
-                                'log10p','log10q','pileup','gstart','gend',
+                                'log10p','log10q','pileup','sample_count','gstart','gend',
                                 'gname','gstrand','gtype','gid','overlapped'],
-                      usecols = [0,1,2,3,4,5,6,7,8,9,11,12, 13, 15, 16, 17, 18]) \
+                      usecols = [0,1,2,3,4,5,6,7,8,9, 10, 12,13, 14, 16, 17, 18, 19]) \
         .drop_duplicates() \
         .assign(strand = lambda d: np.where(d.peakname.str.contains('fwd'), '+','-')) \
         .assign(ref_overlap = lambda d: d.overlapped / (d.gend - d.gstart)) \

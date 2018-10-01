@@ -5,16 +5,20 @@ import glob
 import re
 import pandas as pd
 
-def filter_bed():
+def filter_bed(run_filter=True):
     REF = os.environ['REF']
-    filter_command = 'bedtools intersect -a - -b {REF}/hg19/new_genes/tRNA_yRNA.bed -v '  \
-            '| bedtools intersect -a - -b {REF}/hg19/genome/tRNA.bed -v ' \
-            '| bedtools intersect -a - -b {REF}/hg19/new_genes/rmsk_tRNA.bed -v ' \
-            '| bedtools intersect -a - -b {REF}/hg19/new_genes/rmsk_rRNA.bed -v '\
-            '| bedtools intersect -a - -b {REF}/hg19/new_genes/rmsk_yRNA.bed -v '\
-            '| bedtools intersect -a - -b {REF}/hg19/new_genes/refseq_rRNA.bed -v '\
-            '| bedtools intersect -a - -b {REF}/hg19/new_genes/rRNA_for_bam_filter.bed -v '\
-            .format(REF=REF)
+    if run_filter:
+        filter_command = "| awk '$3-$2 > 10 && $3-$2 < 200' " +\
+                '| bedtools intersect -a - -b {REF}/hg19/new_genes/tRNA_yRNA.bed -v '  \
+                '| bedtools intersect -a - -b {REF}/hg19/genome/tRNA.bed -v ' \
+                '| bedtools intersect -a - -b {REF}/hg19/new_genes/rmsk_tRNA.bed -v ' \
+                '| bedtools intersect -a - -b {REF}/hg19/new_genes/rmsk_rRNA.bed -v '\
+                '| bedtools intersect -a - -b {REF}/hg19/new_genes/rmsk_yRNA.bed -v '\
+                '| bedtools intersect -a - -b {REF}/hg19/new_genes/refseq_rRNA.bed -v '\
+                '| bedtools intersect -a - -b {REF}/hg19/new_genes/rRNA_for_bam_filter.bed -v '\
+                .format(REF=REF)
+    else:
+        filter_command =' '
     return filter_command
 
 
@@ -24,19 +28,24 @@ def output_merge_bed(bed_files, outname):
     bed: full path to bed file
 
     '''
-    command = 'zcat {in_beds} | {filter_command}' \
+    if re.search('alkaline', outname):
+        filter_command = filter_bed(run_filter=False)
+    else:
+        filter_command = filter_bed(run_filter=True)
+    command = ' zcat {in_beds} '\
+            ' {filter_command}' \
             '| sort -k1,1 -k2,2n -k3,3n '\
             '| bgzip '\
             '> {out_bed}'\
             '; tabix -p bed -f {out_bed}'\
             .format(in_beds = ' '.join(bed_files),
-                    filter_command = filter_bed(),
+                    filter_command = filter_command,
                     out_bed = outname)
     print (command)
 
 
 
-project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
+project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map_30'
 out_path = project_path + '/CLAM/BED_files'
 sample_folder = glob.glob(project_path + '/*001') 
 sample_folder.sort()

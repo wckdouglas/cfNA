@@ -4,9 +4,19 @@ GENOME_PATH=$REF_PATH/genome
 GTF_LINK=ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_28/GRCh37_mapping/gencode.v28lift37.annotation.gtf.gz
 tRNA_REF=http://gtrnadb.ucsc.edu/genomes/eukaryota/Hsapi19/hg19-tRNAs.tar.gz
 piRNA=http://www.regulatoryrna.org/database/piRNA/download/archive/v1.0/bed/piR_hg19_v1.0.bed.gz
+MIR_LINK=ftp://mirbase.org/pub/mirbase/CURRENT/hairpin_high_conf.fa.gz
 
 #annotationes
 curl $GTF_LINK |zcat > $ANNOTATION_PATH/genes.gtf
+cat $ANNOTATION_PATH/genes.gtf \
+    | grep 'protein_coding' --color=no\
+    | gtfToGenePred /dev/stdin /dev/stdout \
+    | genePredToBed > $ANNOTATION_PATH/protein_coding.bed12
+cat $ANNOTATION_PATH/genes.gtf \
+    | grep 'protein_coding' --color=no \
+    | awk '$3=="exon"' \
+    | gtf2bed \
+    > $ANNOTATION_PATH/exons.bed
 hisat2_extract_splice_sites.py $ANNOTATION_PATH/genes.gtf > $ANNOTATION_PATH/splicesites.tsv
 python gtf_to_bed.py $ANNOTATION_PATH/genes.gtf > $ANNOTATION_PATH/genes.bed
 
@@ -72,8 +82,9 @@ cat $ANNOTATION_PATH/genes.bed \
     | python get_fa.py $GENOME_PATH/hg19_genome.fa $ANNOTATION_PATH/vaultRNA.bed  $ANNOTATION_PATH/vaultRNA.fa
 
 
-curl ftp://mirbase.org/pub/mirbase/CURRENT/hairpin.fa.gz \
+curl $MIR_LINK \
     | seqkit grep -n -r -p 'Homo sapien' \
+    | seqkit replace -s -p 'U' -r 'T' \
     > $ANNOTATION_PATH/miRNA_hairpin.fa 
 
 
@@ -91,8 +102,5 @@ cat $ANNOTATION_PATH/genes.bed | awk '$4~"RNY|Y_RNA"' > $ANNOTATION_PATH/yRNA.be
 cat $ANNOTATION_PATH/yRNA.bed $ANNOTATION_PATH/tRNA.bed > $ANNOTATION_PATH/tRNA_yRNA.bed
 
 echo made tRNA_rRNA fasta
-bowtie2-build $ANNOTATION_PATH/smallRNA.fa $ANNOTATION_PATH/smallRNA
-bowtie2-build $ANNOTATION_PATH/rRNA_mt.fa $ANNOTATION_PATH/rRNA_mt
-bowtie2-build $ANNOTATION_PATH/tRNA.fa $ANNOTATION_PATH/tRNA
-bowtie2-build $ANNOTATION_PATH/yRNA.fa $ANNOTATION_PATH/yRNA
-bowtie2-build $ANNOTATION_PATH/tRNA_yRNA.fa $ANNOTATION_PATH/tRNA_yRNA
+hisat2-build $ANNOTATION_PATH/smallRNA.fa $ANNOTATION_PATH/smallRNA
+hisat2-build $ANNOTATION_PATH/rRNA_mt.fa $ANNOTATION_PATH/rRNA_mt

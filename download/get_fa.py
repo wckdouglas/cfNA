@@ -7,8 +7,6 @@ import re
 import fileinput
 import sys
 
-if len(sys.argv) != 4:
-    sys.exit('[usage] python %s <genome_fa> <out_bed_file> <out_fasta>' %sys.argv[0] )
 
 def get_sequences(pysam_genome_fa, bed_line, out_bed_handle, out_fa_handle):
     fields = bed_line.strip().split('\t')
@@ -46,4 +44,6 @@ def main():
 
 
 if __name__=='__main__':
+    if len(sys.argv) != 4:
+        sys.exit('[usage] python %s <genome_fa> <out_bed_file> <out_fasta>' %sys.argv[0] )
     main()

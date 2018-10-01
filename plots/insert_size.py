@@ -3,7 +3,7 @@
 import glob
 import os
 import pandas as pd
-from collections import defaultdict
+from collections import defaultdict, Counter
 from functools import reduce
 from multiprocessing import Pool
 import re
@@ -18,7 +18,7 @@ def add_dict(a, b):
 
 
 def bed_fragments(bed_file):
-    size_dict = defaultdict(int)
+    size_dict = Counter()
     
     with xopen(bed_file, 'r') as bed:
         for line in bed:
@@ -28,9 +28,8 @@ def bed_fragments(bed_file):
     return size_dict
 
 def sample_fragments(sample_folder):
-    tRNA_bed_file = sample_folder + '/tRNA/tRNA_remap.bed.gz'
-    rRNA_bed_file = sample_folder + '/rRNA/rRNA_remap.bed.gz'
-    trRNA_bed_file = sample_folder + '/rRNA_tRNA_premap/tRNA_rRNA.bed.gz'
+    tRNA_bed_file = sample_folder + '/smallRNA/aligned.dedup.bed.gz'
+    rRNA_bed_file = sample_folder + '/rRNA_mt/aligned.dedup.bed.gz'
     samplename = os.path.basename(sample_folder)
 
 
@@ -39,9 +38,9 @@ def sample_fragments(sample_folder):
 
     all_bed_file = bed_folder + '/' + samplename + '.bed.gz'
 
-    size_dict = bed_fragments(trRNA_bed_file)
-    #size_dict = add_dict(size_dict, bed_fragments(rRNA_bed_file))
-    size_dict = add_dict(size_dict, bed_fragments(all_bed_file))
+    size_dict = bed_fragments(tRNA_bed_file)
+    size_dict += bed_fragments(rRNA_bed_file)
+    size_dict += bed_fragments(all_bed_file)
     return size_dict
 
 def get_isize(samples, insert_size_path, args): 

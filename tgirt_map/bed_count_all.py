@@ -8,6 +8,7 @@ import re
 from functools import partial
 from multiprocessing import Pool
 from collections import deque
+import time
 
 PROJECT_PATH='/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 COUNT_PATH = PROJECT_PATH + '/Counts/all_counts'
@@ -52,26 +53,40 @@ def get_parameter(bam_tag):
         os.mkdir(OUT_PATH)
     return REF_BED, OUT_PATH
 
+
+def get_date_created(f):
+    s = time.time() - os.path.getmtime(f)
+    hr = s/3600
+    return hr
+
+
 def strand_count(TEMP_BED, REF_BED, TEMP_FOLDER, OUT_PATH, samplename, dedup_label = 'all'):
 
     strand_count_command = ''
+
+    field_chooser = '| cut -f7- ' if dedup_label == 'dedup' else '| cut -f8-'
+
     for strand in ['sense','antisense']:
         STRAND = '-s' if strand == 'sense' else '-S'
         TEMP_INTERSECTED = TEMP_BED.replace('.bed.gz', '.%s.intersected.bed.gz' %strand ) 
         OUT_COUNT_FILE = OUT_PATH + '/' + samplename + '.' +  dedup_label + '.' + strand + '.counts'
 
-        strand_count_command += "; bedtools intersect -a {TEMP_BED} -b {REF_BED} -wao {STRAND} "\
-                                "| bgzip | tee  {TEMP_INTERSECTED} | zcat " \
-                                "| cut -f7- " \
-                                "| sort --temporary-directory={TEMP_FOLDER} "\
-                                "| uniq -c " \
-                                .format(TEMP_BED = TEMP_BED,
-                                        REF_BED = REF_BED,
-                                        TEMP_INTERSECTED = TEMP_INTERSECTED,
-                                        TEMP_FOLDER = TEMP_FOLDER,
-                                        STRAND = STRAND) 
-        strand_count_command += "| awk {'print $2,$3,$4,$5,$6,$7,$8,$9, $1 '} OFS='\\t'"\
-                                "> " + OUT_COUNT_FILE
+        if not os.path.isfile(OUT_COUNT_FILE) or get_date_created(OUT_COUNT_FILE) > 24:
+            strand_count_command += "; bedtools intersect -a {TEMP_BED} -b {REF_BED} -wao {STRAND} "\
+                                    "| bgzip | tee  {TEMP_INTERSECTED} | zcat " \
+                                    " {field_chooser} " \
+                                    "| sort --temporary-directory={TEMP_FOLDER} "\
+                                    "| uniq -c " \
+                                    .format(TEMP_BED = TEMP_BED,
+                                            REF_BED = REF_BED,
+                                            TEMP_INTERSECTED = TEMP_INTERSECTED,
+                                            TEMP_FOLDER = TEMP_FOLDER,
+                                            field_chooser = field_chooser,
+                                            STRAND = STRAND) 
+            strand_count_command += "| awk {'print $2,$3,$4,$5,$6,$7,$8,$9, $1 '} OFS='\\t'"\
+                                    "> " + OUT_COUNT_FILE
+        else:
+            print('Using old file: %s' %OUT_COUNT_FILE)
     return strand_count_command
 
 
@@ -96,7 +111,7 @@ def process_bam(bam_tag, bam, samplename):
                                         OUT_PATH, samplename, 
                                         dedup_label = 'dedup')
     
-    assert(os.stat(bam).st_size>0)
+    assert os.stat(bam).st_size>0 , bam
     BASE_COMMAND = " mkdir -p {TEMP_FOLDER} ;"\
             "cat {BAM} "\
             "| samtools view -bF 4 -F 256 -F 2048 "\
@@ -140,6 +155,7 @@ def main():
         os.makedirs(COUNT_PATH)
     
     sample_folders = glob.glob(PROJECT_PATH + '/*001')
+    sample_folders = filter(lambda x: 'try' not in x, sample_folders)
     COUNT_FUNCTION = partial(process_sample, COUNT_PATH)
 
     debug = True

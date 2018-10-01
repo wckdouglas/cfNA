@@ -15,6 +15,7 @@ def getopt():
     parser = argparse.ArgumentParser(description = 'adding tag to bam')
     parser.add_argument('-i', '--inbed', required=True, help = 'input bed file')
     parser.add_argument('-o','--outbed', default = '-', help = 'output bed file')
+    parser.add_argument('-p','--prefix', default = None, help = 'prefix to read name')
     args = parser.parse_args()
     return args
 
@@ -30,6 +31,10 @@ def main():
 
     in_bed = xopen(args.inbed) if args.inbed != "-" else sys.stdin
     out_bed = xopen(args.outbed, 'w') if args.outbed != "-" else sys.stdout
+    if args.prefix:
+        read_template = '{chrom}\t{start}\t{end}\t%s_{umi}\t{pseudo_count}\t{strand}' %args.prefix
+    else:
+        read_template = '{chrom}\t{start}\t{end}\t{umi}\t{pseudo_count}\t{strand}' 
     for (chrom, start, end, strand), lines in groupby(in_bed, group_fragments):
         umis = defaultdict(list)
         for line in lines:
@@ -40,7 +45,7 @@ def main():
     
 
         for umi, pseudo_counts in six.iteritems(umis):
-            print('{chrom}\t{start}\t{end}\t{umi}\t{pseudo_count}\t{strand}'\
+            print(read_template \
                 .format(chrom = chrom,
                         start = start,
                         end = end,

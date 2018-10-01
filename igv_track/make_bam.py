@@ -30,7 +30,7 @@ sample_names = ['unfragmented','fragmented',
 
 for regex, label in zip(sample_regexes,sample_names):
     samples = filter(lambda x: re.search(regex, x), folders)
-    if 'poly' in label:
+    if re.search('poly|genome', label):
         bam = 'primary.bam'
     else:
         bam = 'primary.marked_duplicate.bam'

@@ -19,6 +19,7 @@ do
             --keep-dup all \
             --gsize hs \
             --broad \
+            -B --SPMR \
             --qvalue 0.05
     done
 done

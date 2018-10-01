@@ -167,6 +167,11 @@ def run_qc(refflat, outpath, outpath_dedup, sample_path):
     run_rna_seq_picard(refflat, outpath, sorted_bam_file, samplename)
     run_rna_seq_picard(refflat, outpath, dedup_bam, samplename + '_deduplicated')
 
+    bam_file = sample_path + '/smallRNA/aligned.bam'
+    sorted_bam_file = bam_file.replace('.bam','sorted.bam')
+    dedup_bam = sorted_bam_file.replace('bam','.deduplicated.bam')
+    run_dedup(bam_file, sorted_bam_file, dedup_bam, samplename, dry=False)
+
 
 def main():
     refflat = '/stor/work/Lambowitz/ref/hg19/new_genes/proteins.refflat'
@@ -178,8 +183,10 @@ def main():
     if not os.path.isdir(outpath_dedup):
         os.mkdir(outpath_dedup)
 
-    samples = glob.glob(project_path + '/Q*001')
+    samples = glob.glob(project_path + '/*001')
+    samples = filter(lambda x: re.search('Q[cC][fF]|genome', x), samples)
     samples = filter(lambda x: not re.search('L[12E]',x), samples)
+    samples = filter(lambda x: not re.search('genome-sim',x), samples)
     picard_func = partial(run_qc, refflat, outpath, outpath_dedup)
     p = Pool(24)
     p.map(picard_func, samples)

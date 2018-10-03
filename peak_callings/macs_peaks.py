@@ -224,6 +224,8 @@ def annotate_peaks(annotation_file, bed):
     '''
     bedtools intersect annotation bed file and macs2 broad peaks
     '''
+    broad_peak_cols = [0,1,2,3,4,5,6,7,8,9, 10, 12,13, 14, 16, 17, 18, 19]
+    narrow_peak_cols = [0,1,2,3,4,5,6,7,8, 10, 11, 13, 14, 15, 17, 18, 19, 20]
     inbed = BedTool()\
         .from_dataframe(bed)\
         .intersect(wao=True, b=annotation_file) \
@@ -231,7 +233,7 @@ def annotate_peaks(annotation_file, bed):
                                 'peakname','score','strand','fc',
                                 'log10p','log10q','pileup','sample_count','gstart','gend',
                                 'gname','gstrand','gtype','gid','overlapped'],
-                      usecols = [0,1,2,3,4,5,6,7,8,9, 10, 12,13, 14, 16, 17, 18, 19]) \
+                      usecols = narrow_peak_cols) \
         .drop_duplicates() \
         .assign(strand = lambda d: np.where(d.peakname.str.contains('fwd'), '+','-')) \
         .assign(ref_overlap = lambda d: d.overlapped / (d.gend - d.gstart)) \
@@ -271,7 +273,7 @@ def make_table(all=None, base_name = 'unfragmented'):
     if not os.path.isdir(annotated_path):
         os.mkdir(annotated_path)
 
-    broad_peaks = glob.glob(peak_path + '/%s.*_peaks.broadPeak' %base_name)
+    broad_peaks = glob.glob(peak_path + '/%s.*_peaks.narrowPeak' %base_name)
     print('Merging: ', ', '.join(map(os.path.basename, broad_peaks)))
 
     bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks], sort=False) \
@@ -291,7 +293,7 @@ def make_table(all=None, base_name = 'unfragmented'):
 
 def main():
     all_annotations=[True, False]
-    base_names = ['unfragmented', 'exonuclease'] 
+    base_names = ['unfragmented']#, 'exonuclease'] 
     for all in all_annotations:
         for base_name in base_names:
             make_table(all=all, base_name = base_name) 

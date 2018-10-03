@@ -37,9 +37,9 @@ def make_table(out_table, bam_file):
         for i, row in junction_table \
                 .assign(chrom = lambda d: d.intron.str.split(':', expand=True).iloc[:,0]) \
                 .assign(start = lambda d: d.intron.str\
-                            .extract(':([0-9]+)-[0-9]+_[+-]', expand=False).astype(int) - 100) \
+                            .extract(':([0-9]+)-[0-9]+_[+-]', expand=False).astype(int) - 10) \
                 .assign(end = lambda d: d.intron.str\
-                            .extract(':[0-9]+-([0-9]+)_[+-]', expand=False).astype(int) + 100) \
+                            .extract(':[0-9]+-([0-9]+)_[+-]', expand=False).astype(int) + 10) \
                 .assign(strand = lambda d: d.intron.str\
                             .extract(':[0-9]+-[0-9]+_([+-])', expand=False)) \
                 .filter(['chrom','start','end','intron','intron_count','strand'])\

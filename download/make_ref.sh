@@ -16,6 +16,7 @@ cat $ANNOTATION_PATH/genes.gtf \
     | grep 'protein_coding' --color=no \
     | awk '$3=="exon"' \
     | gtf2bed \
+    | sort -k1,1 -k2,2n -k3,3n -k6,6 -u \
     > $ANNOTATION_PATH/exons.bed
 hisat2_extract_splice_sites.py $ANNOTATION_PATH/genes.gtf > $ANNOTATION_PATH/splicesites.tsv
 python gtf_to_bed.py $ANNOTATION_PATH/genes.gtf > $ANNOTATION_PATH/genes.bed

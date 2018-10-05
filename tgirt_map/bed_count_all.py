@@ -24,7 +24,8 @@ def deduplicate(bam_tag, bam):
                         "| poisson_umi_adjustment.py -i - -o - --umi 6 "\
                         .format(TOLERATE=toleration)
     else:
-        DEDUP_COMMAND = ' sort -k1,1 -k2,2n -k3,3n -k6,6n -u ' \
+        filter_command = "awk '$NF!~/N/' |" if bam_tag == 'snc_all' else ''
+        DEDUP_COMMAND = filter_command + ' sort -k1,1 -k2,2n -k3,3n -k6,6n -u ' \
                         '| cut -f1-6 '
     return DEDUP_COMMAND
 

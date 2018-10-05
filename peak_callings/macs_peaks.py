@@ -90,7 +90,7 @@ def is_junction_exon(junctions, chrom,start, end, strand):
 
 
 def retype_junctions(df):
-    junctions_tab = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/merged_bam'\
+    junctions_tab = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam'\
                     '/unfragmentd.spliced.tsv.gz'
     junctions = pysam.Tabixfile(junctions_tab)
     

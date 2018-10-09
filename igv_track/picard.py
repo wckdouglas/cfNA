@@ -35,7 +35,7 @@ def filter_protein_bam(in_bam, filter_path, label, refflat, threads = 6, return_
 
     command = ''
 
-    command += 'sambamba sort -t {threads} -n -p -o /dev/stdout {in_bam}'\
+    command += 'sambamba sort -t {threads} -n --show-progress -o /dev/stdout {in_bam}'\
             '| samtools fixmate -@ {threads} - {name_sorted}'\
             '; samtools view -h@ {threads} {name_sorted} | {filtering_plus} ' \
             '| samtools view -b@ {threads} - > {plus_bam} '\
@@ -75,12 +75,12 @@ def filter_protein_bam(in_bam, filter_path, label, refflat, threads = 6, return_
                     protein_sense_bam = protein_sense_bam,
                     protein_anti_bam = protein_anti_bam)
 
-    command += '; sambamba sort -p -n -o /dev/stdout -t {threads} {in_bam} '\
+    command += '; sambamba sort --show-progress -n -o /dev/stdout -t {threads} {in_bam} '\
             '| samtools fixmate -@ {threads} - - '\
             '| bedtools pairtobed -abam - -b {protein} -type both '\
             ' | bedtools pairtobed -abam - -b {sncRNA} -type neither '\
             '| samtools view -bF 1024 -F 256 -F 2048 ' \
-            '| sambamba sort -p -t {threads} -o {filtered_bam}  /dev/stdin '\
+            '| sambamba sort --show-progress -t {threads} -o {filtered_bam}  /dev/stdin '\
             .format(in_bam = in_bam,
                     threads = threads,
                     sncRNA = snc_annotation,

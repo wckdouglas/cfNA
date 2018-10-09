@@ -18,14 +18,20 @@ def read_count_file(file_count, samplename, count_file, count_type, strand, dedu
                     engine='python')  \
             .groupby(['gene_name','gene_type','gene_id'], as_index=False)\
             .sum() \
-            .assign(gene_type = lambda d: np.where(d.gene_type == ".", 'No features', d.gene_type)) 
+            .assign(gene_type = lambda d: np.where(d.gene_type == ".", 'No features', d.gene_type))  
+
     except KeyError:
         print('Error:', count_file)
+        return None
     
     if repeat:
         count_mat = count_mat \
             .assign(gene_name = lambda d: d.gene_type + ':' + d.gene_name) \
             .assign(gene_type = 'Repeats')
+
+    if not sncRNA and not smallRNA:
+        count_mat = count_mat \
+            .pipe(lambda d: d[~d.gene_type.isin(['miRNA','misc_RNA','snoRNA','snRNA','tRNA','rRNA','piRNA'])])
 
 
     if file_count % 20 == 0:
@@ -79,6 +85,7 @@ def main():
         p.close()
         p.join()
 
+        dfs = filter(lambda d: d is not None, dfs)
         concat_df = pd.concat(dfs, axis=0, sort=True)  \
                 .groupby(['samplename','strand','gene_type','gene_name','gene_id', 'dedup'], as_index=False)\
                 .agg({'read_count':'sum'})

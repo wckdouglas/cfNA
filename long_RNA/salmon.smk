@@ -33,12 +33,14 @@ rule make_fq:
     input:
         bam = BAM_template
 
+    params:
+        THREADS = num_threads
+
     output:
         FQ1 = FQ1_template,
         FQ2 = FQ2_template
-    threads: num_threads
     shell:
-        'samtools fastq -@ {threads} -1 {output.FQ1} -2 {output.FQ2} {input.bam}'
+        'samtools fastq -@ {params.THREADS} -1 {output.FQ1} -2 {output.FQ2} {input.bam}'
 
 
 rule salmon_quant:
@@ -49,16 +51,16 @@ rule salmon_quant:
         INDEX = SALMON_REF
 
     params:
-        LT = lambda wildcards, output: 'IU' if re.search('L[12]', wildcards.sample) else 'ISF'
+        LT = lambda wildcards, output: 'IU' if re.search('L[12]', wildcards.sample) else 'ISF',
+        THREADS = num_threads
     
     output: 
         SALMON_OUT = SALMON_template,
         BAM = SALMON_BAM
-    threads: num_threads
     
     shell:
         'salmon quant --mates1 {input.FQ1} --mates2 {input.FQ2} '\
-            '-o {output.SALMON_OUT} --threads {threads} ' \
+            '-o {output.SALMON_OUT} --threads {params.THREADS} ' \
             '--index {input.INDEX} '\
             '--gcBias --seqBias '\
             '--geneMap {input.GENE_MAP_PROTEIN} '\

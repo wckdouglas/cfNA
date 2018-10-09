@@ -42,12 +42,12 @@ for regex, label in zip(sample_regexes,sample_names):
 
 
     if len(bam_files) > 1:
-        command = 'sambamba merge -p -t {threads} /dev/stdout  {bamfiles}'\
+        command = 'sambamba merge --show-progress -t {threads} /dev/stdout  {bamfiles}  '\
                     .format(threads = threads,
                             bamfiles = ' '.join(bam_files))
     else:
         command = 'cat {bam_files}'.format(bam_files = bam_files[0])
-    command += ' | sambamba sort -p -t {threads} -o {out_bam} /dev/stdin ' \
+    command += ' | sambamba sort --show-progress -t {threads} -o {out_bam} /dev/stdin ;' \
                 .format(threads = threads,
                         out_bam = merged_bam)
 

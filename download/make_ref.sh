@@ -35,10 +35,13 @@ zcat $ANNOTATION_PATH/piRNA.bed.gz >> $ANNOTATION_PATH/genes.bed
 curl $tRNA_REF > $ANNOTATION_PATH/tRNA.tar.gz
 mkdir -p $ANNOTATION_PATH/tRNA
 tar zxvf $ANNOTATION_PATH/tRNA.tar.gz --directory $ANNOTATION_PATH/tRNA
-python make_tRNA.py \
-    $ANNOTATION_PATH/tRNA/hg19-tRNAs-detailed.ss \
-    $ANNOTATION_PATH/tRNA.bed \
-    $ANNOTATION_PATH/tRNA/nucleo_tRNA.fa
+#python make_tRNA.py \
+#    $ANNOTATION_PATH/tRNA/hg19-tRNAs-detailed.ss \
+#    $ANNOTATION_PATH/tRNA.bed \
+#    $ANNOTATION_PATH/tRNA/nucleo_tRNA.fa
+seqkit  rmdup -s  $ANNOTATION_PATH/tRNA/hg19-mature-tRNAs.fa  \
+    | python process_mature_tRNA.py \
+    > $ANNOTATION_PATH/tRNA/nucleo_tRNA.fa
 cat $ANNOTATION_PATH/tRNA.bed |cut -f1-8 >> $ANNOTATION_PATH/genes.bed
 cat $ANNOTATION_PATH/genes.bed \
     | grep 'Mt_tRNA' \
@@ -74,7 +77,7 @@ cat $ANNOTATION_PATH/genes.bed \
 cat $ANNOTATION_PATH/genes.bed \
      | awk '$4~/.*7SK$|7SL[0-9]+$/' \
      | awk '{print $0, $3-$2}' OFS='\t' \
-     | awk  '$NF~/299|330/' \
+     | awk  '$NF~/299|330|296/' \
      | python get_fa.py $GENOME_PATH/hg19_genome.fa $ANNOTATION_PATH/srp.bed $ANNOTATION_PATH/srp.fa
 
 cat $ANNOTATION_PATH/genes.bed \

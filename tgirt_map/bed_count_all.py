@@ -24,7 +24,7 @@ def deduplicate(bam_tag, bam):
                         "| poisson_umi_adjustment.py -i - -o - --umi 6 "\
                         .format(TOLERATE=toleration)
     else:
-        filter_command = "awk '$NF!~/N/' |" if bam_tag == 'snc_all' else ''
+        filter_command = "awk '$NF!~/N/ && ($3-$2) <= 300' |" if bam_tag == 'snc_all' else ''
         DEDUP_COMMAND = filter_command + ' sort -k1,1 -k2,2n -k3,3n -k6,6n -u ' \
                         '| cut -f1-6 '
     return DEDUP_COMMAND
@@ -51,7 +51,7 @@ def get_parameter(bam_tag):
     
     assert OUT_PATH != "" and REF_BED != "", bam_tag
     if not os.path.isdir(OUT_PATH):
-        os.mkdir(OUT_PATH)
+        os.makedirs(OUT_PATH)
     return REF_BED, OUT_PATH
 
 

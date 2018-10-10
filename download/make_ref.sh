@@ -106,5 +106,5 @@ cat $ANNOTATION_PATH/genes.bed | awk '$4~"RNY|Y_RNA"' > $ANNOTATION_PATH/yRNA.be
 cat $ANNOTATION_PATH/yRNA.bed $ANNOTATION_PATH/tRNA.bed > $ANNOTATION_PATH/tRNA_yRNA.bed
 
 echo made tRNA_rRNA fasta
-hisat2-build $ANNOTATION_PATH/smallRNA.fa $ANNOTATION_PATH/smallRNA
-hisat2-build $ANNOTATION_PATH/rRNA_mt.fa $ANNOTATION_PATH/rRNA_mt
+bowtie2-build $ANNOTATION_PATH/smallRNA.fa $ANNOTATION_PATH/smallRNA
+bowtie2-build $ANNOTATION_PATH/rRNA_mt.fa $ANNOTATION_PATH/rRNA_mt

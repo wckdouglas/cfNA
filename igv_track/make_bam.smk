@@ -86,7 +86,7 @@ def get_dedup_command(input, output, params, UMI=True):
         md = 'picard UmiAwareMarkDuplicatesWithMateCigar UMI_METRICS_FILE={UMI_METRIC} '\
             ' MAX_EDIT_DISTANCE_TO_JOIN=1 TAG_DUPLICATE_SET_MEMBERS=true ' \
             ' UMI_TAG_NAME=RX ' \
-            .format(UMI_METRIC = output.UMI_METRIC)
+            .format(UMI_METRIC = params.UMI_METRIC)
     
     else:
         md = 'picard MarkDuplicates ' 
@@ -99,7 +99,7 @@ def get_dedup_command(input, output, params, UMI=True):
             '> {DEDUP_BAM} ' \
             '; samtools index {DEDUP_BAM}'\
             .format(BAM = input.BAM, 
-                DEDUP_METRIC = params.DEDUP_METRIC,
+                DEDUP_METRIC = output.DEDUP_METRIC,
                 MARKDUP_BAM = output.MARKDUP_BAM,
                 DEDUP_BAM = output.DEDUP_BAM)
     
@@ -235,13 +235,13 @@ rule Combined_bam:
         BAM = COMBINED_BAM_TEMPLATE
     
     run:
-        if select_sample(w, return_count = True) > 1:
+        if select_sample(wildcards, return_count = True) > 1:
             COMBINED_COMMAND = 'sambamba merge -t {params.THREADS} --show-progress  /dev/stdout ' 
         else:
             COMBINED_COMMAND = 'cat '
         
         bam_out = output.BAM
-        bams_in = ' '.join(input.BAMs)
+        bams_in = ' '.join(input.BAMS)
 
         shell(COMBINED_COMMAND + ' %s > %s' %(bams_in, bam_out))
     

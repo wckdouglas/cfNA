@@ -254,20 +254,39 @@ def annotate_peaks(annotation_file, bed):
     return inbed
 
 
-def make_table(all=None, base_name = 'unfragmented'):
+def main():
+    if len(sys.argv) < 3:
+        sys.exit('[usage] python %s <annotation_file> <out_table> <bed_path> [peak1] [peak2]' %sys.argv[0])
+
+    out_table = sys.argv[1]
+    annotation_file = sys.argv[2]
+    bed_path = sys.argv[3]
+    broad_peaks = sys.argv[4:]
+
+
+    bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks], sort=False) \
+        .sort_values([0,1,2]) \
+        .reindex() 
+
+    inbed = annotate_peaks(annotation_file, bed)  
+
+    df = resolve_annotation(inbed)  
+#        .assign(seq = lambda d: list(map(fetch_seq, d.chrom, d.start, d.end, d.strand)))\
+#        .assign(chrM = lambda d: d.seq.map(is_mt))
+    df.to_csv(out_table, sep='\t', index=False)
+    print('Written %s' %out_table)
+    assert bed.shape[0] == df.shape[0], 'Peak lost!!!'
+
+
+def make_table(base_name = 'unfragmented'):
     #test:
     # all, base_name = True,  'unfragmented'
-    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bed'
+    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed'
     bed_path = project_path + '/stranded'
     peak_path = project_path + '/MACS2'
     annotated_path = peak_path + '/annotated'
-    
-    if all:
-        out_table = annotated_path + '/%s.annotated_peaks.tsv' %base_name
-        annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz'
-    else:
-        out_table = annotated_path + '/%s.annotated_peaks_k562.tsv' %base_name
-        annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation_k562.bed.gz'
+    out_table = annotated_path + '/%s.annotated_peaks.tsv' %base_name
+    annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz'
 
 
     if not os.path.isdir(annotated_path):
@@ -291,12 +310,12 @@ def make_table(all=None, base_name = 'unfragmented'):
     assert bed.shape[0] == df.shape[0], 'Peak lost!!!'
 
 
-def main():
+def main_1():
     all_annotations=[True, False]
     base_names = ['unfragmented']#, 'exonuclease'] 
     for all in all_annotations:
         for base_name in base_names:
-            make_table(all=all, base_name = base_name) 
+            make_table(base_name = base_name) 
 
 if __name__ == '__main__':
     main()

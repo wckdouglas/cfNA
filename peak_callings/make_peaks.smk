@@ -11,6 +11,8 @@ COV_PATH = MERGED_BED_PATH + '/coverage'
 STRANDED_BED_PATH = MERGED_BED_PATH + '/stranded'
 MACS2_PATH = MERGED_BED_PATH + '/MACS2'
 ANNOTATED_PEAK_PATH = MACS2_PATH + '/annotated' 
+ANNOTATED_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.tsv'
+ANNOTATION_TABLE = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz' 
 BED_TEMPLATE = BED_PATH + '/{SAMPLENAME}.bed.gz'
 BAM_TEMPLATE = PROJECT_PATH + '/{SAMPLENAME}/Combined/primary.bam'
 MERGED_BED_TEMPLATE = MERGED_BED_PATH + '/{TREATMENT}.bed.gz'
@@ -46,9 +48,8 @@ wildcard_constraints:
 # Run commands
 rule all:
     input:
-        expand(MACS2_PEAK_TEMPLATE, 
-                TREATMENT = TESTED_TREATMENT, 
-                STRAND = STRANDS),
+        expand(ANNOTATED_PEAK, 
+                TREATMENT = TESTED_TREATMENT),
         expand(STRANDED_COV_FILE_TEMPLATE, STRAND = STRANDS, TREATMENT = TESTED_TREATMENT),
         UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline')
         
@@ -133,7 +134,7 @@ rule make_bed:
         "| poisson_umi_adjustment.py -i - -o - --umi 6 --prefix {params.SAMPLENAME} " \
         "| sort -k1,1 -k2,2n -k3,3n --temporary-directory={params.TMP_FOLDER} "\
         '| bgzip > {output.BED} '\
-        '; tabix -f {output.BED} '\
+        '; tabix -p bed -f {output.BED} '\
 	    '; rm -rf {params.TMP_FOLDER}'
 
 
@@ -164,10 +165,26 @@ rule bed_coverage_unstranded:
     
     params:
         GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai',
-        TEMP = UNSTRANDED_COV_FILE_TEMPLATE.replace('bigWig','.bedGraph')
+        TEMP = UNSTRANDED_COV_FILE_TEMPLATE.replace('.bigWig','.bedGraph')
 
     output:
         COV_FILE = UNSTRANDED_COV_FILE_TEMPLATE
     
     shell:
         COVERAGE_COMMAND
+
+rule peak_anntation:
+    input:
+        PEAK_FILES = expand(MACS2_PEAK_TEMPLATE\
+                .replace('{TREATMENT}','{{TREATMENT}}'), 
+            STRAND = STRANDS)
+    
+    params:
+        ANNOTATION_TABLE = ANNOTATION_TABLE,
+        BED_PATH = STRANDED_BED_PATH
+
+    output:
+        ANNOTATED_PEAK = ANNOTATED_PEAK
+
+    shell:
+        'python macs_peaks.py {params.ANNOTATION_TABLE} {output.ANNOTATED_PEAK} {params.BED_PATH} {input.PEAK_FILES}'

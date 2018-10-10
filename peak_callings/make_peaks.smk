@@ -25,6 +25,7 @@ TREATMENT = ['unfragmented','fragmented','polyA',
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|Exo|[DE][DE]', 'Frag', 'L[12]', 
                 'N[aA][0-9]+', 'All','Exo|[DE][DE]']
 STRANDS = ['fwd', 'rvs']
+TESTED_TREATMENT = ['unfragmented','all']
 regex_dict = {t:tr for t, tr in zip(TREATMENT, TREATMENT_REGEX)}
 def get_bed(wildcards):
     regex = regex_dict[wildcards.TREATMENT]
@@ -45,14 +46,11 @@ wildcard_constraints:
 # Run commands
 rule all:
     input:
-#        expand(BED_TEMPLATE, SAMPLENAME =  SAMPLE_NAMES),
-#        expand(MERGED_BED_TEMPLATE, TREATMENT = ['alkaline', 'unfragmented', 'all']),
-#        expand(STRANDED_BED_TEMPLATE, 
-#                TREATMENT = ['unfragmented','all'], 
-#                STRAND = STRANDS),
         expand(MACS2_PEAK_TEMPLATE, 
-                TREATMENT = ['unfragmented','all'], 
+                TREATMENT = TESTED_TREATMENT, 
                 STRAND = STRANDS),
+        expand(STRANDED_COV_FILE_TEMPLATE, STRAND = STRANDS, TREATMENT = TESTED_TREATMENT),
+        UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline')
         
 rule macs2:
     #call strand specific peaks
@@ -139,17 +137,18 @@ rule make_bed:
 	    '; rm -rf {params.TMP_FOLDER}'
 
 
-COVERAGE_COMMAND = 'bedtools genomecov -bga -i {input.MERGED_BED} -g {params.GENOME}'\
+COVERAGE_COMMAND = 'bedtools genomecov -bga -i {input.BED} -g {params.GENOME}'\
         '| sort -k1,1 -k2,2n '\
         '> {params.TEMP} '\
         '; bedGraphToBigWig {params.TEMP} {params.GENOME} {output.COV_FILE} '\
         '; rm {params.TEMP} '
+
 rule bed_coverage_strand:
     input:
         BED = STRANDED_BED_TEMPLATE
 
     params:
-        GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai'
+        GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai',
         TEMP = STRANDED_COV_FILE_TEMPLATE.replace('bigWig','.bedGraph')
 
     output:
@@ -164,7 +163,7 @@ rule bed_coverage_unstranded:
         BED = MERGED_BED_TEMPLATE
     
     params:
-        GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai'
+        GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai',
         TEMP = UNSTRANDED_COV_FILE_TEMPLATE.replace('bigWig','.bedGraph')
 
     output:

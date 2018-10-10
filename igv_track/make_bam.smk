@@ -2,7 +2,7 @@ import re
 import glob
 import os
 
-PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map_old'
+PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001') 
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_FOLDERS))
 COMBINED_BAM_PATH = PROJECT_PATH + '/merged_bam'
@@ -48,10 +48,14 @@ TREATMENTS = ['unfragmented','fragmented',
                 'polyA','untreated', 'alkaline_hydrolysis',
                 'exonuclease','high_salt','genome-sim'] 
 treatment_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
-def select_sample(wildcards):
+def select_sample(wildcards, return_count = False):
     regex = treatment_regex_dict[wildcards.TREATMENT] 
     selected_samples = filter(lambda x: re.search(regex, x), SAMPLE_NAMES)
-    return selected_samples
+    selected_samples = list(selected_samples)
+    if return_count:
+        return len(selected_samples)
+    else:
+        return selected_samples
 
 
 def get_bams(wildcards):
@@ -74,6 +78,26 @@ def get_filter_command(wildcards):
         filtering = 'awk \'{{if (($1~/^@/)|| ($2==83)||($2==163)|| ($2== 339)||($2==419)|| '\
                             '($2==1187)||($2==1107)) print}}\''
     return  filtering
+
+
+# for deduplication
+def get_dedup_command(UMI=True):
+    if UMI:
+        md = 'picard UmiAwareMarkDuplicatesWithMateCigar UMI_METRICS_FILE={output.UMI_METRIC} '\
+            ' MAX_EDIT_DISTANCE_TO_JOIN=1 TAG_DUPLICATE_SET_MEMBERS=true ' \
+            ' UMI_TAG_NAME=RX '
+    
+    else:
+        md = 'picard MarkDuplicates ' 
+
+    return md + 'INPUT={input.BAM} REMOVE_SEQUENCING_DUPLICATES=true '\
+            'OUTPUT=/dev/stdout '\
+            'METRICS_FILE={params.DEDUP_METRIC} REMOVE_DUPLICATES=false ASSUME_SORT_ORDER=coordinate '\
+            '| tee {output.MARKDUP_BAM} '\
+            '| samtools view -bF 1024 ' \
+            '> {output.DEDUP_BAM} ' \
+            '; samtools index {output.DEDUP_BAM}'
+    
 
 
 #shared command
@@ -200,14 +224,15 @@ rule Combined_bam:
         BAMS = lambda w: get_bams(w)
 
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        COMBINED_COMMAND = lambda w: 'sambamba merge --show-progress  /dev/stdout ' if select_sample(w, return_count = True) > 1 else 'cat '
 
     output:
         BAM = COMBINED_BAM_TEMPLATE
     
     shell:
-        'sambamba merge --show-progress -t {params.THREADS}'\
-        ' /dev/stdou {input.BAMS} '\
+        '{params.COMBINED_COMMAND} '\
+        ' {input.BAMS} '\
         '> {output.BAM}'
     
 
@@ -215,21 +240,17 @@ rule dedup_bam_sample:
     input:
         BAM = SAMPLE_SORTED_BAM
 
+    params:
+        UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics'),
+        DEDUP_COMMAND = lambda w: get_dedup_command(UMI=True) if not re.search('genome-sim|[pP]olyA', w.SAMPLE) else get_dedup_command(UMI=False)
+
     output:
         DEDUP_BAM = SAMPLE_DEDUP_BAM,
         MARKDUP_BAM = SAMPLE_MARKDUP_BAM,
-        UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics'),
         DEDUP_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.dedup_metrics')
 
     shell:
-        'picard UmiAwareMarkDuplicatesWithMateCigar UMI_METRICS_FILE={output.UMI_METRIC} '\
-        ' MAX_EDIT_DISTANCE_TO_JOIN=1 TAG_DUPLICATE_SET_MEMBERS=true ' \
-        ' UMI_TAG_NAME=RX INPUT={input.BAM} OUTPUT=/dev/stdout REMOVE_SEQUENCING_DUPLICATES=true'\
-        ' METRICS_FILE={output.DEDUP_METRIC} REMOVE_DUPLICATES=false ASSUME_SORT_ORDER=coordinate '\
-        '| tee {output.MARKDUP_BAM}'\
-        '| samtools view -bF 1024 ' \
-        '> {output.DEDUP_BAM}' \
-        '; samtools index {output.DEDUP_BAM}'
+        '{params.DEDUP_COMMAND}'
 
 
 rule sort_bam_sample:
@@ -237,14 +258,15 @@ rule sort_bam_sample:
         BAM = SAMPLE_PRIMARY_BAM
 
     params:
-        ID = lambda w: w.SAMPLE
+        ID = lambda w: w.SAMPLE,
+        PREPROCESS = lambda w: '' if re.search('genome-sim|[pP]olyA', w.SAMPLE)  else '| bam_umi_tag.py -i - -t RX ' 
 
     output:
         BAM = SAMPLE_SORTED_BAM
 
     shell:
-        'cat {input.BAM} '+\
-        '| bam_umi_tag.py -i - -t RX ' \
+        'cat {input.BAM} '\
+        '{params.PREPROCESS} '\
         '| samtools view -bF 256 -F4 -F2048 '\
         '| samtools addreplacerg -r ID:{params.ID} -r SM:{params.ID}  - '\
         '| samtools view -b '\

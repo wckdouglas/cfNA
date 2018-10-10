@@ -7,6 +7,7 @@ SAMPLE_NAMES = glob.glob(PROJECT_PATH + '/Q*001')
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_NAMES))
 BED_PATH = PROJECT_PATH + '/bed_files'
 MERGED_BED_PATH = BED_PATH + '/merged_bed'
+COV_PATH = MERGED_BED_PATH + '/coverage'
 STRANDED_BED_PATH = MERGED_BED_PATH + '/stranded'
 MACS2_PATH = MERGED_BED_PATH + '/MACS2'
 ANNOTATED_PEAK_PATH = MACS2_PATH + '/annotated' 
@@ -15,6 +16,8 @@ BAM_TEMPLATE = PROJECT_PATH + '/{SAMPLENAME}/Combined/primary.bam'
 MERGED_BED_TEMPLATE = MERGED_BED_PATH + '/{TREATMENT}.bed.gz'
 STRANDED_BED_TEMPLATE = STRANDED_BED_PATH + '/{TREATMENT}.{STRAND}.bed.gz'
 MACS2_PEAK_TEMPLATE = MACS2_PATH + '/{TREATMENT}.{STRAND}_peaks.narrowPeak' 
+STRANDED_COV_FILE_TEMPLATE = COV_PATH + '/{TREATMENT}.{STRAND}.bigWig'
+UNSTRANDED_COV_FILE_TEMPLATE = COV_PATH + '/{TREATMENT}.bigWig'
 
 # set up treatments
 TREATMENT = ['unfragmented','fragmented','polyA',
@@ -134,3 +137,38 @@ rule make_bed:
         '| bgzip > {output.BED} '\
         '; tabix -f {output.BED} '\
 	    '; rm -rf {params.TMP_FOLDER}'
+
+
+COVERAGE_COMMAND = 'bedtools genomecov -bga -i {input.MERGED_BED} -g {params.GENOME}'\
+        '| sort -k1,1 -k2,2n '\
+        '> {params.TEMP} '\
+        '; bedGraphToBigWig {params.TEMP} {params.GENOME} {output.COV_FILE} '\
+        '; rm {params.TEMP} '
+rule bed_coverage_strand:
+    input:
+        BED = STRANDED_BED_TEMPLATE
+
+    params:
+        GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai'
+        TEMP = STRANDED_COV_FILE_TEMPLATE.replace('bigWig','.bedGraph')
+
+    output:
+        COV_FILE = STRANDED_COV_FILE_TEMPLATE
+    
+    shell:
+        COVERAGE_COMMAND
+
+
+rule bed_coverage_unstranded:
+    input:
+        BED = MERGED_BED_TEMPLATE
+    
+    params:
+        GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai'
+        TEMP = UNSTRANDED_COV_FILE_TEMPLATE.replace('bigWig','.bedGraph')
+
+    output:
+        COV_FILE = UNSTRANDED_COV_FILE_TEMPLATE
+    
+    shell:
+        COVERAGE_COMMAND

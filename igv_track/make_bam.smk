@@ -81,22 +81,27 @@ def get_filter_command(wildcards):
 
 
 # for deduplication
-def get_dedup_command(UMI=True):
+def get_dedup_command(input, output, params, UMI=True):
     if UMI:
-        md = 'picard UmiAwareMarkDuplicatesWithMateCigar UMI_METRICS_FILE={output.UMI_METRIC} '\
+        md = 'picard UmiAwareMarkDuplicatesWithMateCigar UMI_METRICS_FILE={UMI_METRIC} '\
             ' MAX_EDIT_DISTANCE_TO_JOIN=1 TAG_DUPLICATE_SET_MEMBERS=true ' \
-            ' UMI_TAG_NAME=RX '
+            ' UMI_TAG_NAME=RX ' \
+            .format(UMI_METRIC = output.UMI_METRIC)
     
     else:
         md = 'picard MarkDuplicates ' 
 
-    return md + 'INPUT={input.BAM} REMOVE_SEQUENCING_DUPLICATES=true '\
+    return md + 'INPUT={BAM} REMOVE_SEQUENCING_DUPLICATES=true '\
             'OUTPUT=/dev/stdout '\
-            'METRICS_FILE={params.DEDUP_METRIC} REMOVE_DUPLICATES=false ASSUME_SORT_ORDER=coordinate '\
-            '| tee {output.MARKDUP_BAM} '\
+            'METRICS_FILE={DEDUP_METRIC} REMOVE_DUPLICATES=false ASSUME_SORT_ORDER=coordinate '\
+            '| tee {MARKDUP_BAM} '\
             '| samtools view -bF 1024 ' \
-            '> {output.DEDUP_BAM} ' \
-            '; samtools index {output.DEDUP_BAM}'
+            '> {DEDUP_BAM} ' \
+            '; samtools index {DEDUP_BAM}'\
+            .format(BAM = input.BAM, 
+                DEDUP_METRIC = params.DEDUP_METRIC,
+                MARKDUP_BAM = output.MARKDUP_BAM,
+                DEDUP_BAM = output.DEDUP_BAM)
     
 
 
@@ -225,15 +230,20 @@ rule Combined_bam:
 
     params:
         THREADS = THREADS,
-        COMBINED_COMMAND = lambda w: 'sambamba merge --show-progress  /dev/stdout ' if select_sample(w, return_count = True) > 1 else 'cat '
 
     output:
         BAM = COMBINED_BAM_TEMPLATE
     
-    shell:
-        '{params.COMBINED_COMMAND} '\
-        ' {input.BAMS} '\
-        '> {output.BAM}'
+    run:
+        if select_sample(w, return_count = True) > 1:
+            COMBINED_COMMAND = 'sambamba merge -t {params.THREADS} --show-progress  /dev/stdout ' 
+        else:
+            COMBINED_COMMAND = 'cat '
+        
+        bam_out = output.BAM
+        bams_in = ' '.join(input.BAMs)
+
+        shell(COMBINED_COMMAND + ' %s > %s' %(bams_in, bam_out))
     
 
 rule dedup_bam_sample:
@@ -242,15 +252,16 @@ rule dedup_bam_sample:
 
     params:
         UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics'),
-        DEDUP_COMMAND = lambda w: get_dedup_command(UMI=True) if not re.search('genome-sim|[pP]olyA', w.SAMPLE) else get_dedup_command(UMI=False)
 
     output:
         DEDUP_BAM = SAMPLE_DEDUP_BAM,
         MARKDUP_BAM = SAMPLE_MARKDUP_BAM,
         DEDUP_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.dedup_metrics')
 
-    shell:
-        '{params.DEDUP_COMMAND}'
+    run:
+        DEDUP_COMMAND = get_dedup_command(input, output, params, 
+                        UMI = re.search('genome-sim|[pP]olyA', wildcards.SAMPLE))
+        shell(DEDUP_COMMAND)
 
 
 rule sort_bam_sample:

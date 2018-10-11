@@ -1,9 +1,11 @@
+
 import re
 import glob
 import os
 
 PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001') 
+SAMPLE_FOLDERS = list(filter(lambda x: not re.search('genome-sim', x), SAMPLE_FOLDERS))
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_FOLDERS))
 COMBINED_BAM_PATH = PROJECT_PATH + '/merged_bam'
 FILTER_BAM_PATH = COMBINED_BAM_PATH + '/filtered_bam'
@@ -60,7 +62,7 @@ def select_sample(wildcards, return_count = False):
 
 def get_bams(wildcards):
     samples = select_sample(wildcards)
-    if re.search('poly|genome', wildcards.TREATMENT):
+    if re.search('[pP]oly|genome', wildcards.TREATMENT):
         bams = [SAMPLE_PRIMARY_BAM.format(SAMPLE = s) for s in samples]
     else:
         bams = [SAMPLE_MARKDUP_BAM.format(SAMPLE = s) for s in samples]
@@ -72,37 +74,34 @@ def get_bams(wildcards):
 # for strand filtering
 def get_filter_command(wildcards):
     if wildcards.PMSTRAND == "plus":
-        filtering = ' awk \'{{if (($1~/^@/)|| ($2==99)||($2==147)|| ($2==355)||($2==403)|| '\
-                        '($2==1123)||($2==1171)) print}}\''
+        filtering = ' awk \'{if (($1~/^@/)|| ($2==99)||($2==147)|| ($2==355)||($2==403)|| '\
+                        '($2==1123)||($2==1171)) print}\''
     elif wildcards.PMSTRAND == "minus":
-        filtering = 'awk \'{{if (($1~/^@/)|| ($2==83)||($2==163)|| ($2== 339)||($2==419)|| '\
-                            '($2==1187)||($2==1107)) print}}\''
+        filtering = 'awk \'{if (($1~/^@/)|| ($2==83)||($2==163)|| ($2== 339)||($2==419)|| '\
+                            '($2==1187)||($2==1107)) print}\''
     return  filtering
 
 
 # for deduplication
-def get_dedup_command(input, output, params, UMI=True):
-    if UMI:
+def get_dedup_command(wildcards):
+    if not re.search('genome|[pP]olyA|L[0-9E]+', wildcards.SAMPLE):
+        UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics').format(SAMPLE=wildcards.SAMPLE)
         md = 'picard UmiAwareMarkDuplicatesWithMateCigar UMI_METRICS_FILE={UMI_METRIC} '\
             ' MAX_EDIT_DISTANCE_TO_JOIN=1 TAG_DUPLICATE_SET_MEMBERS=true ' \
             ' UMI_TAG_NAME=RX ' \
-            .format(UMI_METRIC = params.UMI_METRIC)
+            .format(UMI_METRIC = UMI_METRIC)
     
     else:
         md = 'picard MarkDuplicates ' 
 
-    return md + 'INPUT={BAM} REMOVE_SEQUENCING_DUPLICATES=true '\
-            'OUTPUT=/dev/stdout '\
-            'METRICS_FILE={DEDUP_METRIC} REMOVE_DUPLICATES=false ASSUME_SORT_ORDER=coordinate '\
-            '| tee {MARKDUP_BAM} '\
-            '| samtools view -bF 1024 ' \
-            '> {DEDUP_BAM} ' \
-            '; samtools index {DEDUP_BAM}'\
-            .format(BAM = input.BAM, 
-                DEDUP_METRIC = output.DEDUP_METRIC,
-                MARKDUP_BAM = output.MARKDUP_BAM,
-                DEDUP_BAM = output.DEDUP_BAM)
+    return md 
     
+def get_combine_command(wildcards):
+    if select_sample(wildcards, return_count = True) > 1:
+        COMBINED_COMMAND = 'samtools cat ' 
+    else:
+        COMBINED_COMMAND = 'cat '
+    return COMBINED_COMMAND
 
 
 #shared command
@@ -115,9 +114,9 @@ run_RNASeqMetrics = 'picard CollectRnaSeqMetrics ' \
 run_StrandCombination = 'samtools cat {input.BAMS} '\
         '| samtools view -bF 1024 -@ {params.THREADS} '\
         '| sambamba sort -t {params.THREADS} '\
-        '--show-progress -o {output.BAM}  /dev/stdin'
+        ' -o {output.BAM}  /dev/stdin'
 
-run_ProteinFilter =  '; bedtools pairtobed -abam {input.BAM} -b {params.SNC_ANNOTATION} -type neither  '\
+run_ProteinFilter =  'bedtools pairtobed -abam {input.BAM} -b {params.SNC_ANNOTATION} -type neither  '\
         '| bedtools pairtobed -abam - -b {params.RMSK_ANNOTATION} -type neither '\
         '| bedtools pairtobed -abam - -b {params.STRANDED_BED} > {output.BAM} '
 
@@ -126,7 +125,7 @@ run_SplitStrand = 'samtools view -h@ {params.THREADS} {input.BAM} | {params.FILT
         '| samtools view -b@ {params.THREADS} - > {output.PMSTRAND_BAM} '
 
 run_NameSort = 'sambamba sort -t {params.THREADS} -n '\
-        '--show-progress -o /dev/stdout {input.BAM}'\
+        ' -o /dev/stdout {input.BAM}'\
         '| samtools fixmate -@ {params.THREADS} - {output.NAME_SORT_BAM} '
 
 
@@ -152,6 +151,9 @@ rule RNAseqPICARD:
         METRIC = COMBINED_METRICS_TEMPLATE\
             .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
 
+    log:
+        COMBINED_METRICS_TEMPLATE.replace('.RNA_Metrics','.log')
+
     shell:
         run_RNASeqMetrics
 
@@ -171,6 +173,9 @@ rule Combine_strand:
         BAM = FILTERED_STRAND_BAM_TEMPLATE\
             .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
     
+    log:
+        FILTERED_STRAND_BAM_TEMPLATE.replace('.bam','.log')
+
     shell:
         run_StrandCombination
 
@@ -189,6 +194,9 @@ rule Filter_protein:
     output:
         BAM = FILTERED_PMSTRAND_BAM_TEMPLATE 
     
+    log:
+        FILTERED_PMSTRAND_BAM_TEMPLATE.replace('.bam','.log')
+
     shell:
         run_ProteinFilter
 
@@ -206,6 +214,9 @@ rule Split_strand:
         PMSTRAND_BAM = PMSTRAND_BAM_TEMPLATE\
             .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
     
+    log:
+        PMSTRAND_BAM_TEMPLATE.replace('.bam','.log')
+
     shell:
         run_SplitStrand
 
@@ -220,30 +231,28 @@ rule Name_sort:
     output:
         NAME_SORT_BAM = COMBINED_NAME_SORT_BAM_TEMPLATE
 
+    log:
+        COMBINED_NAME_SORT_BAM_TEMPLATE.replace('.bam','.log')
+
     shell:
         run_NameSort
 
 
 rule Combined_bam:
     input:
-        BAMS = lambda w: get_bams(w)
+        BAM_LIST = lambda w: get_bams(w)
 
     params:
-        THREADS = THREADS,
+        COMBINED_COMMAND = lambda w: get_combine_command(w)
 
     output:
         BAM = COMBINED_BAM_TEMPLATE
     
-    run:
-        if select_sample(wildcards, return_count = True) > 1:
-            COMBINED_COMMAND = 'sambamba merge -t {params.THREADS} --show-progress  /dev/stdout ' 
-        else:
-            COMBINED_COMMAND = 'cat '
-        
-        bam_out = output.BAM
-        bams_in = ' '.join(input.BAMS)
+    log:
+        COMBINED_BAM_TEMPLATE.replace('.bam','.log')
 
-        shell(COMBINED_COMMAND + ' %s > %s' %(bams_in, bam_out))
+    shell:
+        '{params.COMBINED_COMMAND} {input.BAM_LIST} > {output.BAM}'
     
 
 rule dedup_bam_sample:
@@ -251,17 +260,24 @@ rule dedup_bam_sample:
         BAM = SAMPLE_SORTED_BAM
 
     params:
-        UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics'),
+        DEDUP_COMMAND = lambda w: get_dedup_command(w)
 
     output:
         DEDUP_BAM = SAMPLE_DEDUP_BAM,
         MARKDUP_BAM = SAMPLE_MARKDUP_BAM,
         DEDUP_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.dedup_metrics')
 
-    run:
-        DEDUP_COMMAND = get_dedup_command(input, output, params, 
-                        UMI = re.search('genome-sim|[pP]olyA', wildcards.SAMPLE))
-        shell(DEDUP_COMMAND)
+    log:
+        SAMPLE_DEDUP_BAM.replace('.bam','.log')
+
+    shell:
+        '{params.DEDUP_COMMAND} INPUT={input.BAM} REMOVE_SEQUENCING_DUPLICATES=true '\
+        'OUTPUT=/dev/stdout '\
+        'METRICS_FILE={output.DEDUP_METRIC} REMOVE_DUPLICATES=false ASSUME_SORT_ORDER=coordinate '\
+        '| tee {output.MARKDUP_BAM} '\
+        '| samtools view -bF 1024 ' \
+        '> {output.DEDUP_BAM} ' \
+        '; samtools index {output.DEDUP_BAM}'
 
 
 rule sort_bam_sample:
@@ -274,6 +290,9 @@ rule sort_bam_sample:
 
     output:
         BAM = SAMPLE_SORTED_BAM
+
+    log:
+        SAMPLE_SORTED_BAM.replace('.bam','.log')
 
     shell:
         'cat {input.BAM} '\
@@ -295,6 +314,9 @@ rule RNAseqPICARD_sample:
     
     output:
         METRIC = SAMPLE_METRIC_TEMPLATE
+
+    log:
+        SAMPLE_METRIC_TEMPLATE.replace('.RNA_Metrics','.log')
     
     shell:
         run_RNASeqMetrics
@@ -314,6 +336,8 @@ rule Combine_strand_sample:
     output:
         BAM = SAMPLE_FILTERED_STRAND_BAM_TEMPLATE 
     
+    log:
+        SAMPLE_FILTERED_STRAND_BAM_TEMPLATE.replace('.bam','.log')
     shell:
         run_StrandCombination
 
@@ -332,6 +356,8 @@ rule Filter_protein_sample:
     output:
         BAM = SAMPLE_FILTERED_PMSTRAND_BAM_TEMPLATE
     
+    log:
+        SAMPLE_FILTERED_PMSTRAND_BAM_TEMPLATE.replace('.bam','.log')
     shell:
         run_ProteinFilter
 
@@ -346,6 +372,8 @@ rule Split_strand_sample:
     output:
         PMSTRAND_BAM = SAMPLE_PMSTRAND_BAM_TEMPLATE
     
+    log:
+        SAMPLE_PMSTRAND_BAM_TEMPLATE.replace('.bam','.log')
     shell:
         run_SplitStrand
 
@@ -358,7 +386,10 @@ rule Name_sort_sample:
         THREADS = THREADS,
     
     output:
-        NAME_SORT_BAM = SAMPLE_NAME_SORT_BAM
+        NAME_SORT_BAM = protected(SAMPLE_NAME_SORT_BAM)
     
-    run:
+    log:
+        SAMPLE_NAME_SORT_BAM.replace('.bam','.log')
+
+    shell:
         run_NameSort

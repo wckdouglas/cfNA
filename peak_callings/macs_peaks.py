@@ -89,9 +89,9 @@ def is_junction_exon(junctions, chrom,start, end, strand):
         return ''
 
 
-def retype_junctions(df):
-    junctions_tab = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam'\
-                    '/unfragmentd.spliced.tsv.gz'
+def retype_junctions(junctions_tab,df):
+#    junctions_tab = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam'\
+#                    '/unfragmentd.spliced.tsv.gz'
     junctions = pysam.Tabixfile(junctions_tab)
     
     check_junction = partial(is_junction_exon, junctions)
@@ -188,7 +188,7 @@ def strand_df(df, strand = 'sense'):
         .drop(['is_sense','gstrand'],axis=1)
 
 
-def resolve_annotation(inbed):
+def resolve_annotation(exon_table, inbed):
     '''
     select for greatest overlapped annotation
     '''
@@ -212,7 +212,7 @@ def resolve_annotation(inbed):
         .sort_values('log10q', ascending=False)  \
         .assign(gtype = lambda d: d.gtype.map(merge_type)) \
         .drop('level_11', axis=1)  \
-        .pipe(retype_junctions)
+        .pipe(retype_junctions, exon_table)
     
     sense_df = strand_df(df, strand = 'sense')
     antisense_df = strand_df(df, strand = 'antisense')
@@ -256,12 +256,14 @@ def annotate_peaks(annotation_file, bed):
 
 def main():
     if len(sys.argv) < 3:
-        sys.exit('[usage] python %s <annotation_file> <out_table> <bed_path> [peak1] [peak2]' %sys.argv[0])
+        sys.exit('[usage] python %s <out_table> <annotation_file> <bed_path> <exon_Table> [peak1] [peak2]' %sys.argv[0])
 
     out_table = sys.argv[1]
     annotation_file = sys.argv[2]
     bed_path = sys.argv[3]
-    broad_peaks = sys.argv[4:]
+    exon_table = sys.argv[4]
+    broad_peaks = sys.argv[5:]
+
 
 
     bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks], sort=False) \
@@ -270,7 +272,7 @@ def main():
 
     inbed = annotate_peaks(annotation_file, bed)  
 
-    df = resolve_annotation(inbed)  
+    df = resolve_annotation(exon_table, inbed)  
 #        .assign(seq = lambda d: list(map(fetch_seq, d.chrom, d.start, d.end, d.strand)))\
 #        .assign(chrM = lambda d: d.seq.map(is_mt))
     df.to_csv(out_table, sep='\t', index=False)
@@ -302,7 +304,7 @@ def make_table(base_name = 'unfragmented'):
 
     inbed = annotate_peaks(annotation_file, bed)  
 
-    df = resolve_annotation(inbed)  
+    df = resolve_annotation(exon_table,inbed) 
 #        .assign(seq = lambda d: list(map(fetch_seq, d.chrom, d.start, d.end, d.strand)))\
 #        .assign(chrM = lambda d: d.seq.map(is_mt))
     df.to_csv(out_table, sep='\t', index=False)

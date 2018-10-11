@@ -73,9 +73,14 @@ def run(bam_file, out_table):
 
 
 def main():
-    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam'
-    bam_file = project_path + '/unfragmented.bam'
-    out_table = project_path + '/unfragmentd.spliced.tsv'
+    if len(sys.argv) != 3:
+        sys.exit('[usage] python %s <bam> <exon_table>' %sys.argv[0])
+    #project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam'
+    #bam_file = project_path + '/unfragmented.bam'
+    #out_table = project_path + '/unfragmentd.spliced.tsv'
+
+    bam_file = sys.argv[1]
+    out_table = sys.argv[2].replace('.gz','')
     run(bam_file, out_table)
 
 if __name__ == '__main__':

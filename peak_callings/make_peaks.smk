@@ -10,6 +10,7 @@ MERGED_BED_PATH = BED_PATH + '/merged_bed'
 COV_PATH = MERGED_BED_PATH + '/coverage'
 STRANDED_BED_PATH = MERGED_BED_PATH + '/stranded'
 MACS2_PATH = MERGED_BED_PATH + '/MACS2'
+EXON_TABLE = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/unfragmentd.spliced.tsv.gz'
 ANNOTATED_PEAK_PATH = MACS2_PATH + '/annotated' 
 ANNOTATED_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.tsv'
 ANNOTATION_TABLE = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz' 
@@ -177,7 +178,8 @@ rule peak_anntation:
     input:
         PEAK_FILES = expand(MACS2_PEAK_TEMPLATE\
                 .replace('{TREATMENT}','{{TREATMENT}}'), 
-            STRAND = STRANDS)
+            STRAND = STRANDS),
+        EXON_TABLE = EXON_TABLE
     
     params:
         ANNOTATION_TABLE = ANNOTATION_TABLE,
@@ -187,4 +189,15 @@ rule peak_anntation:
         ANNOTATED_PEAK = ANNOTATED_PEAK
 
     shell:
-        'python macs_peaks.py {params.ANNOTATION_TABLE} {output.ANNOTATED_PEAK} {params.BED_PATH} {input.PEAK_FILES}'
+        'python macs_peaks.py {output.ANNOTATED_PEAK} {params.ANNOTATION_TABLE} {params.BED_PATH} {input.EXON_TABLE} {input.PEAK_FILES} '
+
+
+rule find_exon:
+    input:
+        '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/unfragmented.bam'
+
+    output:
+        EXON_TABLE
+    
+    shell:
+        'python fetch_junctions.py {input} {output}'

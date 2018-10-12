@@ -50,7 +50,7 @@ wildcard_constraints:
 rule all:
     input:
         expand(ANNOTATED_PEAK, 
-                TREATMENT = TESTED_TREATMENT),
+                TREATMENT = ['unfragmented'] ),# TESTED_TREATMENT),
         expand(STRANDED_COV_FILE_TEMPLATE, STRAND = STRANDS, TREATMENT = TESTED_TREATMENT),
         UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline')
         

@@ -5,7 +5,7 @@ import os
 
 PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001') 
-SAMPLE_FOLDERS = list(filter(lambda x: not re.search('genome-sim', x), SAMPLE_FOLDERS))
+#SAMPLE_FOLDERS = list(filter(lambda x: not re.search('genome-sim', x), SAMPLE_FOLDERS))
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_FOLDERS))
 COMBINED_BAM_PATH = PROJECT_PATH + '/merged_bam'
 FILTER_BAM_PATH = COMBINED_BAM_PATH + '/filtered_bam'
@@ -96,12 +96,6 @@ def get_dedup_command(wildcards):
 
     return md 
     
-def get_combine_command(wildcards):
-    if select_sample(wildcards, return_count = True) > 1:
-        COMBINED_COMMAND = 'samtools cat ' 
-    else:
-        COMBINED_COMMAND = 'cat '
-    return COMBINED_COMMAND
 
 
 #shared command
@@ -243,7 +237,7 @@ rule Combined_bam:
         BAM_LIST = lambda w: get_bams(w)
 
     params:
-        COMBINED_COMMAND = lambda w: get_combine_command(w)
+        THREADS = THREADS
 
     output:
         BAM = COMBINED_BAM_TEMPLATE
@@ -252,7 +246,7 @@ rule Combined_bam:
         COMBINED_BAM_TEMPLATE.replace('.bam','.log')
 
     shell:
-        '{params.COMBINED_COMMAND} {input.BAM_LIST} > {output.BAM}'
+        'samtools merge -@ {params.THREADS} {output.BAM} {input.BAM_LIST}'
     
 
 rule dedup_bam_sample:
@@ -386,7 +380,7 @@ rule Name_sort_sample:
         THREADS = THREADS,
     
     output:
-        NAME_SORT_BAM = protected(SAMPLE_NAME_SORT_BAM)
+        NAME_SORT_BAM = SAMPLE_NAME_SORT_BAM
     
     log:
         SAMPLE_NAME_SORT_BAM.replace('.bam','.log')

@@ -101,7 +101,7 @@ def retype_junctions(df, junctions_tab):
                                             'Long RNA',
                                             d.gtype)) \
         .assign(gname = lambda d: np.where(d.is_spliced_exon.str.contains("Spliced_exon"), 
-                                            d.is_spliced_exon.str.split(':', expand=True).iloc[:,1],
+                                            d.is_spliced_exon.str.replace('Spliced_exon:', ''),
                                             d.gname)) \
         .drop('is_spliced_exon', axis=1)
 

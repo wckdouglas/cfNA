@@ -1,5 +1,6 @@
 #!/bin/bash
 PROJECT_PATH=$SCRATCH/cfNA
+PROJECT_PATH=$WORK/cdw2854/cfNA
 
 
 ### local cloud
@@ -50,8 +51,9 @@ do
         polyA='--polyA'
     fi
 
-	echo tgirt_count.py -1 $FQ1 -2 $FQ2 \
+	echo tgirt_count.py map -1 $FQ1 -2 $FQ2 \
 		--outdir $RESULT_PATH \
+        --samplename ${SAMPLENAME}_R1_001 \
         --univec $UNIVEC \
 		--hisat_index $REF_PATH/hg19_genome \
 		--bowtie2_index $REF_PATH/hg19_genome \
@@ -63,7 +65,7 @@ do
         --trim_aggressive ${polyA} \
 		--repeats $REF_PATH/rmsk.bed.gz \
 		--repeats_index $REF_PATH/repeats/all_rmsk_From_bed \
-        --skip_trim \
+        --snakemake \
 		2\>\&1 \
 		\| tee $RESULT_PATH/log/${SAMPLENAME}.log
 done |  egrep -v  'TEV|TeI|GsI|SRR|[TG]0|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'

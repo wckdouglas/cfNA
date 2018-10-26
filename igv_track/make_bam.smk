@@ -16,8 +16,6 @@ protein_bed = os.environ['REF'] + '/hg19/new_genes/protein.bed'
 stranded_bed = os.environ['REF'] + '/hg19/new_genes/protein_{PMSTRAND}.bed'
 THREADS = 6
 
-
-
 # set up templates
 #STRAND: sense, antisense
 #PMSTRAND: plus, minus

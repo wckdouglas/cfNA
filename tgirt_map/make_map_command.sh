@@ -11,8 +11,10 @@ PROJECT_PATH=$WORK/cdw2854/cfNA
 DATA_PATH=$PROJECT_PATH/data
 RESULT_PATH=$PROJECT_PATH/tgirt_map
 #RESULT_PATH=$PROJECT_PATH/tgirt_map_new_penalty
-REF_PATH=$REF/hg19/genome
-NEW_GENE_PATH=$REF/hg19/new_genes
+
+REF_PATH=$REF/hg19_ref
+GENOME_PATH=$REF_PATH/genome
+GENE_PATH=$REF_PATH/genes
 LOG_PATH=$RESULT_PATH/log
 UNIVEC=$REF/UniVec/UniVec_Core
 THREADS=24
@@ -33,39 +35,37 @@ do
 		UMI="--umi 6 --count_all"
 
 #		UMI="--umi 6 "
-    elif echo $SAMPLENAME | grep -q 'TEV[12]'
+    elif echo $SAMPLENAME | grep -q 'TEV[0-9]+'
     then
         TTN="--TTN"
         UMI=" "
-        polyA='--polyA'
-	else
-		TTN=' '
-		UMI=' '
-	fi
+    fi
 
-
-    if echo $SAMPLENAME | egrep -q 'L[12E]|TEV3'
+    if echo $SAMPLENAME | egrep -q 'L[0-9E]+|TEV3'
     then
         TTN=' '
         UMI=' '
         polyA='--polyA'
+    elif echo $SAMPLENAME | egrep -q 'PEV*'
+    then
+        TTN="--TTN"
+        UMI=" "
     fi
 
 	echo tgirt_count.py map -1 $FQ1 -2 $FQ2 \
 		--outdir $RESULT_PATH \
         --samplename ${SAMPLENAME}_R1_001 \
         --univec $UNIVEC \
-		--hisat_index $REF_PATH/hg19_genome \
-		--bowtie2_index $REF_PATH/hg19_genome \
-		--bedpath $NEW_GENE_PATH \
-		--splicesite $NEW_GENE_PATH/splicesites.tsv \
-		--rRNA_mt_index $NEW_GENE_PATH/rRNA_mt \
-        --smRNA_index $NEW_GENE_PATH/smallRNA \
+		--hisat_index $GENOME_PATH/hg19_genome \
+		--bowtie2_index $GENOME_PATH/hg19_genome \
+		--bedpath $GENE_PATH \
+		--splicesite $GENE_PATH/splicesites.tsv \
+		--rRNA_mt_index $GENE_PATH/rRNA_mt \
+        --smRNA_index $GENE_PATH/smallRNA \
 		-p $THREADS $UMI $TTN \
         --trim_aggressive ${polyA} \
-		--repeats $REF_PATH/rmsk.bed.gz \
-		--repeats_index $REF_PATH/repeats/all_rmsk_From_bed \
-        --snakemake \
+		--repeats $GENE_PATH/rmsk.bed.gz \
+		--repeats_index $GENE_PATH/rmsk \
 		2\>\&1 \
 		\| tee $RESULT_PATH/log/${SAMPLENAME}.log
 done |  egrep -v  'TEV|TeI|GsI|SRR|[TG]0|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'

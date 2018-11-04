@@ -192,7 +192,8 @@ def resolve_annotation(exon_table, inbed):
     '''
     select for greatest overlapped annotation
     '''
-    df = dd.from_pandas(inbed, npartitions=16, sort=True)\
+    #df = dd.from_pandas(inbed, npartitions=16, sort=True)\
+    df = inbed \
         .assign(is_sense = lambda d: np.where((d.strand == d.gstrand) | (d.gtype.str.contains(repeats_regex)), 
                                             'sense', 
                                             'antisense')) \
@@ -200,13 +201,13 @@ def resolve_annotation(exon_table, inbed):
                     'peakname','score','is_sense', 
                     'fc','log10p',
                     'log10q','pileup','sample_count'])\
-        .apply(select_annotation, meta={'gname':'f8',
-                                        'gtype':'f8',
-                                        'strand':'f8',
-                                        'gstrand':'f8'}) 
+        .apply(select_annotation)#, meta={'gname':'f8',
+                                #      'gtype':'f8',
+                                #        'strand':'f8',
+                                #        'gstrand':'f8'}) 
 
-    df = df.compute(scheduler='processes',
-                      get = dask.multiprocessing.get) \
+    #df = df.compute(scheduler='processes') \
+    df = df \
         .reset_index()\
         .drop_duplicates() \
         .sort_values('log10q', ascending=False)  \

@@ -8,14 +8,14 @@ COUNT_PATH = PROJECT_PATH + '/Counts/all_counts'
 REF_BED_PATH = os.environ['REF'] + '/hg19/new_genes'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001')
 SAMPLE_FOLDERS = filter(lambda x: 'try' not in x, SAMPLE_FOLDERS)
-SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_FOLDERS))[:1]
+SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_FOLDERS))
 RNA_TYPES = ['counts','sncRNA','small_RNA','rRNA_mt','reapeats']
 DEDUP_TYPES = ['dedup','all']
 STRANDS = ['sense', 'antisense']
 COUNT_TEMPLATE = COUNT_PATH + '/{RNA_TYPE}/{SAMPLE_NAME}.{DEDUP}.{STRAND}.counts' 
-INTERSECTED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.{DEDUP}.counts'
-BED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.bed'
-DEDUP_BED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.dedup.bed'
+INTERSECTED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.{DEDUP}.bed.gz'
+BED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.bed.gz'
+DEDUP_BED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.dedup.bed.gz'
 PRIMARY_BAM = PROJECT_PATH + '/{SAMPLE_NAME}/Combined/primary_no_sncRNA_tRNA_rRNA.bam'
 SAMPLE_FOLDER_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}'
 
@@ -127,8 +127,8 @@ def deduplicate(wildcards):
     '''
     genearte dedup command
     '''
-    if not re.search('genome-sim|L[12E]', wildcards.SAMPLE_NAME):
-        toleration = 1 if  wildcards.RNA_TYPE in ['all','repeats'] else 0
+    if not re.search('genome-sim|L[12E]|PEV', wildcards.SAMPLE_NAME):
+        toleration = 0 
         DEDUP_COMMAND = "  deduplicate_bed.py -i - -d '_' -f 0 -t {TOLERATE} --ct 6" \
                         "| poisson_umi_adjustment.py -i - -o - --umi 6 "\
                         .format(TOLERATE=toleration)

@@ -6,7 +6,7 @@ import glob
 import os
 import re
 import sys
-from tgirt_map.table_tool import change_gene_type
+from tgirt_map.table_tools import change_gene_type
 from multiprocessing import Pool
 
 
@@ -81,7 +81,7 @@ def main():
     spreaded_tablename = count_path + '/spreaded_all_counts.tsv'
     if run_concat:
         p = Pool(24)
-        dfs = p.map(read_function, iterable)
+        dfs = map(read_function, iterable)
         p.close()
         p.join()
 

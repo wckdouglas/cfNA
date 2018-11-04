@@ -12,8 +12,8 @@ import re
 
 cigar_op = re.compile('[MIDNSH]')
 cigar_nums = re.compile('[0-9]+')
-cpdef set get_junction(aln):
 
+cpdef set get_junction(aln):
     cdef:
         long parsed = aln.pos
         str op, nt, strand, chrom

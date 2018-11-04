@@ -42,7 +42,7 @@ SAMPLE_METRIC_TEMPLATE = SAMPLE_FOLDER + '/picard/protein.{STRAND}.RNA_Metrics'
 
 # for combining samples
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 
-                  'L[12]','All','N[aA][0-9]+',
+                  'L[1234]','All','N[aA][0-9]+',
                   'ED|DE','HS[123]','genome']
 TREATMENTS = ['unfragmented','fragmented',
                 'polyA','untreated', 'alkaline_hydrolysis',
@@ -67,7 +67,12 @@ def get_bams(wildcards):
 
     return bams
 
-    
+def get_preprocessing(wildcards):
+    if re.search('genome-sim|[pP]olyA|PEV', wildcards.SAMPLE):
+        command = ''
+    else:
+        command =  '| bam_umi_tag.py -i - -t RX '
+    return command
 
 # for strand filtering
 def get_filter_command(wildcards):
@@ -82,7 +87,7 @@ def get_filter_command(wildcards):
 
 # for deduplication
 def get_dedup_command(wildcards):
-    if not re.search('genome|[pP]olyA|L[0-9E]+', wildcards.SAMPLE):
+    if not re.search('genome|[pP]olyA|L[0-9E]+|PEV_', wildcards.SAMPLE):
         UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics').format(SAMPLE=wildcards.SAMPLE)
         md = 'picard UmiAwareMarkDuplicatesWithMateCigar UMI_METRICS_FILE={UMI_METRIC} '\
             ' MAX_EDIT_DISTANCE_TO_JOIN=1 TAG_DUPLICATE_SET_MEMBERS=true ' \
@@ -278,7 +283,7 @@ rule sort_bam_sample:
 
     params:
         ID = lambda w: w.SAMPLE,
-        PREPROCESS = lambda w: '' if re.search('genome-sim|[pP]olyA', w.SAMPLE)  else '| bam_umi_tag.py -i - -t RX ' 
+        PREPROCESS = lambda w: get_preprocessing(w)
 
     output:
         BAM = SAMPLE_SORTED_BAM

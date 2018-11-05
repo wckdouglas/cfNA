@@ -22,7 +22,7 @@ def read_count_file(file_count, samplename, count_file, count_type, strand, dedu
 
     except KeyError:
         print('Error:', count_file)
-        return None
+        sys.exit()
     
     if repeat:
         count_mat = count_mat \
@@ -70,7 +70,7 @@ def main():
     for i, row in sample_df.iterrows():
         smallRNA = row['count_type'] == 'smallRNA'
         rRNA_mt = row['count_type'] == 'rRNA_mt'
-        repeat = row['count_type'] == 'repeats'
+        repeat = row['count_type'] == 'repeats' or row['count_type'] == 'reapeats'
         sncRNA = row['count_type'] == "sncRNA" 
         iterable.append((i, row['samplename'], row['count_file'],
                         row['count_type'], row['strand'], row['dedup'],
@@ -81,7 +81,7 @@ def main():
     spreaded_tablename = count_path + '/spreaded_all_counts.tsv'
     if run_concat:
         p = Pool(24)
-        dfs = map(read_function, iterable)
+        dfs = p.map(read_function, iterable)
         p.close()
         p.join()
 

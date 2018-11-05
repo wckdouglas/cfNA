@@ -20,13 +20,14 @@ THREADS = 6
 #STRAND: sense, antisense
 #PMSTRAND: plus, minus
 
-COMBINED_METRICS_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{STRAND}.RNA_Metrics'
+STRANDED_METRICS_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{STRAND}.RNA_Metrics'
+COMBINED_METRICS_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.RNA_Metrics'
 COMBINED_BAM_TEMPLATE = COMBINED_BAM_PATH + '/{TREATMENT}.bam'
 COMBINED_NAME_SORT_BAM_TEMPLATE = COMBINED_BAM_PATH + '/{TREATMENT}.nameSorted.bam'
-
-FILTERED_STRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.{STRAND,[a-z]+}.bam'
-FILTERED_PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND,[a-z]+}_{STRAND,[a-z]+}.bam'
-PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND,[a-z]+}.bam'
+COMBINED_FILTERED_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.bam'
+FILTERED_STRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.{STRAND,[antisense]+}.bam'
+FILTERED_PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND,[plusmin]+}_{STRAND,[antisense]+}.bam'
+PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND,[plusmin]+}.bam'
 
 SAMPLE_FOLDER = PROJECT_PATH + '/{SAMPLE}'
 SAMPLE_PRIMARY_BAM = SAMPLE_FOLDER + '/Combined/primary.bam'
@@ -34,9 +35,9 @@ SAMPLE_DEDUP_BAM = SAMPLE_FOLDER + '/Combined/primary.deduplicated.bam'
 SAMPLE_MARKDUP_BAM = SAMPLE_FOLDER + '/Combined/primary.mark_duplicated.bam'
 SAMPLE_SORTED_BAM = SAMPLE_FOLDER + '/Combined/primary.sorted.bam'
 SAMPLE_NAME_SORT_BAM = SAMPLE_FOLDER + '/Combined/primary.mark_duplicated.name_sorted.bam'
-SAMPLE_FILTERED_STRAND_BAM_TEMPLATE = SAMPLE_FOLDER + '/picard/protein.{STRAND,[a-z]+}.bam'
-SAMPLE_FILTERED_PMSTRAND_BAM_TEMPLATE = SAMPLE_FOLDER + '/protein.{PMSTRAND,[a-z]+}_{STRAND,[a-z]+}.bam'
-SAMPLE_PMSTRAND_BAM_TEMPLATE = SAMPLE_FOLDER + '/protein.{PMSTRAND,[a-z]+}.bam'
+SAMPLE_FILTERED_STRAND_BAM_TEMPLATE = SAMPLE_FOLDER + '/picard/protein.{STRAND,[antisense]+}.bam'
+SAMPLE_FILTERED_PMSTRAND_BAM_TEMPLATE = SAMPLE_FOLDER + '/protein.{PMSTRAND,[plusmin]+}_{STRAND,[antisense]+}.bam'
+SAMPLE_PMSTRAND_BAM_TEMPLATE = SAMPLE_FOLDER + '/protein.{PMSTRAND,[plusmin]+}.bam'
 SAMPLE_METRIC_TEMPLATE = SAMPLE_FOLDER + '/picard/protein.{STRAND}.RNA_Metrics'
 
 
@@ -128,15 +129,49 @@ run_NameSort = 'sambamba sort -t {params.THREADS} -n '\
 
 rule all:
     input:
-        expand(COMBINED_METRICS_TEMPLATE, 
+        expand(STRANDED_METRICS_TEMPLATE, 
                 TREATMENT = TREATMENTS,
                 STRAND = ['sense', 'antisense']),
         expand(SAMPLE_METRIC_TEMPLATE,
             SAMPLE = SAMPLE_NAMES,
-            STRAND = ['sense', 'antisense'])
-
+            STRAND = ['sense', 'antisense']),
+        expand(COMBINED_METRICS_TEMPLATE,
+                TREATMENT = TREATMENTS)
 
 rule RNAseqPICARD:
+    input:
+        BAM = COMBINED_FILTERED_BAM_TEMPLATE
+
+    params:
+        REFFLAT = REFFLAT
+
+    output:
+        METRIC = COMBINED_METRICS_TEMPLATE\
+            .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
+
+    shell:
+        run_RNASeqMetrics
+    
+
+
+rule make_protein_bam:
+    input:
+        BAMS = expand(FILTERED_STRAND_BAM_TEMPLATE\
+                        .replace(',[antisense]+','')\
+                        .replace('{TREATMENT}','{{TREATMENT}}'),
+                    STRAND = ['sense','antisense'])
+    
+    params:
+        THREADS = THREADS
+
+    output:
+        BAM = COMBINED_FILTERED_BAM_TEMPLATE
+
+    shell:
+        run_StrandCombination
+        
+
+rule Stranded_RNAseqPICARD:
     input:
         BAM = FILTERED_STRAND_BAM_TEMPLATE\
             .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
@@ -145,11 +180,11 @@ rule RNAseqPICARD:
         REFFLAT = REFFLAT
     
     output:
-        METRIC = COMBINED_METRICS_TEMPLATE\
+        METRIC = STRANDED_METRICS_TEMPLATE\
             .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
 
     log:
-        COMBINED_METRICS_TEMPLATE.replace('.RNA_Metrics','.log')
+        STRANDED_METRICS_TEMPLATE.replace('.RNA_Metrics','.log')
 
     shell:
         run_RNASeqMetrics
@@ -158,9 +193,9 @@ rule Combine_strand:
     # combingin plus_sense and minus_sense // plus_antisense and minus_antisense
     input:
         BAMS = expand(FILTERED_PMSTRAND_BAM_TEMPLATE\
-                .replace('{STRAND,[a-z]+}', '{{STRAND}}')\
+                .replace('{STRAND,[antisense]+}', '{{STRAND}}')\
                 .replace('{TREATMENT}', '{{TREATMENT}}')\
-                .replace('{PMSTRAND,[a-z]+}', '{PMSTRAND}'),
+                .replace('{PMSTRAND,[plusmin]+}', '{PMSTRAND}'),
             PMSTRAND = ['plus','minus'])
 
     params:
@@ -322,9 +357,9 @@ rule RNAseqPICARD_sample:
 rule Combine_strand_sample:
     input:
         BAMS = expand(SAMPLE_FILTERED_PMSTRAND_BAM_TEMPLATE\
-                .replace('{STRAND,[a-z]+}', '{{STRAND}}')\
+                .replace('{STRAND,[antisense]+}', '{{STRAND}}')\
                 .replace('{SAMPLE}', '{{SAMPLE}}')\
-                .replace('{PMSTRAND,[a-z]+}', '{PMSTRAND}'),
+                .replace('{PMSTRAND,[plusmin]+}', '{PMSTRAND}'),
             PMSTRAND = ['plus','minus'])
     
     params:

@@ -13,7 +13,7 @@ RNA_TYPES = ['counts','sncRNA','small_RNA','rRNA_mt','reapeats']
 DEDUP_TYPES = ['dedup','all']
 STRANDS = ['sense', 'antisense']
 COUNT_TEMPLATE = COUNT_PATH + '/{RNA_TYPE}/{SAMPLE_NAME}.{DEDUP}.{STRAND}.counts' 
-INTERSECTED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.{DEDUP}.bed.gz'
+INTERSECTED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.{DEDUP}.intersected.bed.gz'
 BED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.bed.gz'
 DEDUP_BED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.dedup.bed.gz'
 PRIMARY_BAM = PROJECT_PATH + '/{SAMPLE_NAME}/Combined/primary_no_sncRNA_tRNA_rRNA.bam'
@@ -165,7 +165,9 @@ def get_parameter(wildcards, return_format='bam'):
     
     
 def strand_selection(wildcards):
-    if wildcards.DEDUP:
+    if wildcards.DEDUP == "dedup":
+        REF_STRAND = 12
+    elif wildcards.DEDUP == 'all' :
         REF_STRAND = 13
     
     if wildcards.STRAND == 'sense':

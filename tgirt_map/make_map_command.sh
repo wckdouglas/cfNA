@@ -50,9 +50,10 @@ do
         polyA='--polyA'
     fi
 
-	echo tgirt_count.py -1 $FQ1 -2 $FQ2 \
+	echo tgirt_count.py map -1 $FQ1 -2 $FQ2 \
 		--outdir $RESULT_PATH \
         --univec $UNIVEC \
+        --multi 30 \
 		--hisat_index $REF_PATH/hg19_genome \
 		--bowtie2_index $REF_PATH/hg19_genome \
 		--bedpath $NEW_GENE_PATH \

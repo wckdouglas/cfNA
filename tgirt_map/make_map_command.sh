@@ -10,13 +10,11 @@ PROJECT_PATH=$SCRATCH/cfNA
 DATA_PATH=$PROJECT_PATH/data
 RESULT_PATH=$PROJECT_PATH/tgirt_map
 #RESULT_PATH=$PROJECT_PATH/tgirt_map_new_penalty
-REF_PATH=$REF/hg19/genome
-NEW_GENE_PATH=$REF/hg19/new_genes
+REF_PATH=$REF/hg19_ref
+GENE_PATH=$REF_PATH/genes
+GENOME_PATH=$REF_PATH/genome
 LOG_PATH=$RESULT_PATH/log
-UNIVEC=$REF/UniVec/UniVec_Core
 THREADS=24
-
-
 
 
 mkdir -p $LOG_PATH
@@ -32,7 +30,7 @@ do
 		UMI="--umi 6 --count_all"
 
 #		UMI="--umi 6 "
-    elif echo $SAMPLENAME | grep -q 'TEV[12]'
+    if echo $SAMPLENAME | grep -q 'TEV[12]'
     then
         TTN="--TTN"
         UMI=" "

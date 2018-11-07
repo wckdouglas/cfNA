@@ -35,8 +35,8 @@ def get_LIBTYPE(wildcards):
     print(wildcards.SAMPLE, lt) 
     return lt
 
-TREATMENTS = ['polyA','unfragmented','fragmented']
-TREATMENTS_regexes = ['_L[0-9]+','[Qq][cC][fF][0-9]+|[ED][ED]|Exo', '[fF]rag[0-9]+']
+TREATMENTS = ['polyA','unfragmented','fragmented','phosphatase']
+TREATMENTS_regexes = ['_L[0-9]+','[Qq][cC][fF][0-9]+|[ED][ED]|Exo', '[fF]rag[0-9]+', '_Phos']
 TREATMENTS_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENTS_regexes)}
 def regex_samples(w):
     regex = TREATMENTS_regex_dict[w.TREATMENT]
@@ -98,9 +98,9 @@ rule add_read_group:
         BAM = KALLISTO_READGROUP_SAMPLE_BAM
 
     shell:
-        'samtools addreplacerg -r ID:{params.SAMPLENAME} -r SM:{params.SAMPLENAME}'\
+        'samtools addreplacerg -r ID:{params.SAMPLENAME} -r SM:{params.SAMPLENAME} '\
         '-o - {input.BAM}' \
-        '| samtools sort -O bam -t {params.THREADS} -o {output.BAM} -'
+        '| samtools sort -O bam -@ {params.THREADS} -o {output.BAM} -'
 
 rule kallisto_quant:
     input:

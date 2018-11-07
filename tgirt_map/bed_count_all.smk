@@ -174,7 +174,7 @@ def strand_selection(wildcards):
         operator = '=='
     elif wildcards.STRAND == 'antisense':
         operator = '!='
-    return "awk '$6 {operator} ${REF_STRAND}'".format(REF_STRAND = REF_STRAND, operator = operator)
+    return "awk '$6 {operator} ${REF_STRAND} || ${REF_STRAND} == \".\" '".format(REF_STRAND = REF_STRAND, operator = operator)
 
 def field_selection(wildcards):
     return ' cut -f7- ' if wildcards.DEDUP == 'dedup' else ' cut -f8-'

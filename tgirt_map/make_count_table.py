@@ -36,11 +36,14 @@ def read_count_file(file_count, samplename, count_file, count_type, strand, dedu
     if file_count % 20 == 0:
         print('Parsed %i files' %file_count)
 
+    if count_type == "rRNA_mt":
+        count_mat = count_mat.query('gene_type != "No features"')
+
     return count_mat \
             .query('read_count > 0') \
             .assign(samplename = samplename) \
             .assign(strand = strand)  \
-            .assign(dedup = dedup) 
+            .assign(dedup = dedup)  
 
 def read_function(args):
     file_count, samplename, count_file, count_type, strand, dedup= args
@@ -63,6 +66,7 @@ def main():
     sample_df.to_csv('sample.tsv',sep='\t', index=False)
     print(sample_df.head())
 
+    #debug_df = sample_df[sample_df.count_file.str.contains('Qcf12')].query('dedup=="dedup" & strand == "sense"')
 
     print ('Combining %i files' %sample_df.shape[0])
     iterable = []

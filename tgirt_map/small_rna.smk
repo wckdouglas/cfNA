@@ -7,12 +7,16 @@ wildcard_constraints:
 
 
 PROJECT_PATH= '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
-SAMPLE_FOLDER = glob.glob(PROJECT_PATH + '/*001')
-SAMPLE_FOLDER = list(filter(lambda x: re.search('[Qq][cC][fF][0-9]+',x), SAMPLE_FOLDER))
+SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001')
+SAMPLE_FOLDERS = list(filter(lambda x: re.search('[Qq][cC][fF][0-9]+',x), SAMPLE_FOLDERS))
 DEDUP_PARAM = ['total'] #'deduplicated'
 OUT_BAM_TEMPLATE = PROJECT_PATH + "/merged_bam/small_rna/smallRNA.{DEDUP_PARAM}.bam"
 SORT_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.nameSorted.bam')
 SUBSAMPLE_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.subsampled.bam')
+DEDUP_BAM = '{SAMPLE_FOLDER}/smallRNA/aligned.sorted.deduplicated.bam'
+TOTAL_BAM = '{SAMPLE_FOLDER}/smallRNA/aligned.bam'
+DEDUP_RG_BAM = DEDUP_BAM.replace('.bam','.add_rg.bam')
+TOTAL_RG_BAM = TOTAL_BAM.replace('.bam','.add_rg.bam')
 MIRNA_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.miRNA.bam')
 VYRNA_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.vt_yRNA.bam')
 REMAP_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.nameSorted.bam','.bowtie2.bam')
@@ -21,11 +25,12 @@ FQ2_TEMPLATE = FQ1_TEMPLATE.replace('_R1.fq.gz','_R2.fq.gz')
 THREADS=12
 
 
-def select_bam(wildcards):
+def select_bam(wildcards, rg = False):
     if wildcards.DEDUP_PARAM == 'total':
         bam_file = "smallRNA/aligned.bam"
+        bam_file = "smallRNA/aligned.add_rg.bam"
     else:
-        bam_file = "smallRNA/aligned.sorted.deduplicated.bam"
+        bam_file = ""
     return list(map(lambda S: S + '/' + bam_file, SAMPLE_FOLDER))
 
 
@@ -76,7 +81,8 @@ rule subsample_bam:
 
 rule cat_bam:
     input:
-        BAMS = select_bam
+        BAMS = lambda w: expand(TOTAL_RG_BAM, SAMPLE_FOLDER=SAMPLE_FOLDERS) if w.DEDUP_PARAM =='total' \
+                        else expand(DEDUP_RG_BAM, SAMPLE_FOLDER=SAMPLE_FOLDERS)
 
     output:
         BAM = SORT_BAM_TEMPLATE
@@ -98,12 +104,12 @@ rule vt_yRNA_bam:
     output:
         VYRNA_BAM_TEMPLATE
     shell:
-        'cat {params.REF} | grep "vault|RNY" --color=no '\
+        'cat {params.REF} | egrep "vault|RNY" --color=no '\
         '| bedtools intersect -abam {input} -b - '\
+        '| python ~/ngs_qc_plot/bam_viz.py '\
+        '| samtools view -b@ {params.THREADS}' \
         '| sambamba sort -t {params.THREADS} -o {output} /dev/stdin'
         
-        
-
         
 
 rule miRNA_bam:
@@ -118,4 +124,38 @@ rule miRNA_bam:
     shell:
         'cat {params.miRNA} | grep hsa --color=no '\
         '| bedtools intersect -abam {input} -b - '\
+        '| python ~/ngs_qc_plot/bam_viz.py '\
+        '| samtools view -b@ {params.THREADS}' \
         '| sambamba sort -t {params.THREADS} -o {output} /dev/stdin'
+
+RG_COMMAND = 'samtools addreplacerg -r ID:{params.ID} -r SM:{params.ID} '\
+        ' -o - {input.BAM} '\
+        '| samtools sort -@ {params.THREADS} -O bam -o {output.BAM} '
+
+rule add_rg_total:
+    input:
+        BAM =  TOTAL_BAM 
+
+    params:
+        THREADS = THREADS,
+        ID = lambda w: os.path.basename(w.SAMPLE_FOLDER)
+
+    output:
+        BAM = TOTAL_RG_BAM 
+
+    shell:
+        RG_COMMAND
+
+rule add_rg_dedup:
+    input:
+        BAM =  DEDUP_BAM
+
+    params:
+        THREADS = THREADS,
+        ID = lambda w: os.path.basename(w.SAMPLE_FOLDER)
+
+    output:
+        BAM = DEDUP_RG_BAM
+
+    shell:
+        RG_COMMAND

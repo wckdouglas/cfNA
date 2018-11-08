@@ -63,7 +63,7 @@ def is_mt(seq, rnr=False):
         is_chrM = 'is_MT'
     return is_chrM
 
-fa = pysam.Fastafile('/stor/work/Lambowitz/ref/hg19/genome/hg19_genome.fa')
+fa = pysam.Fastafile('/stor/work/Lambowitz/ref/hg19_ref/genome/hg19_genome.fa')
 def fetch_seq(chrom, start, end, strand):
     seq = fa.fetch(chrom, int(start), int(end))
     seq = seq.upper()

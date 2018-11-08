@@ -24,8 +24,8 @@ def label_sample(x, salt = False):
     elif re.search('N[aA]|[Aa]lk', x):
         #return 'Alkaline hydrolysis'
         return 'NaOH'
-    elif re.search('L[12]',x):
-        return 'PolyA-selected'
+    elif re.search('_L[0-9]+',x):
+        return 'Poly(A)-selected'
     elif re.search('[eE]xo|ED|DE', x):
         return 'DNase I + Exo I'
     elif re.search('[aA]ll|[Uu]nt', x):

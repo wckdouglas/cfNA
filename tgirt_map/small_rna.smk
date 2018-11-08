@@ -91,8 +91,8 @@ rule cat_bam:
         THREADS = THREADS
 
     shell:
-        'samtools cat {input.BAMS} '\
-        '| sambamba sort -n -o {output.BAM} -t {params.THREADS} /dev/stdin '\
+        'sambamba merge -t {params.THREADS} /dev/stdout {input.BAMS} '\
+        '| sambamba sort -n -t {params.THREADS} -o {output.BAM} /dev/stdin'
 
 
 rule vt_yRNA_bam:

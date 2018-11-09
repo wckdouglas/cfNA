@@ -66,7 +66,7 @@ do
         --trim_aggressive ${polyA} \
 		--repeats $GENE_PATH/rmsk.bed.gz \
 		--repeats_index $GENE_PATH/rmsk \
-        --rerun \
+        --rerun --dry \
 		2\>\&1 \
 		\| tee $RESULT_PATH/log/${SAMPLENAME}.log
 done |  egrep -v  'TEV|TeI|GsI|SRR|[TG]0|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'

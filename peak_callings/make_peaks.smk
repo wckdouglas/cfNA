@@ -21,6 +21,12 @@ STRANDED_BED_TEMPLATE = STRANDED_BED_PATH + '/{TREATMENT}.{STRAND}.bed.gz'
 MACS2_PEAK_TEMPLATE = MACS2_PATH + '/{TREATMENT}.{STRAND}_peaks.narrowPeak' 
 STRANDED_COV_FILE_TEMPLATE = COV_PATH + '/{TREATMENT}.{STRAND}.bigWig'
 UNSTRANDED_COV_FILE_TEMPLATE = COV_PATH + '/{TREATMENT}.bigWig'
+PEAK_FA = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.fa'
+CMSCAN_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.cmscan'
+CMTBLOUT_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.tblout'
+GENOME = os.environ['REF'] + '/hg19_ref/genome/hg19_genome.fa'
+RNA_TYPES = ['Long_RNA','piRNA']
+THREADS = 24
 
 # set up treatments
 TREATMENT = ['unfragmented','fragmented','polyA',
@@ -49,8 +55,8 @@ wildcard_constraints:
 # Run commands
 rule all:
     input:
-        expand(ANNOTATED_PEAK, 
-                TREATMENT = ['unfragmented'] ),# TESTED_TREATMENT),
+        expand(CMTBLOUT_PEAK, TREATMENT = ['unfragmented'], RNA_TYPE = RNA_TYPES), 
+        expand(CMSCAN_PEAK, TREATMENT = ['unfragmented'], RNA_TYPE = RNA_TYPES), 
         expand(STRANDED_COV_FILE_TEMPLATE, STRAND = STRANDS, TREATMENT = TESTED_TREATMENT),
         UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline')
         
@@ -93,6 +99,7 @@ rule split_strand:
     shell:
         'python process_bed.py {input.BED} {params.OUT_PREFIX}'
     
+
 
 rule merged_bed:
     #merging fragment files
@@ -151,7 +158,7 @@ rule bed_coverage_strand:
 
     params:
         GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai',
-        TEMP = STRANDED_COV_FILE_TEMPLATE.replace('bigWig','.bedGraph')
+        TEMP = STRANDED_COV_FILE_TEMPLATE.replace('.bigWig','.bedGraph')
 
     output:
         COV_FILE = STRANDED_COV_FILE_TEMPLATE
@@ -173,6 +180,48 @@ rule bed_coverage_unstranded:
     
     shell:
         COVERAGE_COMMAND
+
+
+rule PEAK_TO_FA:
+    input:
+        ANNOTATED_PEAK = ANNOTATED_PEAK
+
+    params:
+        FILTER_TERM = lambda w: '$pileup >= 4 && $sample_count >= 5 && $sense_gtype=="{TERM}"'\
+                                .format(TERM = w.RNA_TYPE.replace('_',' ')),
+        GENOME = GENOME
+
+    output:
+        FA = PEAK_FA
+
+    shell:
+        'cat {input.ANNOTATED_PEAK} '\
+        "| csvtk filter2 -t -f '{params.FILTER_TERM}' "\
+        '| csvtk cut -t -f chrom,start,end,peakname,score,strand '\
+        '| sed 1d '\
+        "| awk '{{print $1,$2-20,$3+20,$4,$5,$6}}' OFS='\\t' " \
+        '| bedtools getfasta -fi {params.GENOME} -bed - -s -name '\
+        '| seqtk seq -U '\
+        '> {output.FA}'
+
+rule SCAN_FA:
+    input:
+        FA = PEAK_FA.replace('{RNA_TYPE}','{RNA_TYPE, [a-zA-Z_]+}')
+
+    params:
+        SCAN_REF = os.environ['REF'] + '/Rfam/Rfam.cm',
+        THREADS = THREADS
+
+    output:
+        TBL_OUT = CMTBLOUT_PEAK,
+        CMSCAN = CMSCAN_PEAK
+
+    shell:
+        'cmscan -o {output.CMSCAN} --tblout {output.TBL_OUT} '\
+        ' --cpu {params.THREADS} '\
+        '{params.SCAN_REF} {input.FA}'
+        
+        
 
 rule peak_anntation:
     input:

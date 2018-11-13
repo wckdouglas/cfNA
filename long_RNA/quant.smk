@@ -12,7 +12,7 @@ SAMPLES = map(lambda x: os.path.basename(x.replace('_R1_001','')), SAMPLES)
 SAMPLES = list(SAMPLES)
 
 
-BAM_template = project_path + '/{SAMPLE}_R1_001/Combined/primary_no_sncRNA_tRNA_rRNA.bam'
+BAM_template = project_path + '/{SAMPLE}_R1_001/Combined/primary_no_sncRNA_tRNA_rRNA_repeats.bam'
 FQ1_template = BAM_template.replace('.bam', '.1.fq.gz')
 FQ2_template = BAM_template.replace('.bam', '.2.fq.gz')
 

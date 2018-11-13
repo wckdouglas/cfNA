@@ -10,9 +10,9 @@ SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_FOLDERS))
 COMBINED_BAM_PATH = PROJECT_PATH + '/merged_bam'
 FILTER_BAM_PATH = COMBINED_BAM_PATH + '/filtered_bam'
 REFFLAT = '/stor/work/Lambowitz/ref/hg19/new_genes/proteins.refflat'
-snc_annotation = os.environ['REF'] + '/hg19/new_genes/sncRNA_rRNA_for_bam_filter.bed'
+snc_annotation = os.environ['REF'] + '/hg19_ref/genes/sncRNA_rRNA_for_bam_filter.bed'
 rmsk_annotation = os.environ['REF'] + '/hg19/genome/rmsk.bed'
-protein_bed = os.environ['REF'] + '/hg19/new_genes/protein.bed'
+protein_bed = os.environ['REF'] + '/hg19_ref/genes/protein.bed'
 stranded_bed = os.environ['REF'] + '/hg19/new_genes/protein_{PMSTRAND}.bed'
 THREADS = 6
 
@@ -43,10 +43,10 @@ SAMPLE_METRIC_TEMPLATE = PICARD_FOLDER + '/protein.{STRAND}.RNA_Metrics'
 
 
 # for combining samples
-TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 
+TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos', 
                   'L[1234]','All','N[aA][0-9]+',
                   'ED|DE','HS[123]','genome']
-TREATMENTS = ['unfragmented','fragmented',
+TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
                 'exonuclease','high_salt','genome-sim'] 
 treatment_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
@@ -62,7 +62,8 @@ def select_sample(wildcards, return_count = False):
 
 def get_bams(wildcards):
     samples = select_sample(wildcards)
-    bams = [SAMPLE_PRIMARY_BAM.format(SAMPLE = s) for s in samples]
+    bams = [SAMPLE_SORTED_BAM.format(SAMPLE = s) for s in samples]
+    bams = [SAMPLE_DEDUP_BAM.format(SAMPLE = s) for s in samples]
     return bams
 
 def get_preprocessing(wildcards):
@@ -297,10 +298,25 @@ rule Combined_bam:
         COMBINED_BAM_TEMPLATE.replace('.bam','.log')
 
     shell:
-        'samtools merge -@ {params.THREADS} {output.BAM} {input.BAM_LIST}'
+        'samtools merge -@ {params.THREADS} - {input.BAM_LIST} '\
+        '| sambamba sort -t {params.THREADS} -o {output.BAM} /dev/stdin'
     
 
-rule dedup_bam_sample:
+rule remove_dup_sample:
+    input:
+        BAM = SAMPLE_MARKDUP_BAM
+    
+    output:
+        BAM = SAMPLE_DEDUP_BAM,
+        BAI = SAMPLE_DEDUP_BAM.replace('.bam','.bam.bai')
+    
+    shell:
+        'samtools view -bF 1024 {input.BAM}' \
+        '> {output.BAM} ' \
+        '; samtools index {output.BAM}'
+
+
+rule markdup_bam_sample:
     input:
         BAM = SAMPLE_SORTED_BAM
 
@@ -308,7 +324,6 @@ rule dedup_bam_sample:
         DEDUP_COMMAND = lambda w: get_dedup_command(w)
 
     output:
-        DEDUP_BAM = SAMPLE_DEDUP_BAM,
         MARKDUP_BAM = SAMPLE_MARKDUP_BAM,
         DEDUP_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.dedup_metrics')
 
@@ -316,13 +331,10 @@ rule dedup_bam_sample:
         SAMPLE_DEDUP_BAM.replace('.bam','.log')
 
     shell:
-        '{params.DEDUP_COMMAND} INPUT={input.BAM} REMOVE_SEQUENCING_DUPLICATES=true '\
-        'OUTPUT=/dev/stdout '\
-        'METRICS_FILE={output.DEDUP_METRIC} REMOVE_DUPLICATES=false ASSUME_SORT_ORDER=coordinate '\
-        '| tee {output.MARKDUP_BAM} '\
-        '| samtools view -bF 1024 ' \
-        '> {output.DEDUP_BAM} ' \
-        '; samtools index {output.DEDUP_BAM}'
+        '{params.DEDUP_COMMAND} INPUT={input.BAM} '\
+        'REMOVE_SEQUENCING_DUPLICATES=true '\
+        'OUTPUT={output.MARKDUP_BAM} '\
+        'METRICS_FILE={output.DEDUP_METRIC} REMOVE_DUPLICATES=false ASSUME_SORT_ORDER=coordinate '
 
 
 rule sort_bam_sample:

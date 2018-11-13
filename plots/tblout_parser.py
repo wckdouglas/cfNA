@@ -5,8 +5,11 @@ import numpy as np
 from functools import partial
 
 
-def parse_line(field_starts, field_ends, line):
-    return [line.strip('\n#')[s:e].strip() for s, e in zip(field_starts, field_ends)]
+def parse_line(field_starts, field_ends, line, header = False):
+    if header:
+        return [line.strip('\n#')[s:e].strip() for s, e in zip(field_starts, field_ends)]
+    else:
+        return [line.strip('\n#')[s:e+1].strip() for s, e in zip(field_starts, field_ends)]
 
 
 def define_table(infile):
@@ -15,7 +18,7 @@ def define_table(infile):
     field_widths = field_width.strip('#\n').split(' ')
     field_widths = np.cumsum(np.array(list(map(len, field_widths))) + 1)
     field_starts = np.roll(np.append(field_widths,[0]),1)
-    header = parse_line(field_starts, field_widths, header)
+    header = parse_line(field_starts, field_widths, header, header=True)
     return header, field_starts, field_widths
 
 

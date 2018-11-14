@@ -88,13 +88,16 @@ def get_filter_command(wildcards):
 def get_dedup_command(wildcards):
     if not re.search('genome|[pP]olyA|L[0-9E]+|PEV_', wildcards.SAMPLE):
         UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics').format(SAMPLE=wildcards.SAMPLE)
-        md = 'picard UmiAwareMarkDuplicatesWithMateCigar UMI_METRICS_FILE={UMI_METRIC} '\
-            ' MAX_EDIT_DISTANCE_TO_JOIN=1 TAG_DUPLICATE_SET_MEMBERS=true ' \
-            ' UMI_TAG_NAME=RX ASSUME_SORT_ORDER=coordinate ' \
+        md = 'picard UmiAwareMarkDuplicatesWithMateCigar '\
+            ' UMI_METRICS_FILE={UMI_METRIC} '\
+            ' MAX_EDIT_DISTANCE_TO_JOIN=1 '\
+            ' TAG_DUPLICATE_SET_MEMBERS=true ' \
+            ' UMI_TAG_NAME=RX '\
+            'ASSUME_SORT_ORDER=coordinate ' \
             .format(UMI_METRIC = UMI_METRIC)
     
     else:
-        md = 'picard MarkDuplicatesWithMateCigar ASSUME_SORT_ORDER=coordinate ' 
+        md = 'picard MarkDuplicates ASSUME_SORT_ORDER=coordinate ' 
 
     return md 
 
@@ -125,7 +128,7 @@ run_RNASeqMetrics = 'picard CollectRnaSeqMetrics ' \
 
 run_StrandCombination = 'samtools cat {input.BAMS} '\
         '| samtools view -bF 1024 -@ {params.THREADS} '\
-        '| sambamba sort -t {params.THREADS} '\
+        '| sambamba sort -t {params.THREADS} --tmpdir={params.TMPDIR} '\
         ' -o {output.BAM}  /dev/stdin'
 
 run_ProteinFilter =  'bedtools pairtobed -abam {input.BAM} -b {params.SNC_ANNOTATION} -type neither  '\
@@ -136,7 +139,7 @@ run_ProteinFilter =  'bedtools pairtobed -abam {input.BAM} -b {params.SNC_ANNOTA
 run_SplitStrand = 'samtools view -h@ {params.THREADS} {input.BAM} | {params.FILTER_COMMAND}' \
         '| samtools view -b@ {params.THREADS} - > {output.PMSTRAND_BAM} '
 
-run_NameSort = 'sambamba sort -t {params.THREADS} -n '\
+run_NameSort = 'sambamba sort -t {params.THREADS} -n --tmpdir={params.TMPDIR} '\
         ' -o /dev/stdout {input.BAM}'\
         '| samtools fixmate -@ {params.THREADS} - {output.NAME_SORT_BAM} '
 
@@ -176,7 +179,8 @@ rule make_protein_bam:
                     STRAND = ['sense','antisense'])
     
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        TMPDIR = COMBINED_FILTERED_BAM_TEMPLATE.replace('.bam','')
 
     output:
         BAM = COMBINED_FILTERED_BAM_TEMPLATE
@@ -213,7 +217,8 @@ rule Combine_strand:
             PMSTRAND = ['plus','minus'])
 
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        TMPDIR = FILTERED_STRAND_BAM_TEMPLATE.replace('.bam','.log')
 
     output:
         BAM = FILTERED_STRAND_BAM_TEMPLATE\
@@ -273,6 +278,7 @@ rule Name_sort:
 
     params:
         THREADS = THREADS,
+        TMPDIR = COMBINED_NAME_SORT_BAM_TEMPLATE.replace('.bam','')
 
     output:
         NAME_SORT_BAM = COMBINED_NAME_SORT_BAM_TEMPLATE
@@ -289,7 +295,8 @@ rule Combined_bam:
         BAM_LIST = lambda w: get_bams(w)
 
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        TMPDIR = COMBINED_BAM_TEMPLATE.replace('.bam','')
 
     output:
         BAM = COMBINED_BAM_TEMPLATE
@@ -299,7 +306,7 @@ rule Combined_bam:
 
     shell:
         'samtools merge -@ {params.THREADS} - {input.BAM_LIST} '\
-        '| sambamba sort -t {params.THREADS} -o {output.BAM} /dev/stdin'
+        '| sambamba sort --tmpdir={params.TMPDIR} -t {params.THREADS} -o {output.BAM} /dev/stdin'
     
 
 rule remove_dup_sample:
@@ -344,7 +351,8 @@ rule sort_bam_sample:
 
     params:
         ID = lambda w: w.SAMPLE,
-        PREPROCESS = lambda w: get_preprocessing(w)
+        PREPROCESS = lambda w: get_preprocessing(w),
+        TMPDIR = SAMPLE_SORTED_BAM.replace('.bam','')
 
     output:
         BAM = SAMPLE_SORTED_BAM
@@ -358,10 +366,10 @@ rule sort_bam_sample:
         '| samtools view -bF 256 -F4 -F2048 '\
         '| samtools addreplacerg -r ID:{params.ID} -r SM:{params.ID}  - '\
         '| samtools view -b '\
-        '| sambamba sort -n -o /dev/stdout /dev/stdin '\
+        '| sambamba sort -n --tmpdir={params.TMPDIR}_1 -o /dev/stdout /dev/stdin'\
         '| picard FixMateInformation ADD_MATE_CIGAR=true '\
         ' ASSUME_SORTED=true INPUT=/dev/stdin OUTPUT=/dev/stdout ' \
-        '| sambamba sort -o {output.BAM} /dev/stdin'
+        '| sambamba sort --tmpdir={params.TMPDIR}_2 -o {output.BAM} /dev/stdin'
 
 rule RNAseqPICARD_sample:
     input:
@@ -389,7 +397,8 @@ rule Combine_strand_sample:
             PMSTRAND = ['plus','minus'])
     
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        TMPDIR = SAMPLE_FILTERED_STRAND_BAM_TEMPLATE.replace('.bam','')
 
     output:
         BAM = SAMPLE_FILTERED_STRAND_BAM_TEMPLATE 
@@ -442,6 +451,7 @@ rule Name_sort_sample:
     
     params:
         THREADS = THREADS,
+        TMPDIR = SAMPLE_NAME_SORT_BAM.replace('.bam','')
     
     output:
         NAME_SORT_BAM = SAMPLE_NAME_SORT_BAM

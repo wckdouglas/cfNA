@@ -90,11 +90,11 @@ def get_dedup_command(wildcards):
         UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics').format(SAMPLE=wildcards.SAMPLE)
         md = 'picard UmiAwareMarkDuplicatesWithMateCigar UMI_METRICS_FILE={UMI_METRIC} '\
             ' MAX_EDIT_DISTANCE_TO_JOIN=1 TAG_DUPLICATE_SET_MEMBERS=true ' \
-            ' UMI_TAG_NAME=RX ASSUME_SORT_ORDER=duplicate ' \
+            ' UMI_TAG_NAME=RX ASSUME_SORT_ORDER=coordinate ' \
             .format(UMI_METRIC = UMI_METRIC)
     
     else:
-        md = 'picard MarkDuplicates ASSUME_SORT_ORDER=coordinate ' 
+        md = 'picard MarkDuplicatesWithMateCigar ASSUME_SORT_ORDER=coordinate ' 
 
     return md 
 
@@ -334,7 +334,8 @@ rule markdup_bam_sample:
         '{params.DEDUP_COMMAND} INPUT={input.BAM} '\
         'REMOVE_SEQUENCING_DUPLICATES=true '\
         'OUTPUT={output.MARKDUP_BAM} '\
-        'METRICS_FILE={output.DEDUP_METRIC} REMOVE_DUPLICATES=false '
+        'METRICS_FILE={output.DEDUP_METRIC} '\
+        'REMOVE_DUPLICATES=false '
 
 
 rule sort_bam_sample:

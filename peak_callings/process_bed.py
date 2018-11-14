@@ -88,6 +88,7 @@ def filter_bed(tab_file, out_prefix, cov_exon):
 
     bed_filters = [REF_PATH + '/hg19/new_genes/tRNA_yRNA.bed',
         REF_PATH + '/hg19/genome/tRNA.bed',
+        REF_PATH + '/hg19/new_genes/sncRNA_x_protein.bed',
         REF_PATH + '/hg19/new_genes/dashr_tRNA.bed',
         REF_PATH + '/hg19/new_genes/rmsk_tRNA.bed',
         REF_PATH + '/hg19/new_genes/rmsk_rRNA.bed',

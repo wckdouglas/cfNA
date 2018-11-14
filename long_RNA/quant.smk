@@ -23,7 +23,9 @@ SALMON_REF = os.environ['REF'] + '/hg19/new_genes/salmon_proteins_idx'
 #KALLISTO
 KALLISTO_template = project_path + '/kallisto_result/{SAMPLE}'
 KALLISTO_REF = os.environ['REF'] + '/hg19/new_genes/kallisto_proteins_idx'
+REFFLAT = '/stor/work/Lambowitz/ref/hg19/new_genes/proteins.refflat'
 KALLISTO_TREATMENT_BAM = project_path + '/kallisto_result/bam_files/{TREATMENT}_kallisto.bam'
+KALLISTO_TREATMENT_PICARD = project_path + '/kallisto_result/bam_files/picard/{TREATMENT}_kallisto.RNAseq_metrics'
 KALLISTO_SAMPLE_BAM = KALLISTO_template + '/pseudoalignments.bam'
 KALLISTO_READGROUP_SAMPLE_BAM = KALLISTO_template + '/pseudoalignments_rg.bam'
 
@@ -47,7 +49,24 @@ def regex_samples(w):
 rule all:
     input: 
 #        expand(SALMON_template, SAMPLE = SAMPLES),
-        expand(KALLISTO_TREATMENT_BAM, TREATMENT = TREATMENTS),
+        expand(KALLISTO_TREATMENT_PICARD, TREATMENT = TREATMENTS),
+
+rule run_picard:
+    input:
+        KALLISTO_TREATMENT_BAM
+    
+    params:
+        REFFLAT = REFFLAT
+    output:
+        KALLISTO_TREATMENT_PICARD
+    
+    shell:
+        'picard CollectRnaSeqMetrics ' \
+        'I={input} '  \
+        'O={output} '  \
+        'REF_FLAT={params.REFFLAT} '  \
+        'STRAND=FIRST_READ_TRANSCRIPTION_STRAND AS=false'
+
 
 rule make_fq:
     input:
@@ -139,5 +158,8 @@ rule kallisto_merge:
         BAM = KALLISTO_TREATMENT_BAM
         
     shell:
-        'samtools merge -@ {params.THREADS} {output.BAM} {input.BAMS}'\
+        'samtools merge -@ {params.THREADS} - {input.BAMS}'\
+        '| samtools view -h@ {params.THREADS} '\
+        "| egrep -v '[0-9]+M0N[0-9]+M' "\
+        '| samtools view -bF4 > {output.BAM}'\
         '; samtools index -@ {params.THREADS} {output.BAM}'

@@ -80,7 +80,7 @@ rule refseq_smRNA:
 
     shell:
         'zcat {input} '\
-        "| awk '$7~/guide_RNA|miRNA|miscRNA|scRNA|snoRNA|snRNA|SRP_RNA|vault|Y_RNA/'"\
+        "| awk '$7~/guide_RNA|miRNA|misc_RNA|scRNA|snoRNA|snRNA|SRP_RNA|vault|Y_RNA|^rRNA$/'"\
         '| bgzip '\
         '> {output}'
 

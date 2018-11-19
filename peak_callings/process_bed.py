@@ -86,11 +86,12 @@ def filter_bed(tab_file, out_prefix, cov_exon):
     set_tempdir(os.path.dirname(out_prefix))
 
 
-    bed_filters = [REF_PATH + '/hg19_ref/genes/tRNA/tRNA/hg19-tRNAs.bed',
+    bed_filters = [REF_PATH + '/hg19_ref/genes/tRNA/hg19-tRNAs.bed',
         REF_PATH + '/hg19_ref/genes/sncRNA_x_protein.bed',
         REF_PATH + '/hg19_ref/genes/rmsk.smRNA.bed.gz',
         REF_PATH + '/hg19_ref/genes/hg19_refseq.smRNA.bed.gz',
-        REF_PATH + '/hg19_ref/genes/dashr.bed',
+        REF_PATH + '/hg19_ref/genes/dashr.bed.gz',
+        REF_PATH + '/hg19_ref/genes/piRNA.bed.gz',
         REF_PATH + '/hg19_ref/genes/rRNA_for_bam_filter.bed']
 
     _filtered = BedTool(tab_file) \

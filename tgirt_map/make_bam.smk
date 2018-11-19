@@ -1,7 +1,7 @@
-
 import re
 import glob
 import os
+from collections import Counter
 
 PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001') 
@@ -14,7 +14,7 @@ snc_annotation = os.environ['REF'] + '/hg19_ref/genes/sncRNA_rRNA_for_bam_filter
 rmsk_annotation = os.environ['REF'] + '/hg19/genome/rmsk.bed'
 protein_bed = os.environ['REF'] + '/hg19_ref/genes/protein.bed'
 stranded_bed = os.environ['REF'] + '/hg19/new_genes/protein_{PMSTRAND}.bed'
-THREADS = 6
+THREADS = 1
 
 # set up templates
 #STRAND: sense, antisense
@@ -62,7 +62,7 @@ def select_sample(wildcards, return_count = False):
 
 def get_bams(wildcards):
     samples = select_sample(wildcards)
-    bams = [SAMPLE_SORTED_BAM.format(SAMPLE = s) for s in samples]
+    #bams = [SAMPLE_SORTED_BAM.format(SAMPLE = s) for s in samples]
     bams = [SAMPLE_DEDUP_BAM.format(SAMPLE = s) for s in samples]
     return bams
 
@@ -153,7 +153,7 @@ rule all:
             SAMPLE = SAMPLE_NAMES,
             STRAND = ['sense', 'antisense']),
         expand(COMBINED_METRICS_TEMPLATE,
-                TREATMENT = TREATMENTS)
+                TREATMENT = TREATMENTS),
 
 rule RNAseqPICARD:
     input:

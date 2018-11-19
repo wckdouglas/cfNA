@@ -1,7 +1,12 @@
+
 import glob
 import os
 import sys
 import re
+from insert_size import bed_fragments, sample_fragments, add_dict
+from collections import Counter
+from functools import reduce
+import pandas as pd
 
 PROJECT_PATH='/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 COUNT_PATH = PROJECT_PATH + '/Counts/all_counts'
@@ -13,11 +18,39 @@ RNA_TYPES = ['counts','sncRNA','small_RNA','rRNA_mt','reapeats']
 DEDUP_TYPES = ['dedup','all']
 STRANDS = ['sense', 'antisense']
 COUNT_TEMPLATE = COUNT_PATH + '/{RNA_TYPE}/{SAMPLE_NAME}.{DEDUP}.{STRAND}.counts' 
-INTERSECTED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.{DEDUP}.intersected.bed.gz'
-BED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.bed.gz'
-DEDUP_BED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.dedup.bed.gz'
-PRIMARY_BAM = PROJECT_PATH + '/{SAMPLE_NAME}/Combined/primary_no_sncRNA_tRNA_rRNA.bam'
+
 SAMPLE_FOLDER_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}'
+SAMPLE_COUNT_PATH = SAMPLE_FOLDER_TEMPLATE + '/count_temp'
+INTERSECTED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.{DEDUP}.intersected.bed.gz'
+BED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.bed.gz'
+DEDUP_BED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.dedup.bed.gz'
+PRIMARY_BAM = SAMPLE_FOLDER_TEMPLATE + '/Combined/primary_no_sncRNA_tRNA_rRNA.bam'
+INSERT_SIZE_TABLE = PROJECT_PATH + '/fragment_sizes/{TREATMENT}.tsv'
+
+TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos', 
+                  'L[1234]','All','N[aA][0-9]+',
+                  'ED|DE','HS[123]','genome']
+TREATMENTS = ['unfragmented','fragmented','phosphatase',
+                'polyA','untreated', 'alkaline_hydrolysis',
+                'exonuclease','high_salt','genome-sim'] 
+treatment_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
+def select_sample(wildcards, return_count = False):
+    regex = treatment_regex_dict[wildcards.TREATMENT] 
+    selected_samples = filter(lambda x: re.search(regex, x), SAMPLE_NAMES)
+    selected_samples = list(selected_samples)
+    if return_count:
+        return len(selected_samples)
+    else:
+        return selected_samples
+
+def select_treatment_bed(wildcards):
+    selected_samples = select_sample(wildcards, return_count=False)
+    selected_folders = expand(SAMPLE_FOLDER_TEMPLATE, SAMPLE_NAME = selected_samples)
+    BEDS = []
+    for selected_folder in selected_folders:
+        BED = sample_fragments(selected_folder, return_beds = True)
+        BEDS.extend(BED)
+    return BEDS
 
 
 rule all:
@@ -27,7 +60,24 @@ rule all:
                 RNA_TYPE = RNA_TYPES,
                 DEDUP = DEDUP_TYPES,
                 STRAND = STRANDS),
+        expand(INSERT_SIZE_TABLE,
+                TREATMENT = TREATMENTS),
 
+
+rule collect_insert_size:
+    input:
+        BEDS = lambda w:  select_treatment_bed(w)
+    
+    output:
+        TABLE_NAME = INSERT_SIZE_TABLE
+    
+    run:
+        size_dict = Counter()
+        for bed in input.BEDS:
+            size_dict += bed_fragments(bed)
+        pd.DataFrame({'isize': list(size_dict.keys()),
+                  'size_count': list(size_dict.values())})\
+            .to_csv(output.TABLE_NAME, index=False, sep='\t')
 
 rule count_bed:
     input:

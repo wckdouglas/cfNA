@@ -94,6 +94,8 @@ def filter_bed(tab_file, out_prefix, cov_exon):
         REF_PATH + '/hg19/new_genes/rmsk_rRNA.bed',
         REF_PATH + '/hg19/new_genes/rmsk_yRNA.bed',
         REF_PATH + '/hg19/new_genes/refseq_rRNA.bed',
+        REF_PATH + '/hg19/new_genes/dashr.bed',
+        REF_PATH + '/hg19/new_genes/hg19_refseq.sncRNA.bed',
         REF_PATH + '/hg19/new_genes/rRNA_for_bam_filter.bed']
 
     _filtered = BedTool(tab_file) \

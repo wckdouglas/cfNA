@@ -37,6 +37,21 @@ def label_sample(x, salt = False):
             return 'Low salt (200mM)'
         else:
             return 'DNase I'
+
+prep_order = ['Unfragmented', 'Fragmented', 
+              'Unfragmented + Phosphatase', 'Poly(A)-selected']
+def label_prep(x):
+    if re.search('[Uu]nfrag', x):
+        return prep_order[0]
+    elif re.search('[fF]ragme', x):
+        return prep_order[1]
+    elif re.search('[pP]hos', x):
+        return prep_order[2]
+    elif re.search('[Pp]oly', x):
+        return prep_order[3]
+    else:
+        return x
+    
     
 def rename_sample(xs):
     sample_dict = defaultdict(int)

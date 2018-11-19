@@ -17,7 +17,9 @@ DASHR_BED = GENE_PATH + '/dashr.bed.gz'
 RBP_BED = GENE_PATH + '/RBP.bed.gz'
 SORTED_RBP_BED = RBP_BED.replace('.bed.gz','sorted.bed.gz')
 RMSK_BED = GENE_PATH + '/rmsk.bed.gz'
+RMSK_SMRNA_BED = GENE_PATH + '/rmsk.smRNA.bed.gz'
 REFSEQ_BED = GENE_PATH + '/hg19_refseq.bed.gz'
+REFSEQ_SMRNA_BED = GENE_PATH + '/hg19_refseq.smRNA.bed.gz'
 GENES_BED = GENE_PATH + '/genes.bed.gz'
 PIRNA_BED = GENE_PATH + '/piRNA.bed.gz'
 ALL_ANNOTATION = GENE_PATH + '/all_annotation.bed.gz'
@@ -25,7 +27,9 @@ ALL_ANNOTATION = GENE_PATH + '/all_annotation.bed.gz'
 
 rule all:
     input:
-        ALL_ANNOTATION
+        ALL_ANNOTATION,
+        RMSK_SMRNA_BED,
+        REFSEQ_SMRNA_BED
 
 rule merge_annotation:
     input:
@@ -53,6 +57,33 @@ rule merge_annotation:
         '| sort -k1,1 -k2,2n -k3,3n '\
         '| bgzip '\
         '> {output}'
+
+rule rmsk_smRNA:
+    input:
+        RMSK_BED
+    
+    output:
+        RMSK_SMRNA_BED
+
+    shell:
+        'zcat {input} '\
+        "| awk '$7~/^RNA$|tRNA|rRNA|scRNA|srpRNA|snRNA/'"\
+        '|bgzip '\
+        '> {output}'
+
+rule refseq_smRNA:
+    input:
+        REFSEQ_BED
+    
+    output:
+        REFSEQ_SMRNA_BED
+
+    shell:
+        'zcat {input} '\
+        "| awk '$7~/guide_RNA|miRNA|miscRNA|scRNA|snoRNA|snRNA|SRP_RNA|vault|Y_RNA/'"\
+        '| bgzip '\
+        '> {output}'
+
 
 
 rule gzip_genes:

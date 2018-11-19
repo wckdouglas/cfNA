@@ -86,17 +86,12 @@ def filter_bed(tab_file, out_prefix, cov_exon):
     set_tempdir(os.path.dirname(out_prefix))
 
 
-    bed_filters = [REF_PATH + '/hg19/new_genes/tRNA_yRNA.bed',
-        REF_PATH + '/hg19/genome/tRNA.bed',
-        REF_PATH + '/hg19/new_genes/sncRNA_x_protein.bed',
-        REF_PATH + '/hg19/new_genes/dashr_tRNA.bed',
-        REF_PATH + '/hg19/new_genes/rmsk_tRNA.bed',
-        REF_PATH + '/hg19/new_genes/rmsk_rRNA.bed',
-        REF_PATH + '/hg19/new_genes/rmsk_yRNA.bed',
-        REF_PATH + '/hg19/new_genes/refseq_rRNA.bed',
-        REF_PATH + '/hg19/new_genes/dashr.bed',
-        REF_PATH + '/hg19/new_genes/hg19_refseq.sncRNA.bed',
-        REF_PATH + '/hg19/new_genes/rRNA_for_bam_filter.bed']
+    bed_filters = [REF_PATH + '/hg19_ref/genes/tRNA/tRNA/hg19-tRNAs.bed',
+        REF_PATH + '/hg19_ref/genes/sncRNA_x_protein.bed',
+        REF_PATH + '/hg19_ref/genes/rmsk.smRNA.bed.gz',
+        REF_PATH + '/hg19_ref/genes/hg19_refseq.smRNA.bed.gz',
+        REF_PATH + '/hg19_ref/genes/dashr.bed',
+        REF_PATH + '/hg19_ref/genes/rRNA_for_bam_filter.bed']
 
     _filtered = BedTool(tab_file) \
         .intersect(b = bed_filters , v=True)\

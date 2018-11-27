@@ -23,6 +23,8 @@ SALMON_TE_SAMPLE_RESULT_PATH = PROJECT_PATH + '/salmonTE/{SAMPLENAME}'
 SALMON_DE_OUT = SALMON_TE_RESULT_PATH + '/test_{TREATMENT}/results.csv'
 SALMON_PHENOTYPE_TABLE = SALMON_TE_RESULT_PATH + '/phenotype_{TREATMENT}.csv'
 TREATMENTS = ['dnase', 'untreated']
+if not os.path.isdir(FQ_PATH):
+    os.makedirs(FQ_PATH)
 
 
 
@@ -82,6 +84,6 @@ def make_fq(SAMPLENAME):
     return '{} {}'.format(out_FQ1, out_FQ2)
 
 
-#FQs = [make_fq(SAMPLENAME) for SAMPLENAME in SAMPLENAMES]
-#TE_quant(FQs)
+FQs = [make_fq(SAMPLENAME) for SAMPLENAME in SAMPLENAMES]
+TE_quant(FQs)
 do_test()

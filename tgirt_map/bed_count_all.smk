@@ -4,7 +4,7 @@ import os
 import sys
 import re
 from insert_size import bed_fragments, sample_fragments, add_dict
-from collections import Counter
+from collections import Counter, defaultdict
 from functools import reduce
 import pandas as pd
 
@@ -25,7 +25,9 @@ INTERSECTED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.{DEDUP}.intersected.bed.
 BED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.bed.gz'
 DEDUP_BED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.dedup.bed.gz'
 PRIMARY_BAM = SAMPLE_FOLDER_TEMPLATE + '/Combined/primary_no_sncRNA_tRNA_rRNA.bam'
-INSERT_SIZE_TABLE = PROJECT_PATH + '/fragment_sizes/{TREATMENT}.tsv'
+INSERT_SIZE_TABLE = PROJECT_PATH + '/fragment_sizes/{TREATMENT}.feather'
+COUNT_TABLE = COUNT_PATH + '/spreaded_all_counts.feather'
+LONG_COUNT_TABLE = COUNT_PATH + '/all_counts.feather'
 
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos', 
                   'L[1234]','All','N[aA][0-9]+',
@@ -55,14 +57,25 @@ def select_treatment_bed(wildcards):
 
 rule all:
     input:
+        LONG_COUNT_TABLE, COUNT_TABLE,
+        expand(INSERT_SIZE_TABLE,
+            TREATMENT = TREATMENTS),
+
+rule make_table:
+    input:
         expand(COUNT_TEMPLATE,
                 SAMPLE_NAME = SAMPLE_NAMES,
                 RNA_TYPE = RNA_TYPES,
                 DEDUP = DEDUP_TYPES,
                 STRAND = STRANDS),
-        expand(INSERT_SIZE_TABLE,
-                TREATMENT = TREATMENTS),
-
+        
+    output:
+        COUNT_TABLE,
+        LONG_COUNT_TABLE
+        
+    shell:
+        'python make_count_table.py'
+        
 
 rule collect_insert_size:
     input:
@@ -72,12 +85,19 @@ rule collect_insert_size:
         TABLE_NAME = INSERT_SIZE_TABLE
     
     run:
-        size_dict = Counter()
+        size_dict = defaultdict(Counter)
         for bed in input.BEDS:
-            size_dict += bed_fragments(bed)
-        pd.DataFrame({'isize': list(size_dict.keys()),
-                  'size_count': list(size_dict.values())})\
-            .to_csv(output.TABLE_NAME, index=False, sep='\t')
+            size_dict[bed] += bed_fragments(bed)
+
+        dfs = []
+        for bed, bed_dict in size_dict.items():
+            df = pd.DataFrame({'isize': list(bed_dict.keys()),
+                      'size_count': list(bed_dict.values())})\
+                .assign(bed = bed)
+            dfs.append(df)
+        dfs = pd.concat(dfs, sort=False)\
+            .reset_index(drop=True)
+        dfs.to_feather(output.TABLE_NAME)
 
 rule count_bed:
     input:

@@ -88,6 +88,7 @@ def main():
                 .groupby(['samplename','strand','gene_type','gene_name','gene_id', 'dedup'], as_index=False)\
                 .agg({'read_count':'sum'})
         concat_df.to_csv(long_tablename, sep = '\t', index=False)
+        concat_df.to_csv(long_tablename.replace('.tsv','.feather'), sep = '\t', index=False)
         print('Written %s' %(long_tablename))
 
     concat_df = pd.read_table(long_tablename)\
@@ -99,8 +100,9 @@ def main():
             aggfunc=np.sum,
             fill_value = 0,
             values = 'read_count') \
-        .reset_index() \
-        .to_csv(spreaded_tablename, sep = '\t', index=False)
+        .reset_index() 
+    concat_df.to_csv(spreaded_tablename, sep = '\t', index=False)
+    concat_df.to_feather(spreaded_tablename.replace('.tsv','.feather'))
     print('Written %s' %(spreaded_tablename))
 
 

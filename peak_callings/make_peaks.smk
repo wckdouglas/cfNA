@@ -25,7 +25,7 @@ PEAK_FA = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.fa'
 CMSCAN_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.cmscan'
 CMTBLOUT_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.tblout'
 GENOME = os.environ['REF'] + '/hg19_ref/genome/hg19_genome.fa'
-RNA_TYPES = ['Long_RNA','piRNA']
+RNA_TYPES = ['Long_RNA','others']
 THREADS = 24
 
 # set up treatments
@@ -41,6 +41,13 @@ def get_bed(wildcards):
     samplenames  = filter(lambda x: re.search(regex, x), SAMPLE_NAMES)
     beds = [BED_TEMPLATE.format(SAMPLENAME = x) for x in samplenames]
     return beds
+
+
+def peak_filter(wildcards):
+    TERM = wildcards.RNA_TYPE.replace('_',' ')
+    if TERM == 'others':
+        TERM = ''
+    return '$pileup >= 4 && $sample_count >= 5 && $sense_gtype=="{TERM}"'.format(TERM = TERM)
 
 SAMPLES = []
 for T in TREATMENT:
@@ -187,8 +194,7 @@ rule PEAK_TO_FA:
         ANNOTATED_PEAK = ANNOTATED_PEAK
 
     params:
-        FILTER_TERM = lambda w: '$pileup >= 4 && $sample_count >= 5 && $sense_gtype=="{TERM}"'\
-                                .format(TERM = w.RNA_TYPE.replace('_',' ')),
+        FILTER_TERM = lambda w: peak_filter(w),
         GENOME = GENOME
 
     output:

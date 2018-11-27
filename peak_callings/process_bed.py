@@ -22,6 +22,7 @@ class exon:
         self.chrom = self.fields[0]
         self.start = int(self.fields[1])
         self.end = int(self.fields[2])
+        self.exon_count = int(self.fields[4])
         self.strand = self.fields[5]
         self.exon_name = self.fields[3]
         self.exon_size = self.end - self.start
@@ -63,6 +64,7 @@ class exon:
                         info = self.extra)
 
 
+
 def make_exons(tab_file, cov_exon, exons):
     out_exon_count = 0
     with open(exons, 'r') as exon_records, \
@@ -71,7 +73,7 @@ def make_exons(tab_file, cov_exon, exons):
         for in_exon_count, exon_record in enumerate(exon_records):
             ex = exon(exon_record)
             ex.calculate_coverage(tabix, cutoff = 3)
-            if ex.coverage_score > 0.8 and ex.avg_coverage > 3:
+            if (ex.coverage_score > 0.8 and ex.avg_coverage > 3) or (ex.exon_count < 2):
                 print(str(ex), file = out_exon)
                 out_exon_count += 1
     print('Read %i exons, written %i exons' %(in_exon_count, out_exon_count), 
@@ -102,11 +104,16 @@ def filter_bed(tab_file, out_prefix, cov_exon):
         .intersect(b = cov_exon, s=True, v=True) \
         .saveas()
 
+    regular_chromosome = list(range(1,23))
+    regular_chromosome.extend(['X','Y','M'])
+    regular_chromosome = map(lambda x: 'chr'+str(x), regular_chromosome)
+    regular_chromosome = set(list(regular_chromosome))
     with open(positive_out, 'w') as pos,\
             open(negative_out, 'w') as neg:
         for fragment_count, fragment in enumerate(_filtered.filter(less_than, 300)):
-            out_file = neg if fragment.strand == '-' else pos
-            out_file.write(str(fragment))
+            if fragment.chrom in regular_chromosome :
+                out_file = neg if fragment.strand == '-' else pos
+                out_file.write(str(fragment))
 
     print('Output %i fragments' %fragment_count)
     for out in [negative_out, positive_out]:
@@ -118,7 +125,7 @@ def main():
     if len(sys.argv) != 3:
         sys.exit('[usage] python %s <bed_file> <out_prefix>' %sys.argv[0])
 
-    exons = REF_PATH + '/hg19/new_genes/exons.bed'
+    exons = REF_PATH + '/hg19_ref/genes/exons_all.bed'
     tab_file = sys.argv[1]
     out_prefix =  sys.argv[2]
 

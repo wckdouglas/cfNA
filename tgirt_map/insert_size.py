@@ -37,7 +37,7 @@ def sample_fragments(sample_folder, return_beds = False):
     for bed in ['counts.dedup.bed.gz', 'reapeats.dedup.bed.gz', 
                 'rRNA_mt.bed.gz', 'small_RNA.dedup.bed.gz', 
                 'sncRNA.dedup.bed.gz']:
-        bed = bed.replace('.dedup','')
+        #bed = bed.replace('.dedup','')
         bed_file = bed_path + '/' + bed
         if not return_beds:
             size_dict += bed_fragments(bed_file)

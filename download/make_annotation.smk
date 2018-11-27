@@ -1,4 +1,7 @@
 import os
+import sys
+import re
+from itertools import groupby
 from ucsc_Refseq import main as download_refseq_function
 
 REF = os.environ['REF']
@@ -10,6 +13,7 @@ RBP_URL = 'https://www.encodeproject.org/metadata/type=Experiment&assay_title=eC
 ENCODE_FILE = 'encode_files.txt'
 RMSK_URL = 'http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/rmsk.txt.gz'
 PIRNA_URL = 'http://www.regulatoryrna.org/database/piRNA/download/archive/v1.0/bed/piR_hg19_v1.0.bed.gz'
+GTF = GENE_PATH + '/genes.gtf'
 
 #out bed
 RBP_TABLE = 'encode_url.txt'
@@ -23,13 +27,15 @@ REFSEQ_SMRNA_BED = GENE_PATH + '/hg19_refseq.smRNA.bed.gz'
 GENES_BED = GENE_PATH + '/genes.bed.gz'
 PIRNA_BED = GENE_PATH + '/piRNA.bed.gz'
 ALL_ANNOTATION = GENE_PATH + '/all_annotation.bed.gz'
+ALL_EXONS = GENE_PATH + '/exons_all.bed'
 
 
 rule all:
     input:
         ALL_ANNOTATION,
         RMSK_SMRNA_BED,
-        REFSEQ_SMRNA_BED
+        REFSEQ_SMRNA_BED,
+        ALL_EXONS
 
 rule merge_annotation:
     input:
@@ -80,7 +86,7 @@ rule refseq_smRNA:
 
     shell:
         'zcat {input} '\
-        "| awk '$7~/guide_RNA|miRNA|misc_RNA|scRNA|snoRNA|snRNA|SRP_RNA|vault|Y_RNA|^rRNA$/'"\
+        "| awk '$7~/guide_RNA|miRNA|scRNA|snoRNA|misc|snRNA|SRP_RNA|vault|Y_RNA|^rRNA$/'"\
         '| bgzip '\
         '> {output}'
 
@@ -199,3 +205,46 @@ rule download_rbp_table:
         '| grep --color=no bed '\
 	    '| grep -v bigBed '\
         '> {output}'
+
+rule make_exons:
+    input:
+
+    params:
+        GTF = GTF
+    output:
+        EXONS = ALL_EXONS
+
+    run:
+        def extract_gene_name(line, info = 'gene_id'):
+            gn = line.split('%s '%info)[1]
+            return gn.split(';')[0].strip('"')
+
+        smallRNA = re.compile('miRNA|misc|rRNA|tRNA|snoRNA|snRNA|vault|scRNA')
+        with open(params.GTF) as gtf:
+            for hash_count, line in enumerate(gtf):
+                if not line.startswith('##'):
+                    break
+        
+        temp_file = output.EXONS + '_temp'
+        with open(params.GTF) as gtf,\
+                open(temp_file, 'w') as exon_out:
+            for i in range(hash_count):
+                line = next(gtf)
+
+            for gname, lines in groupby(gtf, extract_gene_name):
+                lines = [line for line in lines if line.split('\t')[2]=="exon"]
+                exon_count = len(lines)
+                for line in  lines:
+                    if not smallRNA.search(line):
+                        fields = line.split('\t')
+                        try:
+                            outline = '{chrom}\t{start}\t{end}\t{name}\t{exon_count}\t{strand}\t{gene_type}'\
+                                .format(chrom = fields[0], start = int(fields[3])-1, end = int(fields[4]) + 1, strand = fields[6],
+                                        name = extract_gene_name(line, info = 'gene_name'), exon_count = exon_count,
+                                        gene_type = extract_gene_name(line, info ='gene_type'))
+                            print(outline, file = exon_out)
+                        except IndexError:
+                            print(line)
+                            sys.exit()
+
+        shell('cat {temp} | sort -k1,1 -k2,2n -k3,3n -k6,6 -u > {EXONS}'.format(temp = temp_file, EXONS = output.EXONS))

@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 
 import pysam
@@ -80,14 +81,36 @@ def make_exons(tab_file, cov_exon, exons):
           file=sys.stdout)
 
 
-def filter_bed(tab_file, out_prefix, cov_exon):
-    
+def write_stranded(bed_iterable, out_prefix):
+    '''
+    input a BedTool object,
+    write out to postive and negative strand bed file
+    '''
     positive_out = out_prefix + '.fwd.bed'
     negative_out = out_prefix + '.rvs.bed'
     print('Writing:\n1. %s\n2. %s' %(positive_out, negative_out))
+
+    regular_chromosome = list(range(1,23))
+    regular_chromosome.extend(['X','Y','M'])
+    regular_chromosome = map(lambda x: 'chr'+str(x), regular_chromosome)
+    regular_chromosome = set(list(regular_chromosome))
+    with open(positive_out, 'w') as pos,\
+            open(negative_out, 'w') as neg:
+        for fragment_count, fragment in enumerate(bed_iterable.filter(less_than, 300)):
+            if fragment.chrom in regular_chromosome :
+                out_file = neg if fragment.strand == '-' else pos
+                out_file.write(str(fragment))
+
+    print('Output %i fragments' %fragment_count)
+    for out in [negative_out, positive_out]:
+        os.system('bgzip -f {out}; tabix -f -p bed {out}.gz'.format(out = out))
+    return 0
+
+
+
+
+def filter_bed(tab_file, out_prefix, cov_exon):
     set_tempdir(os.path.dirname(out_prefix))
-
-
     bed_filters = [REF_PATH + '/hg19_ref/genes/tRNA/hg19-tRNAs.bed',
         REF_PATH + '/hg19_ref/genes/sncRNA_x_protein.bed',
         REF_PATH + '/hg19_ref/genes/rmsk.smRNA.bed.gz',
@@ -103,22 +126,9 @@ def filter_bed(tab_file, out_prefix, cov_exon):
     _filtered = _filtered \
         .intersect(b = cov_exon, s=True, v=True) \
         .saveas()
-
-    regular_chromosome = list(range(1,23))
-    regular_chromosome.extend(['X','Y','M'])
-    regular_chromosome = map(lambda x: 'chr'+str(x), regular_chromosome)
-    regular_chromosome = set(list(regular_chromosome))
-    with open(positive_out, 'w') as pos,\
-            open(negative_out, 'w') as neg:
-        for fragment_count, fragment in enumerate(_filtered.filter(less_than, 300)):
-            if fragment.chrom in regular_chromosome :
-                out_file = neg if fragment.strand == '-' else pos
-                out_file.write(str(fragment))
-
-    print('Output %i fragments' %fragment_count)
-    for out in [negative_out, positive_out]:
-        os.system('bgzip -f {out}; tabix -f -p bed {out}.gz'.format(out = out))
-    return 0
+    
+    write_stranded(BedTool(tab_file), out_prefix + '.unfiltered')
+    write_stranded(_filtered, out_prefix + '.filtered')
 
 
 def main():

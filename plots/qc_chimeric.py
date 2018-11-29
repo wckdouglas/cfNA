@@ -11,13 +11,10 @@ import os
 
 forward_false_clip = re.compile('^[0][ACTG]')
 reverse_false_clip = re.compile('[ACTG][0]$')
-def is_clip(aln):
-    md = aln.get_tag('MD')
-    if aln.is_read1 and aln.is_reverse:
 
 
 def count_softclipped(sample_folder):
-    bam_file = sample_folder + '/Combined/primary.marked_duplicate.bam'
+    bam_file = sample_folder + '/Combined/primary.deduplicated.bam'
     samplename = os.path.basename(sample_folder)
     print('Running: %s' %bam_file)
 
@@ -40,8 +37,8 @@ def count_softclipped(sample_folder):
 
 
 def main():
-    project_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map'
-    out_path = project_path + '/picard_qc'
+    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
+    out_path = project_path + '/softclip'
     out_table = out_path + '/clip_table.tsv'
     sample_folders = glob.glob(project_path + '/Q*001')
     sample_folders = filter(lambda x: not re.search('L[12]',x), sample_folders)

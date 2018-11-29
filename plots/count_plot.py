@@ -159,3 +159,18 @@ def plot_count(ax, feature_only=True, dedup=True):
     ax.set_xlabel('')
     ax.set_ylabel('Read pairs (%)')
     sns.despine()
+
+
+
+def sample_wise_fraction():
+    return pd.read_feather('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather')\
+        .filter(regex='group|dedup:sense')\
+        .groupby('grouped_type', as_index=False)\
+        .sum() \
+        .pipe(pd.melt, id_vars = ['grouped_type'],
+             var_name = 'samplename', value_name = 'rcount') \
+        .assign(rfrac = lambda d: d.groupby('samplename').rcount.transform(lambda x: 100 *x/x.sum()))\
+        .assign(label = lambda d: d.samplename.map(label_sample))\
+        .pipe(lambda d: d[~pd.isnull(d.label)]) \
+        .groupby(['label','grouped_type'], as_index=False)\
+        .agg({'rfrac':['min','max']})

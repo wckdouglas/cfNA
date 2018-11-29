@@ -19,6 +19,7 @@ GTF = GENE_PATH + '/genes.gtf'
 RBP_TABLE = 'encode_url.txt'
 DASHR_BED = GENE_PATH + '/dashr.bed.gz'
 RBP_BED = GENE_PATH + '/RBP.bed.gz'
+RBP_FILTERED_BED = GENE_PATH + '/RBP.filtered.bed.gz'
 SORTED_RBP_BED = RBP_BED.replace('.bed.gz','sorted.bed.gz')
 RMSK_BED = GENE_PATH + '/rmsk.bed.gz'
 RMSK_SMRNA_BED = GENE_PATH + '/rmsk.smRNA.bed.gz'
@@ -35,7 +36,8 @@ rule all:
         ALL_ANNOTATION,
         RMSK_SMRNA_BED,
         REFSEQ_SMRNA_BED,
-        ALL_EXONS
+        ALL_EXONS,
+        RBP_BED
 
 rule merge_annotation:
     input:
@@ -50,19 +52,22 @@ rule merge_annotation:
 
 
     output:
-        BED = ALL_ANNOTATION
+        BED = ALL_ANNOTATION,
+        RBP = RBP_FILTERED_BED
     
     shell:
-        'cat {input.RBP} '
-        "| awk '$8 > 2' "\
-        "| tr '_' '\\t' "\
-        "| awk '{{print $1,$2,$3,$4,$10,$8, \"RBP\",$4}}' OFS='\\t' "\
-        '|gzip '\
-        '| zcat - {input.GENE} {params.RMSK} '\
-        ' {input.DASHR} {input.REFSEQ} {input.PIRNA} '\
-        '| sort -k1,1 -k2,2n -k3,3n '\
+        'zcat {input.RBP} '
+        '| python clean_rbp.py ' \
+        '| sort -k1,1 -k2,2n -k3,3n ' \
+        '| bgzip ' \
+        '| tee {output.RBP} ' \
+        '| zcat - {input.GENE} {params.RMSK} ' \
+        ' {input.DASHR} {input.REFSEQ} {input.PIRNA} ' \
+        '| sort -k1,1 -k2,2n -k3,3n ' \
         '| bgzip '\
-        '> {output}'
+        '> {output.BED}'\
+        '; tabix -f -p bed {output.BED}'\
+        '; tabix -f -p bed {output.RBP}'
 
 rule rmsk_smRNA:
     input:
@@ -179,14 +184,19 @@ rule make_rbp:
     input:
         RBP_TABLE
     
+    params:
+        TEMP = RBP_BED + '_temp'
+
     output:
         RBP_BED
 
     shell:
         'rm -f {output}; touch {output};' \
         'for FILE_URL in $(cat {input}| grep -v meta );'\
-        "do echo curl -L $FILE_URL \| zcat \| awk '$2~/^[0-9]+$/' >> {output};"\
+        "do curl -L $FILE_URL | zcat | awk '$2~/^[0-9]+$/' >> {output};"\
         'done '\
+        '; mv {output} {params.TEMP}'\
+        '; cat {params.TEMP} | sort -k1,1 -k2,2 -k3,3 | bgzip > {output}'
 
 
 

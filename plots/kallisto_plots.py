@@ -75,7 +75,7 @@ def label_gene(x):
         label = gene_cats[2]
     elif re.search('^RPL[0-9]+|^RPS[0-9]+', x) and '-' not in x:
         label = gene_cats[1]
-    elif re.search('^HB[ABDEZMGQ][0-9]$|^HB[ABDEZMGQ]$|^ALB$|^B2M$|^FG[A-Z]', x):
+    elif re.search('^HB[ABDEZMGQ][0-9]$|^HB[ABDEZMGQ]$|^ALB$|^B2M$|^FG[A-Z]|^S100', x):
         label = gene_cats[3]
     elif re.search('^[A-Z]ARS$', x):
         label = gene_cats[4]
@@ -109,10 +109,11 @@ def plot_heatmap(tpm_df, ax, var = 'Poly(A)-selected', selected = 'L[12]|Poly\(A
         .fillna(0)\
         .filter(regex=selected)\
         .transform(lambda x: np.log2(x+1))\
-        .transpose()
-    sns.heatmap(top_df, ax = ax, cmap = 'viridis')    
+        .transpose() \
+        .rename(index={'DNase I':'TGIRT-seq','Poly(A)-selected':'SMART-seq'})
+    sns.heatmap(top_df, ax = ax, cmap = 'inferno')    
     ax.set_xticks(np.arange(top_n) + 0.5)
-    xts = ax.set_xticklabels(top_df.columns.values, fontsize=13)
+    xts = ax.set_xticklabels(top_df.columns.values, fontsize=10)
     xts = ax.set_yticklabels(ax.get_yticklabels(), rotation=0, rotation_mode='anchor', ha='right')
     ax.collections[0].colorbar.set_label('$log_2$ TPM', 
                                          rotation=270, 

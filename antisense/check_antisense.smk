@@ -24,6 +24,7 @@ ANTISENSE_READ = SAMPLE_FOLDER_TEMPLATE + '/smallRNA/antisense_read.txt'
 ANTISENSE_FQ = SAMPLE_FOLDER_TEMPLATE + '/smallRNA/antisense_read.fq.gz'
 R2_ADAPTER_CONTAM_ANTISENSE_FQ = ANTISENSE_FQ.replace('.fq.gz','_contam.txt')
 ANTISENSE_ANNOTATED_BED = SAMPLE_FOLDER_TEMPLATE + '/smallRNA/r2_annotated_antisense.bed'
+NT_CUTOFF = 3
 
 
 rule all:
@@ -76,7 +77,7 @@ rule count_R2_contam:
     run: 
         rows = []
         for FQ, TXT, SAMPLENAME in  zip(input.FQ, output.TXT, SAMPLENAMES):
-            seq_count, contam = find_r2(FQ, TXT, nt_cutoff=6)
+            seq_count, contam = find_r2(FQ, TXT, nt_cutoff=NT_CUTOFF)
             rows.append((seq_count, contam, SAMPLENAME))
         DataFrame(rows, columns = ['anti_seq_count','with_R2', 'samplename'])\
             .to_csv(output.TABLE, index=False)

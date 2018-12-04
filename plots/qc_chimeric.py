@@ -38,10 +38,10 @@ def count_softclipped(sample_folder):
 
 def main():
     project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
-    out_path = project_path + '/softclip'
-    out_table = out_path + '/clip_table.tsv'
+    out_path = project_path + '/non_template_added'
+    out_table = out_path + '/clip_table.feather'
     sample_folders = glob.glob(project_path + '/Q*001')
-    sample_folders = filter(lambda x: not re.search('L[12]',x), sample_folders)
+    sample_folders = filter(lambda x: not re.search('L[0-9E]+|genome-sim',x), sample_folders)
     p = Pool(24)
     rows = p.map(count_softclipped, sample_folders)
     p.close()
@@ -50,7 +50,7 @@ def main():
     df = pd.DataFrame(rows, columns = ['samplename','aln_count',
                                 'softclip_count',
                                 'bases','clipped_bases'])
-    df.to_csv(out_table, sep='\t',index=False)
+    df.to_feather(out_table)
     print('Written %s' %out_table)
     
 

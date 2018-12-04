@@ -14,12 +14,12 @@ from plotting_utils import *
 from functools import lru_cache
 
 def genes_annot():
-    return pd.read_table('/stor/work/Lambowitz/ref/hg19/new_genes/genes.annot',
+    return pd.read_table('/stor/work/Lambowitz/ref/hg19_ref/genes/genes.annot',
                  names = ['gname','gtype', 'Name'])\
         .assign(Name = lambda d: d.Name.str.split('.', expand=True).iloc[:,0])
 
 def published():
-    gene_expr = '/stor/work/Lambowitz/cdw2854/EV_polyA/published_expr/rna_tissue.tsv'
+    gene_expr = '/stor/work/Lambowitz/cdw2854/cfNA/platelets/tissues/rna_tissue.tsv'
     expr_df = pd.read_table(gene_expr) \
         .pipe(pd.pivot_table, columns = 'Sample', 
               index = ['Gene','Gene name'], values = 'Value')\

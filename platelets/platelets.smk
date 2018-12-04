@@ -41,7 +41,7 @@ rule combine_tissue:
 
     run:
         dfs = []
-        for TAB in TABS:
+        for TAB in input.TABS:
             df = pd.read_table(TAB)
             dfs.append(df)
 

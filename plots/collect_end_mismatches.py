@@ -48,7 +48,7 @@ def count_softclipped(sample_folder):
 
     '''
     # sample_folder = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/Qcf10_R1_001'
-    bam_file = sample_folder + '/Combined/primary.duplicated.bam'
+    bam_file = sample_folder + '/Combined/primary.deduplicated.bam'
     samplename = os.path.basename(sample_folder)
     print('Running: %s' %bam_file)
 
@@ -89,13 +89,13 @@ def main():
         os.mkdir(out_path)
     out_table = out_path + '/non_template_table.feather'
     sample_folders = glob.glob(project_path + '/Q*001')
-    sample_folders = filter(lambda x: not re.search('L[12]',x), sample_folders)
+    sample_folders = filter(lambda x: not re.search('L[0-9E]+',x), sample_folders)
     p = Pool(24)
     rows = p.map(count_softclipped, sample_folders)
     p.close()
     p.join()
 
-    pd.concat(rows).to_feather(out_table)
+    pd.concat(rows).reset_index(drop=True).to_feather(out_table)
     print('Written %s' %out_table)
     
 

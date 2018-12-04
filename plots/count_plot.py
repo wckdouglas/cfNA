@@ -107,13 +107,14 @@ def plot_insert(ax):
 
 
 def plot_count(ax, feature_only=True, dedup=True):
-    dedup_df = pd.read_feather('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather')
+    count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather'
+    dedup_df = pd.read_feather(count_file)
 
-
-    filter_feature = 'No features' if feature_only else ''
+    filter_feature = 'Unannotated' if feature_only else ''
     dedup_regex = ':dedup:' if dedup else ':all:'
     countplot_df = dedup_df \
         .filter(regex = 'type|Qcf|QCF|sim')\
+        .assign(grouped_type = lambda d: np.where(d.grouped_type == "No features", 'Unannotated', d.grouped_type))\
         .assign(grouped_type = lambda d: np.where(d.grouped_type == "rDNA", 'rRNA', d.grouped_type))\
         .assign(grouped_type = lambda d: np.where(d.grouped_type.str.contains('Y-RNA'), 'Other sncRNA', d.grouped_type))\
         .assign(grouped_type = lambda d: np.where(d.grouped_type.str.contains("vaultRNA|VT|vt"),'Vault RNA', d.grouped_type))\

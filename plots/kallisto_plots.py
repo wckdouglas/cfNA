@@ -46,7 +46,7 @@ def TOP_gene_df():
     
 @lru_cache()
 def tid_to_gid():
-    gtf = '/stor/work/Lambowitz/ref/hg19/new_genes/proteins.gtf'
+    gtf = '/stor/work/Lambowitz/ref/hg19_ref/genes/genes.gtf'
     tdf = []
     with open(gtf) as gt:
         for r in gt:
@@ -110,7 +110,7 @@ def plot_heatmap(tpm_df, ax, var = 'Poly(A)-selected', selected = 'L[12]|Poly\(A
         .filter(regex=selected)\
         .transform(lambda x: np.log2(x+1))\
         .transpose() \
-        .rename(index={'DNase I':'TGIRT-seq','Poly(A)-selected':'SMART-seq'})
+        .rename(index={'DNase I':'TGIRT-seq','Poly(A)-selected':'SMART-Seq'})
     sns.heatmap(top_df, ax = ax, cmap = 'inferno')    
     ax.set_xticks(np.arange(top_n) + 0.5)
     xts = ax.set_xticklabels(top_df.columns.values, fontsize=10)

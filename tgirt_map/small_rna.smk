@@ -11,6 +11,8 @@ wildcard_constraints:
 #VARIABLES
 PROJECT_PATH= '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001')
+SMALL_RNA_BED = os.environ['REF'] + '/hg19/new_genes/smallRNA.bed'
+SMALL_RNA_FAI = os.environ['REF'] + '/hg19/new_genes/smallRNA.fa.fai'
 DEDUP_PARAM = ['total'] #'deduplicated'
 OUT_BAM_TEMPLATE = PROJECT_PATH + "/merged_bam/small_rna/{TREATMENT}.{RNA_TYPE}.{DEDUP_PARAM}.bam"
 SORT_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.nameSorted.bam')
@@ -21,6 +23,9 @@ DEDUP_RG_BAM = DEDUP_BAM.replace('.bam','.add_rg.bam')
 TOTAL_RG_BAM = TOTAL_BAM.replace('.bam','.add_rg.bam')
 MIRNA_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.miRNA.bam')
 VYRNA_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.vt_yRNA.bam')
+BED_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.bed.gz')
+BG_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.bg')
+BIGWIG_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.bigWig')
 REMAP_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.nameSorted.bam','.bowtie2.bam')
 FQ1_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','_R1.fq.gz')
 FQ2_TEMPLATE = FQ1_TEMPLATE.replace('_R1.fq.gz','_R2.fq.gz')
@@ -58,8 +63,52 @@ rule all:
         expand(OUT_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS),
         expand(SUBSAMPLE_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS),
         expand(MIRNA_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS),
-        expand(VYRNA_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS)
+        expand(VYRNA_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS),
+        expand(BIGWIG_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS),
 
+
+rule bg_to_bw:
+    input:
+        BG = BG_TEMPLATE
+
+    params:
+        GENOME = SMALL_RNA_FAI
+
+    output:
+        BW = BIGWIG_TEMPLATE
+
+    shell:
+        'bedGraphToBigWig {input.BG} {parmas.GENOME} {output.BW}'
+
+
+rule small_rna_coverage:
+    input:
+        BED = BED_TEMPLATE
+
+    params:
+        GENOME = SMALL_RNA_FAI
+
+    output:
+        BG = BG_TEMPLATE
+
+    shell:
+        'bedtools genomecov -i {input.BED} -g {params.GENOME} -bga > {output.BG}'
+
+
+rule small_rna_bed:
+    input:
+        BAM = SORT_BAM_TEMPLATE
+
+    output:
+        BED = BED_TEMPLATE,
+        TABIX = BED_TEMPLATE + '.tbi'
+
+    shell:
+        'bam_to_bed.py -i {input.BAM} -o - '\
+        '| sort -k1,1 -k2,2n -k3,3n '\
+        '| bgzip '\
+        '> {output.BED}'\
+        '; tabix -p bed -f {output.BED}'
 
 rule sort_bam:
     input:
@@ -114,16 +163,17 @@ rule cat_bam:
         '| sambamba sort -n -t {params.THREADS} -o {output.BAM} /dev/stdin'
 
 
+
 rule vt_yRNA_bam:
     input:
         SORT_BAM_TEMPLATE
     params:
         THREADS = THREADS,
-        REF = os.environ['REF'] + '/hg19/new_genes/smallRNA.bed'
+        REF = SMALL_RNA_BED
     output:
         VYRNA_BAM_TEMPLATE
     shell:
-        'cat {params.REF} | egrep "vault|RNY" --color=no '\
+        'cat {params.REF} | egrep "vault|RN[Y7]" --color=no '\
         '| bedtools intersect -abam {input} -b - '\
         '| python ~/ngs_qc_plot/bam_viz.py '\
         '| samtools view -b@ {params.THREADS}' \
@@ -136,12 +186,12 @@ rule miRNA_bam:
         SORT_BAM_TEMPLATE
     params:
         THREADS = THREADS,
-        miRNA = os.environ['REF'] + '/hg19/new_genes/smallRNA.bed'
+        BED = SMALL_RNA_BED
     output:
         MIRNA_BAM_TEMPLATE
     
     shell:
-        'cat {params.miRNA} | grep hsa --color=no '\
+        'cat {params.BED} | grep hsa --color=no '\
         '| bedtools intersect -abam {input} -b - '\
         '| python ~/ngs_qc_plot/bam_viz.py '\
         '| samtools view -b@ {params.THREADS}' \

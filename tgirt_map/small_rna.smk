@@ -14,7 +14,8 @@ SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001')
 SMALL_RNA_BED = os.environ['REF'] + '/hg19/new_genes/smallRNA.bed'
 SMALL_RNA_FAI = os.environ['REF'] + '/hg19/new_genes/smallRNA.fa.fai'
 DEDUP_PARAM = ['total'] #'deduplicated'
-OUT_BAM_TEMPLATE = PROJECT_PATH + "/merged_bam/small_rna/{TREATMENT}.{RNA_TYPE}.{DEDUP_PARAM}.bam"
+OUT_PATH = PROJECT_PATH + "/merged_bam/small_rna"
+OUT_BAM_TEMPLATE =  OUT_PATH +"/{TREATMENT}.{RNA_TYPE}.{DEDUP_PARAM}.bam"
 SORT_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.nameSorted.bam')
 SUBSAMPLE_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.subsampled.bam')
 DEDUP_BAM = '{SAMPLE_FOLDER}/{RNA_TYPE}/aligned.sorted.deduplicated.bam'
@@ -78,7 +79,7 @@ rule bg_to_bw:
         BW = BIGWIG_TEMPLATE
 
     shell:
-        'bedGraphToBigWig {input.BG} {parmas.GENOME} {output.BW}'
+        'bedGraphToBigWig {input.BG} {params.GENOME} {output.BW}'
 
 
 rule small_rna_coverage:
@@ -99,13 +100,16 @@ rule small_rna_bed:
     input:
         BAM = SORT_BAM_TEMPLATE
 
+    params:
+        TEMP_DIR = OUT_PATH
+
     output:
         BED = BED_TEMPLATE,
         TABIX = BED_TEMPLATE + '.tbi'
 
     shell:
         'bam_to_bed.py -i {input.BAM} -o - '\
-        '| sort -k1,1 -k2,2n -k3,3n '\
+        '| sort -k1,1 -k2,2n -k3,3n -T {params.TEMP_DIR}'\
         '| bgzip '\
         '> {output.BED}'\
         '; tabix -p bed -f {output.BED}'

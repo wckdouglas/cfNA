@@ -26,7 +26,7 @@ SMALL_RNA_BED = SAMPLE_FOLDER_TEMPLATE + '/aligned.bed'
 ANTISENSE_BED = SAMPLE_FOLDER_TEMPLATE + '/aligned.antisense.bed'
 ANTISENSE_READ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read.txt'
 ANTISENSE_FQ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read.{READ_END}.fq.gz'
-R2_ADAPTER_CONTAM_ANTISENSE_FQ = ANTISENSE_FQ.replace('.fq.gz','_contam.txt').replace('{READ_END}','')
+R2_ADAPTER_CONTAM_ANTISENSE_FQ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read_R1_contam.txt'
 ANTISENSE_ANNOTATED_BED = SAMPLE_FOLDER_TEMPLATE + '/r2_annotated_antisense.bed'
 REVERSE_BAM = SAMPLE_FOLDER_TEMPLATE + '/reverse.bam'
 COMBINED_BAM = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/small_rna/{TREATMENT}.reverse.bam'
@@ -120,7 +120,7 @@ rule count_R2_contam:
         FQ = expand(ANTISENSE_FQ, SAMPLENAME = SAMPLENAMES, READ_END = ['1'])
     
     output:
-        TXT = expand(R2_ADAPTER_CONTAM_ANTISENSE_FQ, SAMPLENAME = SAMPLENAMES, READ_END = ['1']),
+        TXT = expand(R2_ADAPTER_CONTAM_ANTISENSE_FQ, SAMPLENAME = SAMPLENAMES),
         TABLE = SUMMARY_TABLE
     
     run: 

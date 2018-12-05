@@ -5,14 +5,15 @@ import re
 wildcard_constraints:
     DEDUP_PARAM="total|deduplicated",
     TREATMENT = "[a-zA-Z]+",
-    RNA_TYPE = "[a-zRNA_]+"
+    RNA_TYPE = "[a-zRNA_]+",
+    STRAND = 'fwd|rvs'
 
 
 #VARIABLES
 PROJECT_PATH= '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001')
-SMALL_RNA_BED = os.environ['REF'] + '/hg19/new_genes/smallRNA.bed'
-SMALL_RNA_FAI = os.environ['REF'] + '/hg19/new_genes/smallRNA.fa.fai'
+SMALL_RNA_BED = os.environ['REF'] + '/hg19_ref/genes/smallRNA.bed'
+RNA_FAI = os.environ['REF'] + '/hg19_ref/genes/{RNA_TYPE}.viz.genome'
 DEDUP_PARAM = ['total'] #'deduplicated'
 OUT_PATH = PROJECT_PATH + "/merged_bam/small_rna"
 OUT_BAM_TEMPLATE =  OUT_PATH +"/{TREATMENT}.{RNA_TYPE}.{DEDUP_PARAM}.bam"
@@ -25,14 +26,15 @@ TOTAL_RG_BAM = TOTAL_BAM.replace('.bam','.add_rg.bam')
 MIRNA_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.miRNA.bam')
 VYRNA_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.vt_yRNA.bam')
 BED_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.bed.gz')
-BG_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.bg')
-BIGWIG_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.bigWig')
+BG_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.{STRAND}.bedGraph')
+BIGWIG_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.{STRAND}.bigWig')
 REMAP_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.nameSorted.bam','.bowtie2.bam')
 FQ1_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','_R1.fq.gz')
 FQ2_TEMPLATE = FQ1_TEMPLATE.replace('_R1.fq.gz','_R2.fq.gz')
 THREADS=12
 RNA_TYPES = ['rRNA_mt','smallRNA']
 TREATMENTS = ['unfragmented','phosphatase','fragmented']
+STRANDS = ['fwd','rvs']
 REGEXES = ['[Qq][cC][fF][0-9]+','[pP]hos[0-9]+','[fF]rag[0-9]+']
 
 ## wildcard functions
@@ -64,8 +66,8 @@ rule all:
         expand(OUT_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS),
         expand(SUBSAMPLE_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS),
         expand(MIRNA_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS),
-        expand(VYRNA_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS),
-        expand(BIGWIG_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS),
+        expand(VYRNA_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS, STRAND = STRANDS),
+        expand(BIGWIG_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS, STRAND = STRANDS),
 
 
 rule bg_to_bw:
@@ -73,7 +75,7 @@ rule bg_to_bw:
         BG = BG_TEMPLATE
 
     params:
-        GENOME = SMALL_RNA_FAI
+        GENOME = RNA_FAI
 
     output:
         BW = BIGWIG_TEMPLATE
@@ -87,13 +89,19 @@ rule small_rna_coverage:
         BED = BED_TEMPLATE
 
     params:
-        GENOME = SMALL_RNA_FAI
+        GENOME = RNA_FAI,
+        STRAND = lambda w: '"+"' if w.STRAND == "fwd" else '"-"'
 
     output:
         BG = BG_TEMPLATE
 
     shell:
-        'bedtools genomecov -i {input.BED} -g {params.GENOME} -bga > {output.BG}'
+        'zcat {input.BED} '\
+        "| awk '$6=={params.STRAND}' "\
+        "| awk {{'print $1, $2+50, $3+50'}} OFS='\\t' "\
+        '| bedtools genomecov -i - -g {params.GENOME} -bga '\
+        '| bedtools sort -i - '\
+        '> {output.BG}'
 
 
 rule small_rna_bed:

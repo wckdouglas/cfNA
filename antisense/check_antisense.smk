@@ -1,9 +1,13 @@
+
 import glob
 import os
 import sys
 from check_r1 import find_r2
 from pandas import DataFrame
 
+wildcard_constraints:
+    READ_END = '[12]',
+    SAMPLENAME = '[A-Za-z_0-9]+'
 
 PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA'
 DATA_PATH = PROJECT_PATH + '/data'
@@ -13,24 +17,75 @@ SAMPLENAME_REGEX = '[Q][cC][fF].*001$'
 SAMPLENAMES = map(os.path.basename, SAMPLE_FOLDERS)
 SAMPLENAMES = filter(lambda x: re.search(SAMPLENAME_REGEX,x ), SAMPLENAMES)
 SAMPLENAMES = list(SAMPLENAMES)
+SMALL_RNA_INDEX = os.environ['REF'] + '/hg19_ref/genes/smallRNA'
 
 #SNAKEMAKE VARIABLE
 SUMMARY_TABLE = 'recopy.csv'
-RAW_FQ = DATA_PATH + '/{SAMPLENAME}.fastq.gz'
-SAMPLE_FOLDER_TEMPLATE = FOLDER_PATH + '/{SAMPLENAME}'
-SMALL_RNA_BED = SAMPLE_FOLDER_TEMPLATE + '/smallRNA/aligned.bed'
-ANTISENSE_BED = SAMPLE_FOLDER_TEMPLATE + '/smallRNA/aligned.antisense.bed'
-ANTISENSE_READ = SAMPLE_FOLDER_TEMPLATE + '/smallRNA/antisense_read.txt'
-ANTISENSE_FQ = SAMPLE_FOLDER_TEMPLATE + '/smallRNA/antisense_read.fq.gz'
-R2_ADAPTER_CONTAM_ANTISENSE_FQ = ANTISENSE_FQ.replace('.fq.gz','_contam.txt')
-ANTISENSE_ANNOTATED_BED = SAMPLE_FOLDER_TEMPLATE + '/smallRNA/r2_annotated_antisense.bed'
+SAMPLE_FOLDER_TEMPLATE = FOLDER_PATH + '/{SAMPLENAME}/smallRNA'
+SMALL_RNA_BED = SAMPLE_FOLDER_TEMPLATE + '/aligned.bed'
+ANTISENSE_BED = SAMPLE_FOLDER_TEMPLATE + '/aligned.antisense.bed'
+ANTISENSE_READ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read.txt'
+ANTISENSE_FQ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read.{READ_END}.fq.gz'
+R2_ADAPTER_CONTAM_ANTISENSE_FQ = ANTISENSE_FQ.replace('.fq.gz','_contam.txt').replace('{READ_END}','')
+ANTISENSE_ANNOTATED_BED = SAMPLE_FOLDER_TEMPLATE + '/r2_annotated_antisense.bed'
+REVERSE_BAM = SAMPLE_FOLDER_TEMPLATE + '/reverse.bam'
+COMBINED_BAM = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/small_rna/{TREATMENT}.reverse.bam'
 NT_CUTOFF = 3
+THREADS = 3
+
+TREATMENTS = ['unfragmented','phosphatase','fragmented']
+REGEXES = ['[Qq][cC][fF][0-9]+','[pP]hos[0-9]+','[fF]rag[0-9]+']
+REGEX_DICT = {TREATMENT:REGEX for TREATMENT, REGEX in zip(TREATMENTS, REGEXES)}
+def select_sample(wildcards):
+    REGEX = REGEX_DICT[wildcards.TREATMENT]
+    return list(filter(lambda x: re.search(REGEX, x), SAMPLENAMES))
 
 
 rule all:
     input:
         SUMMARY_TABLE,
-        expand(ANTISENSE_ANNOTATED_BED, SAMPLENAME = SAMPLENAMES)
+        expand(ANTISENSE_ANNOTATED_BED, SAMPLENAME = SAMPLENAMES),
+        expand(COMBINED_BAM, TREATMENT = TREATMENTS),
+
+
+rule combine_bam:
+    input:
+        BAMS = lambda w: expand(REVERSE_BAM, SAMPLENAME = select_sample(w))
+    
+    threads: THREADS
+    output:
+        BAM = COMBINED_BAM
+    
+    shell:
+        'sambamba merge -t {threads} {output.BAM} {input.BAMS}'
+
+
+rule map_antisense:
+    input:
+        FQ1 = ANTISENSE_FQ.replace('{READ_END}','1'),
+        FQ2 = ANTISENSE_FQ.replace('{READ_END}','2')
+    
+    threads: THREADS
+    params:
+        INDEX = SMALL_RNA_INDEX,
+        RG = '{SAMPLENAME}',
+        TEMP_DIR = SAMPLE_FOLDER_TEMPLATE
+
+    output:
+        BAM = REVERSE_BAM
+    
+    shell:
+        'bowtie2  ' \
+        '--very-sensitive-local --mm ' \
+        '-L 8  --mp 4,2 -N 1 '\
+        '--no-mixed --no-discordant --dovetail '\
+        '-p {threads} -x {params.INDEX} ' \
+        '-1 {input.FQ1} -2 {input.FQ2}' \
+        '| samtools view -b@ {threads} '\
+        '| samtools addreplacerg -@ {threads} -r ID:{params.RG} -r SM:{params.RG} -o - - ' \
+        '| samtools sort -@ {threads} -O bam -o {output.BAM} -T {params.TEMP_DIR} ' 
+
+
 
 rule tag_antisense:
     input:
@@ -60,18 +115,12 @@ rule tag_antisense:
                 print(line + '\t' + r2_num, file = out)
 
 
-
-
-
-
-
-
 rule count_R2_contam:
     input:
-        FQ = expand(ANTISENSE_FQ, SAMPLENAME = SAMPLENAMES)
+        FQ = expand(ANTISENSE_FQ, SAMPLENAME = SAMPLENAMES, READ_END = ['1'])
     
     output:
-        TXT = expand(R2_ADAPTER_CONTAM_ANTISENSE_FQ, SAMPLENAME = SAMPLENAMES),
+        TXT = expand(R2_ADAPTER_CONTAM_ANTISENSE_FQ, SAMPLENAME = SAMPLENAMES, READ_END = ['1']),
         TABLE = SUMMARY_TABLE
     
     run: 
@@ -83,18 +132,20 @@ rule count_R2_contam:
             .to_csv(output.TABLE, index=False)
 
 
+
 rule extract_fq:
     input:
         READ_IDS = ANTISENSE_READ
     
     params:
-        FQ = RAW_FQ,
+        DATA_PATH = DATA_PATH,
+        FQ_NAME = lambda w: w.SAMPLENAME.replace('_R1_001','_R%s_001' %str(w.READ_END))
 
     output:
         FQ = ANTISENSE_FQ
     
     shell:
-        'cat  {params.FQ} '\
+        'cat  {params.DATA_PATH}/{params.FQ_NAME}.fastq.gz'\
         '| seqkit grep -f {input.READ_IDS} -o {output.FQ}' 
 
 
@@ -113,6 +164,5 @@ rule find_antisense:
         '| cut -f4 ' \
         "| sed 's/^[ACTG]\\{{6\\}}_//g' "\
         "> {output.TXT}"
-
 
 

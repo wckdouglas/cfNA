@@ -25,6 +25,7 @@ DEDUP_RG_BAM = DEDUP_BAM.replace('.bam','.add_rg.bam')
 TOTAL_RG_BAM = TOTAL_BAM.replace('.bam','.add_rg.bam')
 MIRNA_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.miRNA.bam')
 VYRNA_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.vt_yRNA.bam')
+tRNA_FRAG_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.tRNA_frag.bam')
 BED_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.bed.gz')
 BG_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.{STRAND}.bedGraph')
 BIGWIG_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.{STRAND}.bigWig')
@@ -67,6 +68,7 @@ rule all:
         expand(SUBSAMPLE_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS),
         expand(MIRNA_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS),
         expand(VYRNA_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS, STRAND = STRANDS),
+        expand(tRNA_FRAG_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS, STRAND = STRANDS),
         expand(BIGWIG_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS, STRAND = STRANDS),
 
 
@@ -175,6 +177,27 @@ rule cat_bam:
         '| sambamba sort -n -t {params.THREADS} -o {output.BAM} /dev/stdin'
 
 
+rule tRNA_fragments:
+    input:
+        SORT_BAM_TEMPLATE
+    
+    params:
+        THREADS = THREADS,
+        REF = SMALL_RNA_BED,
+        TEMP_DIR = tRNA_FRAG_BAM_TEMPLATE
+
+    output:
+        tRNA_FRAG_BAM_TEMPLATE
+
+    shell:
+        'cat {params.REF} | egrep "^TR" --color=no '\
+        '| bedtools intersect -abam {input} -b - '\
+        '| bamtools filter -script filter.json '\
+        '| samtools sort -n -@ {params.THREADS} -T {params.TEMP_DIR} '\
+        '| filter_soft_clip.py --pe -i - -o - '\
+        '| python ~/ngs_qc_plot/bam_viz.py '\
+        '| samtools view -b@ {params.THREADS} ' \
+        '| sambamba sort -t {params.THREADS} -o {output} /dev/stdin'
 
 rule vt_yRNA_bam:
     input:

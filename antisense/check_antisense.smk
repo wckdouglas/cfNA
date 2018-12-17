@@ -29,7 +29,10 @@ ANTISENSE_FQ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read.{READ_END}.fq.gz'
 R2_ADAPTER_CONTAM_ANTISENSE_FQ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read_R1_contam.txt'
 ANTISENSE_ANNOTATED_BED = SAMPLE_FOLDER_TEMPLATE + '/r2_annotated_antisense.bed'
 REVERSE_BAM = SAMPLE_FOLDER_TEMPLATE + '/reverse.bam'
-COMBINED_BAM = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/small_rna/{TREATMENT}.reverse.bam'
+SORTED_REVERSE_BAM = SAMPLE_FOLDER_TEMPLATE + '/reverse.sorted.bam'
+
+COMBINED_BAM_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/small_rna'
+COMBINED_BAM = COMBINED_BAM_PATH + '/{TREATMENT}.reverse.bam'
 NT_CUTOFF = 3
 THREADS = 3
 
@@ -50,14 +53,22 @@ rule all:
 
 rule combine_bam:
     input:
+        #BAMS = lambda w: expand(SORTED_REVERSE_BAM, SAMPLENAME = select_sample(w))
         BAMS = lambda w: expand(REVERSE_BAM, SAMPLENAME = select_sample(w))
     
     threads: THREADS
+    params:
+        TEMP_DIR = COMBINED_BAM_PATH
+
     output:
         BAM = COMBINED_BAM
     
     shell:
-        'sambamba merge -t {threads} {output.BAM} {input.BAMS}'
+        'sambamba merge -t {threads} /dev/stdout {input.BAMS} ' \
+        '| python ~/ngs_qc_plot/bam_viz.py '\
+        '| samtools view -b@ {threads} '\
+        '| sambamba sort -t {threads} -o {output.BAM} --tmpdir {params.TEMP_DIR} /dev/stdin'
+
 
 
 rule map_antisense:
@@ -83,7 +94,8 @@ rule map_antisense:
         '-1 {input.FQ1} -2 {input.FQ2}' \
         '| samtools view -b@ {threads} '\
         '| samtools addreplacerg -@ {threads} -r ID:{params.RG} -r SM:{params.RG} -o - - ' \
-        '| samtools sort -@ {threads} -O bam -o {output.BAM} -T {params.TEMP_DIR} ' 
+        '| samtools view -b@ {threads} '\
+        '| samtools sort -O bam -@ {threads} -T {params.TEMP_DIR} -o {output.BAM} ' 
 
 
 

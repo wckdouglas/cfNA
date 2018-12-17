@@ -31,6 +31,7 @@ UNSTRANDED_COV_FILE_TEMPLATE = COV_PATH + '/{TREATMENT}.bigWig'
 PEAK_FA = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.fa'
 CMSCAN_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.cmscan'
 CMTBLOUT_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.tblout'
+FOLD_FILE = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.fold.fa'
 GENOME = os.environ['REF'] + '/hg19_ref/genome/hg19_genome.fa'
 RNA_TYPES = ['Long_RNA','others']
 FILTERS = ['filtered','unfiltered']
@@ -76,8 +77,34 @@ rule all:
         expand(CMSCAN_PEAK, TREATMENT = ['unfragmented'], RNA_TYPE = RNA_TYPES), 
         expand(STRANDED_COV_FILE_TEMPLATE, STRAND = STRANDS, TREATMENT = TESTED_TREATMENT),
         UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline'),
-        expand(ANNOTATED_PEAK, TREATMENT = ['unfragmented'], FILTER = FILTERS)
+        expand(ANNOTATED_PEAK, TREATMENT = ['unfragmented'], FILTER = FILTERS),
+        expand(FOLD_FILE, TREATMENT = ['unfragmented'], FILTER = ['filtered'])
         
+
+rule fold:
+    input:
+        ANNOTATED_PEAK
+    
+    threads: THREADS
+    params:
+        GENOME = GENOME,
+        OUTPREFIX = ANNOTATED_PEAK_PATH + '/unannotated_fold'
+
+    output:
+        FOLD_FILE
+
+    shell:
+        'cat {input} '\
+        '| csvtk filter2 -t -f \'$sense_gname=="" && $pileup>3 && $sample_count > 5\'  '\
+        '| csvtk cut -t -f1,2,3,4,5,13 '\
+        '| sed 1d '\
+        '| bedtools getfasta -fi {params.GENOME} -bed - -s '\
+        '| RNAfold --jobs={threads} --noPS ' \
+        "| cut -d' ' -f1 "\
+        '> {output}'
+
+
+
 rule macs2:
     #call strand specific peaks
     input:
@@ -176,7 +203,7 @@ rule bed_coverage_strand:
         BED = STRANDED_BED_TEMPLATE.replace('{FILTER}','filtered')
 
     params:
-        GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai',
+        GENOME = GENOME + '.fai',
         TEMP = STRANDED_COV_FILE_TEMPLATE.replace('.bigWig','.bedGraph')
 
     output:
@@ -191,7 +218,7 @@ rule bed_coverage_unstranded:
         BED = MERGED_BED_TEMPLATE
     
     params:
-        GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai',
+        GENOME = GENOME + '.fai',
         TEMP = UNSTRANDED_COV_FILE_TEMPLATE.replace('.bigWig','.bedGraph')
 
     output:

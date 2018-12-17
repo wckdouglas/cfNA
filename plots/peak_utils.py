@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 from sequencing_tools.viz_tools import okabeito_palette, color_encoder, simpsons_palette
@@ -18,7 +19,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import mappy
 from tblout_parser import read_tbl
-
+import io
 
 
 pileup_cutoff = 4
@@ -201,7 +202,7 @@ def plot_peak_pie(peaks, ax, ce, gtype='sense_gtype'):
         .sort_values('pvalue', ascending=False)
     
     rna_types = list(map(lambda x: x.split('(')[0].strip(), peak_pie.index))
-    colors = ce.transform(rna_types)
+    colors = pd.Series(rna_types).map(ce.encoder)
     peak_pie.plot(kind = 'pie',
               y = 'fraction', 
               ax = ax,
@@ -255,7 +256,7 @@ def assign_rna_name(x):
     else:
         return x
 
-def plot_RNA(peaks, ax, ce, rnatype="Repeats", top_n = 10):
+def plot_repeats_RNA(peaks, ax, ce, rnatype="Repeats", top_n = 10):
     peaks\
         .query('sense_gtype == "%s"' %rnatype)\
         .query('pileup >= %i & sample_count >= %i' %(pileup_cutoff, sample_cutoff)) \
@@ -264,7 +265,7 @@ def plot_RNA(peaks, ax, ce, rnatype="Repeats", top_n = 10):
         .agg({'chrom':'count'}) \
         .nlargest(top_n, 'chrom')\
         .plot.bar('RNA_name','chrom', color = ce.encoder[rnatype], ax = ax)
-    ax.set_xlabel('Repeat')
+    ax.set_xlabel('')
     ax.set_ylabel('Peak count')
     ax.set_xticklabels(ax.get_xticklabels(), rotation=70, rotation_mode='anchor', ha = 'right')
     ax.legend().set_visible(False)
@@ -299,31 +300,40 @@ def plot_rbp(peaks, ax, ce, top_n = 10):
     
     rbp_df.head(top_n).plot.bar(ax = ax, color = ce.encoder['RBP'])
     ax.legend().set_visible(False)
-    ax.set_xlabel('RNA-binding protein')
+    ax.set_xlabel('')#RNA-binding protein')
     ax.set_ylabel('Number of protected\nRNA binding site')
     ax.set_xticklabels(ax.get_xticklabels(), rotation=70, rotation_mode='anchor', ha = 'right')
     sns.despine()
     color_rbp(ax)
     return rbp_df
 
-Rfam_labs = ['RnaseP','tRNA','snoRNA', 'IsrR','miRNA','vRFE','Others']
+
+Rfam_labs = {'RnaseP':'black',
+            'tRNA': "#999999",
+            'snoRNA':"#CC79A7", 
+            'IsrR': "#D55E00",
+            'miRNA': "#0072B2",
+            'vRFE': "#F0E442",
+            'Others':"#009E73", 
+            'ToxI':"#56B4E9",
+            'KRAS_3UTR':"#E69F00",
+            'Hemaglobin':'red'}
 rfam_ce = color_encoder()
-rfam_ce.fit(Rfam_labs)
-_ = rfam_ce.encoder.pop(Rfam_labs[0], None)
+rfam_ce.encoder = Rfam_labs
 def group_annotation(x):
     lab = 'Others'
     if re.search('tRNA', x):
-        lab = Rfam_labs[1]
+        lab = 'tRNA'
 #    elif re.search('RNaseP',x):
 #        lab = Rfam_labs[0]
     elif re.search('[sS][nN][oO]|HACA', x):
-        lab = Rfam_labs[2]
+        lab = 'snoRNA'
     elif x == 'IsrR':
-        lab = Rfam_labs[3]
+        lab = 'IsrR'
     elif re.search('mir|MIR', x):
-        lab = Rfam_labs[4]
+        lab = 'miRNA'
     elif x == 'veev_FSE':
-        lab = Rfam_labs[5]
+        lab = 'vRFE'
     return lab
 
 def get_peak_rfam_annotation(peaks):
@@ -370,30 +380,37 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
               color = ce.encoder['Long RNA'],
              ax = ax)
     ax.legend().set_visible(False)
-    ax.set_xlabel('Long RNA')
+    ax.set_xlabel('')
     if y_val == 'log10p':
         ax.set_ylabel('-$log_{10}$ p-value')
     else:
         ax.set_ylabel('Coverage')
     ax.set_xticklabels(ax.get_xticklabels(), rotation=70, rotation_mode='anchor', ha = 'right')
     
+    used_rfam = []
     for i, xt in enumerate(ax.get_xticklabels()):
-        if re.search('PKD1|ARHGAP30|NPIPA1|CASK', xt.get_text()): 
-            # intron
-            color = 'salmon'
-        elif re.search('B2M|FTH|RPL|RMRP|RPPH1|TMSB4|HBA|HBB|NRGN|PPBP|HIST|ALB|RPS' ,xt.get_text()):
-            # full lengtj
-            color = 'skyblue'
-        elif re.search('AC092156.2|CENPP|RP11-3N2.6|AC068137.4|RP11-193H5.8|RP11-1217F2.24|AC073869.8', xt.get_text()):
-            color = 'purple'
-        color = 'black'
+        #if re.search('PKD1|ARHGAP30|NPIPA1|CASK', xt.get_text()): 
+        #    # intron
+        #    color = 'salmon'
+        #elif re.search('B2M|FTH|RPL|RMRP|RPPH1|TMSB4|HBA|HBB|NRGN|PPBP|HIST|ALB|RPS' ,xt.get_text()):
+        #    # full lengtj
+        #    color = 'skyblue'
+        #elif re.search('AC092156.2|CENPP|RP11-3N2.6|AC068137.4|RP11-193H5.8|RP11-1217F2.24|AC073869.8', xt.get_text()):
+        #    color = 'purple'
+        #color = 'black'
         gn = xt.get_text()
         if gn in rev_name_conversion.keys():
             gn = rev_name_conversion[gn]
-        color = rfam_ce.encoder[rfam_labs[gn]]
+        rfam = rfam_labs[gn]
+        used_rfam.append(rfam)
+        color = rfam_ce.encoder[rfam]
         xt.set_color(color)
 
-    rfam_ce.show_legend(ax,bbox_to_anchor = (0.5,0.5), fontsize=15, frameon=False)
+    plot_ce = color_encoder()
+    plot_ce.encoder = Rfam_labs.copy()
+    plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
+    plot_ce.show_legend(ax,bbox_to_anchor = (0.5,0.5), 
+                        fontsize=15, frameon=False)
 
 
 def plot_peak_number(peaks,ax, ce):
@@ -491,7 +508,7 @@ def plot_peak_cum_cov(peaks, ax):
 def plot_peak_size(peak_df, ax):
     for strand, strand_df in peak_df\
             .assign(psize = lambda d: d.end - d.start)\
-            .groupby('is_sense'):
+            .groupby('sense_gtype'):
         sns.distplot(strand_df.psize, hist=False, label = strand, ax = ax)
     ax.set_xlabel('Peak size')
     ax.set_ylabel('Density')
@@ -515,3 +532,85 @@ fa = pysam.Fastafile('/stor/work/Lambowitz/ref/hg19_ref/genome/hg19_genome.fa')
 def fetch_seq(chrom, start, end, strand):
     seq = fa.fetch(chrom, int(start), int(end))
     return seq if strand == "+" else reverse_complement(seq)
+
+
+ce = color_encoder()
+colors = simpsons_palette()
+ce.encoder = {
+    'Long RNA': '#370335',
+     'RBP': '#91331F',
+     'Repeats': '#197EC0',
+     'Unannotated': '#46732E',
+     'miRNA': '#FD7446',
+     'misc RNA': '#FD8CC1',
+     'tRF3':'black',
+     'tRF5':'black',
+     '.':'black',
+     'piRNA': '#D5E4A2',
+     'snRNA': '#8A9197',
+     'snoRNA': '#FED439'
+}
+
+
+HB_genes = '''
+chr7,106809406,106842974,HBP1
+chr11,5269309,5271089,HBG1
+chr11,5274420,5526835,HBG2
+chr11,5289575,5526882,HBE1
+chr16,222875,223709,HBA2
+chr16,226679,227521,HBA1
+chr16,230452,231180,HBQ1'''
+HB_genes = pd.read_csv(io.StringIO(HB_genes),
+                      names = ['chrom','start', 'end', 'HB'])
+def is_hb(row):
+    answer = 'Not HB'
+    if row['chrom'] in HB_genes.chrom.tolist():
+        hb_chrom = HB_genes.query('chrom =="%s"' %row['chrom'])
+        if any((hb_row['start'] <= row['start'] and hb_row['end'] >= row['end']) for i, hb_row in hb_chrom.iterrows()):
+            answer = 'HB'
+    return answer
+
+
+def plot_anti_bar(antisense_peaks, ax):
+    anti_plot = antisense_peaks.nlargest(15, 'log10p')\
+        .assign(antisense_gname = lambda d: np.where(d.antisense_gname == ".",
+                                                    d.chrom + ':' + d.start.astype(str) + '-' + d.end.astype(str),
+                                                    d.antisense_gname))\
+        .assign(is_hb = lambda d: [is_hb(row) for i, row in d.iterrows()])\
+        .merge(read_tbl(peak_path + '/unfragmented.others.tblout') \
+                .groupby('query name', as_index=False)\
+                .apply(lambda d: d[d.score == d.score.max()])\
+                .query('strand == "+"') \
+                .filter(regex='name') \
+                .rename(columns = {'query name':'peakname',
+                                    'target name':'rfam'})\
+                .assign(peakname = lambda d: d.peakname.str.replace('\([+-]\)','')),
+            on = 'peakname', how = 'left')\
+        .assign(rfam = lambda d: d.rfam.fillna('Others'))\
+        .assign(rfam = lambda d: np.where(d.is_hb=="HB", 'Hemaglobin', d.rfam))\
+        .sort_values('log10p', ascending=False)
+
+    anti_plot\
+        .plot\
+        .bar('antisense_gname', 'log10p', 
+            color = anti_plot.antisense_gtype.map(ce.encoder),
+            ax = ax)
+    ax.legend().set_visible(False)
+    ax.set_xlabel(' ')
+    ax.set_ylabel('-$log_{10}$ p-value')
+    ax.set_xticklabels(ax.get_xticklabels(), 
+                    rotation = 70,
+                    rotation_mode='anchor',
+                    ha = 'right', va = 'center')
+    
+
+    used_rfam = []
+    for xt, rfam in zip(ax.get_xticklabels(), anti_plot.rfam):
+        xt.set_color(rfam_ce.encoder[rfam])
+        used_rfam.append(rfam)
+    
+    plot_ce = color_encoder()
+    plot_ce.encoder = Rfam_labs.copy()
+    plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
+    plot_ce.show_legend(ax, frameon=False, fontsize=15,
+                        bbox_to_anchor=(-0.1,0))

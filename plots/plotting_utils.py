@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
+import os
 import re
 from sequencing_tools.viz_tools import color_encoder, okabeito_palette
 import numpy as np
@@ -71,7 +72,9 @@ rna_type_ce.encoder = {rna:col for rna, col in zip(RNA_type, colors)}
 label_order = ['Untreated','NaOH', 'DNase I', 'DNase I + Exo I','WGS-sim']
 
 
-figure_path = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/figure'
+figure_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/figure'
+if not os.path.isdir(figure_path):
+    os.mkdir(figure_path)
 
 
 

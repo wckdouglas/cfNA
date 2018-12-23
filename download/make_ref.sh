@@ -4,9 +4,20 @@ GENOME_PATH=$REF_PATH/genome
 GTF_LINK=ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_28/GRCh37_mapping/gencode.v28lift37.annotation.gtf.gz
 tRNA_REF=http://gtrnadb.ucsc.edu/genomes/eukaryota/Hsapi19/hg19-tRNAs.tar.gz
 piRNA=http://www.regulatoryrna.org/database/piRNA/download/archive/v1.0/bed/piR_hg19_v1.0.bed.gz
+MIR_LINK=ftp://mirbase.org/pub/mirbase/CURRENT/hairpin_high_conf.fa.gz
 
 #annotationes
 curl $GTF_LINK |zcat > $ANNOTATION_PATH/genes.gtf
+cat $ANNOTATION_PATH/genes.gtf \
+    | grep 'protein_coding' --color=no\
+    | gtfToGenePred /dev/stdin /dev/stdout \
+    | genePredToBed > $ANNOTATION_PATH/protein_coding.bed12
+cat $ANNOTATION_PATH/genes.gtf \
+    | grep 'protein_coding' --color=no \
+    | awk '$3=="exon"' \
+    | gtf2bed \
+    | sort -k1,1 -k2,2n -k3,3n -k6,6 -u \
+    > $ANNOTATION_PATH/exons.bed
 hisat2_extract_splice_sites.py $ANNOTATION_PATH/genes.gtf > $ANNOTATION_PATH/splicesites.tsv
 python gtf_to_bed.py $ANNOTATION_PATH/genes.gtf > $ANNOTATION_PATH/genes.bed
 
@@ -24,10 +35,13 @@ zcat $ANNOTATION_PATH/piRNA.bed.gz >> $ANNOTATION_PATH/genes.bed
 curl $tRNA_REF > $ANNOTATION_PATH/tRNA.tar.gz
 mkdir -p $ANNOTATION_PATH/tRNA
 tar zxvf $ANNOTATION_PATH/tRNA.tar.gz --directory $ANNOTATION_PATH/tRNA
-python make_tRNA.py \
-    $ANNOTATION_PATH/tRNA/hg19-tRNAs-detailed.ss \
-    $ANNOTATION_PATH/tRNA.bed \
-    $ANNOTATION_PATH/tRNA/nucleo_tRNA.fa
+#python make_tRNA.py \
+#    $ANNOTATION_PATH/tRNA/hg19-tRNAs-detailed.ss \
+#    $ANNOTATION_PATH/tRNA.bed \
+#    $ANNOTATION_PATH/tRNA/nucleo_tRNA.fa
+seqkit  rmdup -s  $ANNOTATION_PATH/tRNA/hg19-mature-tRNAs.fa  \
+    | python process_mature_tRNA.py \
+    > $ANNOTATION_PATH/tRNA/nucleo_tRNA.fa
 cat $ANNOTATION_PATH/tRNA.bed |cut -f1-8 >> $ANNOTATION_PATH/genes.bed
 cat $ANNOTATION_PATH/genes.bed \
     | grep 'Mt_tRNA' \
@@ -63,7 +77,7 @@ cat $ANNOTATION_PATH/genes.bed \
 cat $ANNOTATION_PATH/genes.bed \
      | awk '$4~/.*7SK$|7SL[0-9]+$/' \
      | awk '{print $0, $3-$2}' OFS='\t' \
-     | awk  '$NF~/299|330/' \
+     | awk  '$NF~/299|330|296/' \
      | python get_fa.py $GENOME_PATH/hg19_genome.fa $ANNOTATION_PATH/srp.bed $ANNOTATION_PATH/srp.fa
 
 cat $ANNOTATION_PATH/genes.bed \
@@ -72,8 +86,9 @@ cat $ANNOTATION_PATH/genes.bed \
     | python get_fa.py $GENOME_PATH/hg19_genome.fa $ANNOTATION_PATH/vaultRNA.bed  $ANNOTATION_PATH/vaultRNA.fa
 
 
-curl ftp://mirbase.org/pub/mirbase/CURRENT/hairpin.fa.gz \
+curl $MIR_LINK \
     | seqkit grep -n -r -p 'Homo sapien' \
+    | seqkit replace -s -p 'U' -r 'T' \
     > $ANNOTATION_PATH/miRNA_hairpin.fa 
 
 
@@ -93,6 +108,3 @@ cat $ANNOTATION_PATH/yRNA.bed $ANNOTATION_PATH/tRNA.bed > $ANNOTATION_PATH/tRNA_
 echo made tRNA_rRNA fasta
 bowtie2-build $ANNOTATION_PATH/smallRNA.fa $ANNOTATION_PATH/smallRNA
 bowtie2-build $ANNOTATION_PATH/rRNA_mt.fa $ANNOTATION_PATH/rRNA_mt
-bowtie2-build $ANNOTATION_PATH/tRNA.fa $ANNOTATION_PATH/tRNA
-bowtie2-build $ANNOTATION_PATH/yRNA.fa $ANNOTATION_PATH/yRNA
-bowtie2-build $ANNOTATION_PATH/tRNA_yRNA.fa $ANNOTATION_PATH/tRNA_yRNA

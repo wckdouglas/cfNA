@@ -3,8 +3,6 @@
 REF_PATH=$REF/hg19
 GENOME_PATH=$REF_PATH/genome
 GENE_PATH=$REF_PATH/new_genes
-
-
 DASHR=http://dashr2.lisanwanglab.org/downloads/dashr.v2.sncRNA.annotation.hg19.bed
 
 

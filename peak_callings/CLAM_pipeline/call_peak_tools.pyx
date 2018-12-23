@@ -14,34 +14,6 @@ import six
 import pyBigWig as pbw
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-cpdef double compute_zscore(double background_sum, double window_p, double observed):
-    '''
-    Calculate binomial z-score
-
-    mu = np
-    sigma = sqrt(np * (1-p) )
-
-    z_score = (x - mu)/sigma
-
-    p: ratio between small window and large window (window_p)
-    n: number of tags to distribute (background_sum)
-    x: observed tag at small window
-
-    '''
-    cdef:
-        double expected, sigma, z_score
-
-    if window_p == 1.0 or window_p == 0.0:
-        z_score = 0.0
-    else:
-        expected = background_sum * window_p
-        sigma = sqrt(expected * (1-window_p))
-        z_score = (observed - expected) / sigma 
-    return z_score
-
-
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -296,7 +268,7 @@ cpdef int write_short_peaks(wps, control_bigwig, out_bed, chromosome, strand, bo
             peak_score = peak_scores[0]
             z_score = max(z_scores)
             peak_center = long((peak_end + peak_start) /2)
-            if (z_score >= Z_FILTER and peak_score >= PEAK_SCORE_FILTER) or second_pass:
+            if (z_score >= Z_FILTER and peak_score >= PEAK_SCORE_FILTER): # or second_pass:
                 peak_line = '{chrom}\t{start}\t{end}\t{name}\t' \
                             '{z_score}\t{strand}\t{peak_center}\t{peak_score}'\
                             .format(chrom=chromosome,

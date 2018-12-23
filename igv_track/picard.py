@@ -5,6 +5,7 @@ import glob
 from multiprocessing import Pool
 import re
 from functools import partial
+from collections import deque
 
 
 
@@ -34,7 +35,7 @@ def filter_protein_bam(in_bam, filter_path, label, refflat, threads = 6, return_
 
     command = ''
 
-    command += '; sambamba sort -t {threads} -n -p -o /dev/stdout {in_bam}'\
+    command += 'sambamba sort -t {threads} -n --show-progress -o /dev/stdout {in_bam}'\
             '| samtools fixmate -@ {threads} - {name_sorted}'\
             '; samtools view -h@ {threads} {name_sorted} | {filtering_plus} ' \
             '| samtools view -b@ {threads} - > {plus_bam} '\
@@ -74,12 +75,12 @@ def filter_protein_bam(in_bam, filter_path, label, refflat, threads = 6, return_
                     protein_sense_bam = protein_sense_bam,
                     protein_anti_bam = protein_anti_bam)
 
-    command += '; sambamba sort -p -n -o /dev/stdout -t {threads} {in_bam} '\
+    command += '; sambamba sort --show-progress -n -o /dev/stdout -t {threads} {in_bam} '\
             '| samtools fixmate -@ {threads} - - '\
             '| bedtools pairtobed -abam - -b {protein} -type both '\
             ' | bedtools pairtobed -abam - -b {sncRNA} -type neither '\
             '| samtools view -bF 1024 -F 256 -F 2048 ' \
-            '| sambamba sort -p -t {threads} -o {filtered_bam}  /dev/stdin '\
+            '| sambamba sort --show-progress -t {threads} -o {filtered_bam}  /dev/stdin '\
             .format(in_bam = in_bam,
                     threads = threads,
                     sncRNA = snc_annotation,
@@ -160,11 +161,16 @@ def run_qc(refflat, outpath, outpath_dedup, sample_path):
     sorted_bam_file = bam_file.replace('.bam','.sorted.bam')
     dedup_bam = bam_file.replace('.bam','.deduplicated.bam')
 
-    run_dedup(bam_file, sorted_bam_file, dedup_bam, samplename, dry=False)
-    filter_protein_bam(sorted_bam_file, outpath, samplename, refflat)
-    filter_protein_bam(dedup_bam, outpath_dedup, samplename, refflat, return_command=True)
+    #run_dedup(bam_file, sorted_bam_file, dedup_bam, samplename, dry=False)
+    filter_protein_bam(sorted_bam_file, outpath, samplename, refflat, return_command=False)
+    filter_protein_bam(dedup_bam, outpath_dedup, samplename, refflat, return_command=False)
     run_rna_seq_picard(refflat, outpath, sorted_bam_file, samplename)
     run_rna_seq_picard(refflat, outpath, dedup_bam, samplename + '_deduplicated')
+
+    bam_file = sample_path + '/smallRNA/aligned.bam'
+    sorted_bam_file = bam_file.replace('.bam','.sorted.bam')
+    dedup_bam = sorted_bam_file.replace('.bam','.deduplicated.bam')
+    #run_dedup(bam_file, sorted_bam_file, dedup_bam, samplename, dry=False)
 
 
 def main():
@@ -177,8 +183,10 @@ def main():
     if not os.path.isdir(outpath_dedup):
         os.mkdir(outpath_dedup)
 
-    samples = glob.glob(project_path + '/Q*001')
+    samples = glob.glob(project_path + '/*001')
+    samples = filter(lambda x: re.search('Q[cC][fF]|genome', x), samples)
     samples = filter(lambda x: not re.search('L[12E]',x), samples)
+    samples = filter(lambda x: not re.search('genome-sim',x), samples)
     picard_func = partial(run_qc, refflat, outpath, outpath_dedup)
     p = Pool(24)
     p.map(picard_func, samples)

@@ -3,7 +3,7 @@
 import glob
 import os
 import pandas as pd
-from collections import defaultdict
+from collections import defaultdict, Counter
 from functools import reduce
 from multiprocessing import Pool
 import re
@@ -18,7 +18,7 @@ def add_dict(a, b):
 
 
 def bed_fragments(bed_file):
-    size_dict = defaultdict(int)
+    size_dict = Counter()
     
     with xopen(bed_file, 'r') as bed:
         for line in bed:
@@ -28,20 +28,16 @@ def bed_fragments(bed_file):
     return size_dict
 
 def sample_fragments(sample_folder):
-    tRNA_bed_file = sample_folder + '/tRNA/tRNA_remap.bed.gz'
-    rRNA_bed_file = sample_folder + '/rRNA/rRNA_remap.bed.gz'
-    trRNA_bed_file = sample_folder + '/rRNA_tRNA_premap/tRNA_rRNA.bed.gz'
     samplename = os.path.basename(sample_folder)
-
-
     print('Running %s' %samplename)
-    bed_folder = os.path.dirname(sample_folder) + '/bed_files'
+    size_dict = Counter()
 
-    all_bed_file = bed_folder + '/' + samplename + '.bed.gz'
-
-    size_dict = bed_fragments(trRNA_bed_file)
-    #size_dict = add_dict(size_dict, bed_fragments(rRNA_bed_file))
-    size_dict = add_dict(size_dict, bed_fragments(all_bed_file))
+    bed_path = sample_folder + '/count_temp'
+    for bed in ['counts.dedup.bed.gz', 'reapeats.dedup.bed.gz', 
+                'rRNA_mt.bed.gz', 'small_RNA.dedup.bed.gz', 
+                'sncRNA.dedup.bed.gz']:
+        bed = bed.replace('.dedup','')
+        size_dict += bed_fragments(bed_path + '/' + bed)
     return size_dict
 
 def get_isize(samples, insert_size_path, args): 
@@ -68,9 +64,9 @@ def main():
     isize_func = partial(get_isize, samples, insert_size_path)
 
     args = zip(['Q[Cc][Ff][0-9]+_', 'Frag[1123]', '_L[12]_', 'N[aA][1-9]+', 
-                             '[aA]ll[12]', '[DE][ED]|Exo','_HS[0-9]+_'],
+                             '[aA]ll[12]', '[DE][ED]|Exo','_HS[0-9]+_','PEV'],
                             ['unfragmented','fragmented','polyA','alkaline', 
-                             'all', 'Exo','high_salt'])
+                             'all', 'Exo','high_salt', 'EV'])
     p = Pool(24)
     p.map(isize_func, args)
     p.close()

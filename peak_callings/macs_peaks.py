@@ -89,9 +89,9 @@ def is_junction_exon(junctions, chrom,start, end, strand):
         return ''
 
 
-def retype_junctions(df):
-    junctions_tab = '/stor/work/Lambowitz/cdw2854/cell_Free_nucleotides/tgirt_map/merged_bam'\
-                    '/unfragmentd.spliced.tsv.gz'
+def retype_junctions(df, junctions_tab):
+#    junctions_tab = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam'\
+#                    '/unfragmentd.spliced.tsv.gz'
     junctions = pysam.Tabixfile(junctions_tab)
     
     check_junction = partial(is_junction_exon, junctions)
@@ -101,7 +101,7 @@ def retype_junctions(df):
                                             'Long RNA',
                                             d.gtype)) \
         .assign(gname = lambda d: np.where(d.is_spliced_exon.str.contains("Spliced_exon"), 
-                                            d.is_spliced_exon.str.split(':', expand=True).iloc[:,1],
+                                            d.is_spliced_exon.str.replace('Spliced_exon:', ''),
                                             d.gname)) \
         .drop('is_spliced_exon', axis=1)
 
@@ -122,14 +122,18 @@ def process_broad(broad_peak, bed_path):
             peak_chrom, peak_start, peak_end = itemgetter(0,1,2)(peak_fields)
             peak_start, peak_end = int(peak_start), int(peak_end)
             coverage = np.zeros(peak_end - peak_start)
+            sample_count = set()
             for fragments in tab.fetch(peak_chrom, peak_start, peak_end):
-                frag_start, frag_end = itemgetter(1,2)(fragments.split('\t'))
+                frag_start, frag_end, frag_name = itemgetter(1,2,3)(fragments.split('\t'))
                 frag_start, frag_end = int(frag_start), int(frag_end)
                 frag_start = max(frag_start, peak_start)
                 frag_end = min(frag_end, peak_end)
                 coverage[(frag_start-peak_start):(frag_end-peak_start)] += 1
+                sample_count.add(frag_name.split(':')[0])
             pileup = coverage.max()
+            sample_count = len(sample_count)
             peak_fields.append(pileup)
+            peak_fields.append(sample_count)
             rows.append(peak_fields)
     return pd.DataFrame(rows)
 
@@ -184,31 +188,32 @@ def strand_df(df, strand = 'sense'):
         .drop(['is_sense','gstrand'],axis=1)
 
 
-def resolve_annotation(inbed):
+def resolve_annotation(exon_table, inbed):
     '''
     select for greatest overlapped annotation
     '''
-    df = dd.from_pandas(inbed, npartitions=16, sort=True)\
+    #df = dd.from_pandas(inbed, npartitions=16, sort=True)\
+    df = inbed \
         .assign(is_sense = lambda d: np.where((d.strand == d.gstrand) | (d.gtype.str.contains(repeats_regex)), 
                                             'sense', 
                                             'antisense')) \
         .groupby(['chrom','start','end',
                     'peakname','score','is_sense', 
                     'fc','log10p',
-                    'log10q','pileup'])\
-        .apply(select_annotation, meta={'gname':'f8',
-                                        'gtype':'f8',
-                                        'strand':'f8',
-                                        'gstrand':'f8'}) 
+                    'log10q','pileup','sample_count'])\
+        .apply(select_annotation)#, meta={'gname':'f8',
+                                #      'gtype':'f8',
+                                #        'strand':'f8',
+                                #        'gstrand':'f8'}) 
 
-    df = df.compute(scheduler='processes',
-                      get = dask.multiprocessing.get) \
+    #df = df.compute(scheduler='processes') \
+    df = df \
         .reset_index()\
         .drop_duplicates() \
         .sort_values('log10q', ascending=False)  \
         .assign(gtype = lambda d: d.gtype.map(merge_type)) \
-        .drop('level_10', axis=1)  \
-        .pipe(retype_junctions)
+        .drop('level_11', axis=1)  \
+        .pipe(retype_junctions, exon_table)
     
     sense_df = strand_df(df, strand = 'sense')
     antisense_df = strand_df(df, strand = 'antisense')
@@ -220,14 +225,16 @@ def annotate_peaks(annotation_file, bed):
     '''
     bedtools intersect annotation bed file and macs2 broad peaks
     '''
+    broad_peak_cols = [0,1,2,3,4,5,6,7,8,9, 10, 12,13, 14, 16, 17, 18, 19]
+    narrow_peak_cols = [0,1,2,3,4,5,6,7,8, 10, 11, 13, 14, 15, 17, 18, 19, 20]
     inbed = BedTool()\
         .from_dataframe(bed)\
         .intersect(wao=True, b=annotation_file) \
         .to_dataframe(names = ['chrom','start','end',
                                 'peakname','score','strand','fc',
-                                'log10p','log10q','pileup','gstart','gend',
+                                'log10p','log10q','pileup','sample_count','gstart','gend',
                                 'gname','gstrand','gtype','gid','overlapped'],
-                      usecols = [0,1,2,3,4,5,6,7,8,9,11,12, 13, 15, 16, 17, 18]) \
+                      usecols = narrow_peak_cols) \
         .drop_duplicates() \
         .assign(strand = lambda d: np.where(d.peakname.str.contains('fwd'), '+','-')) \
         .assign(ref_overlap = lambda d: d.overlapped / (d.gend - d.gstart)) \
@@ -248,26 +255,47 @@ def annotate_peaks(annotation_file, bed):
     return inbed
 
 
-def make_table(all=None, base_name = 'unfragmented'):
+def main():
+    if len(sys.argv) < 3:
+        sys.exit('[usage] python %s <out_table> <annotation_file> <bed_path> <exon_Table> [peak1] [peak2]' %sys.argv[0])
+
+    out_table = sys.argv[1]
+    annotation_file = sys.argv[2]
+    bed_path = sys.argv[3]
+    exon_table = sys.argv[4]
+    broad_peaks = sys.argv[5:]
+
+
+
+    bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks], sort=False) \
+        .sort_values([0,1,2]) \
+        .reindex() 
+
+    inbed = annotate_peaks(annotation_file, bed)  
+
+    df = resolve_annotation(exon_table, inbed)  
+#        .assign(seq = lambda d: list(map(fetch_seq, d.chrom, d.start, d.end, d.strand)))\
+#        .assign(chrM = lambda d: d.seq.map(is_mt))
+    df.to_csv(out_table, sep='\t', index=False)
+    print('Written %s' %out_table)
+    assert bed.shape[0] == df.shape[0], 'Peak lost!!!'
+
+
+def make_table(base_name = 'unfragmented'):
     #test:
     # all, base_name = True,  'unfragmented'
-    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bed'
+    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed'
     bed_path = project_path + '/stranded'
     peak_path = project_path + '/MACS2'
     annotated_path = peak_path + '/annotated'
-    
-    if all:
-        out_table = annotated_path + '/%s.annotated_peaks.tsv' %base_name
-        annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz'
-    else:
-        out_table = annotated_path + '/%s.annotated_peaks_k562.tsv' %base_name
-        annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation_k562.bed.gz'
+    out_table = annotated_path + '/%s.annotated_peaks.tsv' %base_name
+    annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz'
 
 
     if not os.path.isdir(annotated_path):
         os.mkdir(annotated_path)
 
-    broad_peaks = glob.glob(peak_path + '/%s.*_peaks.broadPeak' %base_name)
+    broad_peaks = glob.glob(peak_path + '/%s.*_peaks.narrowPeak' %base_name)
     print('Merging: ', ', '.join(map(os.path.basename, broad_peaks)))
 
     bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks], sort=False) \
@@ -277,7 +305,7 @@ def make_table(all=None, base_name = 'unfragmented'):
 
     inbed = annotate_peaks(annotation_file, bed)  
 
-    df = resolve_annotation(inbed)  
+    df = resolve_annotation(exon_table,inbed) 
 #        .assign(seq = lambda d: list(map(fetch_seq, d.chrom, d.start, d.end, d.strand)))\
 #        .assign(chrM = lambda d: d.seq.map(is_mt))
     df.to_csv(out_table, sep='\t', index=False)
@@ -285,12 +313,12 @@ def make_table(all=None, base_name = 'unfragmented'):
     assert bed.shape[0] == df.shape[0], 'Peak lost!!!'
 
 
-def main():
+def main_1():
     all_annotations=[True, False]
-    base_names = ['unfragmented', 'exonuclease'] 
+    base_names = ['unfragmented']#, 'exonuclease'] 
     for all in all_annotations:
         for base_name in base_names:
-            make_table(all=all, base_name = base_name) 
+            make_table(base_name = base_name) 
 
 if __name__ == '__main__':
     main()

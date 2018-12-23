@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map
+PROJECT_PATH=/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map_30
 
 for SAMPLE_FOLDER in $PROJECT_PATH/*001
 do
@@ -9,6 +9,7 @@ do
     COMBINED_PATH=$SAMPLE_FOLDER/Combined
     COMBINED_BAM=$COMBINED_PATH/merged.bam
     CLAM_PATH=$COMBINED_PATH/CLAM
+    SAMPLENAME=$(basename ${SAMPLE_FOLDER%_R1_001})
     echo cat $BOWTIE2_BAM \
             \| python tag_bam.py -i - -o - -t NH  \
             \| samtools cat $HISAT2_BAM - \
@@ -22,7 +23,7 @@ do
         \; samtools cat $CLAM_PATH/realigned.name_sorted.bam $CLAM_PATH/unique.name_sorted.bam \
             \| bam_to_bed.py -i - -t AS \
             \| sort -k1,1 -k2,2n -k3,3n -k6,6 \
-            \| python dedup.py -i - -o - \
+            \| python dedup.py -i - -o - --prefix $SAMPLENAME \
             \| bgzip \
             \> $CLAM_PATH/pseudo_fragment.bed.gz \
             \; tabix -f $CLAM_PATH/pseudo_fragment.bed.gz 

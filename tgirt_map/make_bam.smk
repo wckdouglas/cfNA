@@ -1,3 +1,4 @@
+
 import re
 import glob
 import os
@@ -45,10 +46,14 @@ SAMPLE_METRIC_TEMPLATE = PICARD_FOLDER + '/protein.{STRAND}.RNA_Metrics'
 # for combining samples
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos', 
                   'L[1234]','All','N[aA][0-9]+',
-                  'ED|DE','HS[123]','genome']
+                  'ED|DE','HS[123]','genome',
+                    'MPF4','MPF10','MPCEV',
+                    'PPF4','PPF10','PPCEV']
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
-                'exonuclease','high_salt','genome-sim'] 
+                'exonuclease','high_salt','genome-sim',
+                'EV','RNP','RNP-EV',
+                'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
 treatment_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
 def select_sample(wildcards, return_count = False):
     regex = treatment_regex_dict[wildcards.TREATMENT] 

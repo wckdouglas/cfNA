@@ -51,6 +51,7 @@ def peak_info_table(row):
         .reset_index()
     return peak_info
     
+
 full_length_mRNA = '^HIST|^FT[LH]|^RP[LS]'
 full_length_regex = re.compile(full_length_mRNA)
 def rank_peaks(row):
@@ -187,13 +188,24 @@ def plot_peak_strand(peaks, ax):
     ax.legend().set_visible(False)
 
 
+def change_annotation(lab):
+    if 'RBP' in lab:
+        return lab.replace('RBP','Long RNA (RBP)')
+    elif 'Long RNA' in lab:
+        return lab.replace('Long RNA', 'Long RNA (narrow peak)')
+    else:
+        return lab
+
+
+
 def plot_peak_pie(peaks, ax, ce, gtype='sense_gtype'):
     peak_pie= peaks\
         .query('pileup>=%i & sample_count >= %i' %(pileup_cutoff, sample_cutoff))\
         .groupby(gtype, as_index=False)\
         .agg({'pvalue':'count'}) \
         .assign(fraction = lambda d: d.pvalue.transform(lambda x: 100*x/x.sum())) \
-        .assign(merged_type = lambda d: d[gtype]+ ' (' + d.pvalue.astype(str) + ')')\
+        .assign(rtype = lambda d: d[gtype]+ ' (' + d.pvalue.astype(str) + ')')\
+        .assign(merged_type = lambda d: d.rtype.map(change_annotation))\
         .set_index('merged_type')\
         .assign(explode = lambda d: (100-d.fraction)/100) \
         .assign(explode = lambda d: np.where(d.explode < 0.95,0, 
@@ -201,7 +213,7 @@ def plot_peak_pie(peaks, ax, ce, gtype='sense_gtype'):
                                                   np.where(d.explode < 0.994, 0.4, 0.8))))\
         .sort_values('pvalue', ascending=False)
     
-    rna_types = list(map(lambda x: x.split('(')[0].strip(), peak_pie.index))
+    rna_types = list(map(lambda x: x.split('(')[0].strip(), peak_pie.rtype))
     colors = pd.Series(rna_types).map(ce.encoder)
     peak_pie.plot(kind = 'pie',
               y = 'fraction', 
@@ -217,7 +229,6 @@ def plot_peak_pie(peaks, ax, ce, gtype='sense_gtype'):
     
     ax.set_ylabel('')
     ax.legend().set_visible(False)
-
 
 def plot_peak_bar(ax,peaks):
     for i, row in combined_peaks \

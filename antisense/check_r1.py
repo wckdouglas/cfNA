@@ -23,7 +23,7 @@ def process_read(aligner, adapter_length, nt_cutoff, out_file, fq_record):
     return contam
 
 
-def find_r2(fqfile, out_file=None, nt_cutoff=6):
+def find_r2(fqfile=None, out_file=None, nt_cutoff=6):
     '''
     This module tries to find R2R contaminations in read 1 sequnecese
 
@@ -63,9 +63,28 @@ def find_r2(fqfile, out_file=None, nt_cutoff=6):
 
     contam = 0
     seq_count = 0
-    with xopen(fqfile) as fq, open(out_file, 'w') as out:
-        read_proccessor = partial(process_read, aligner, adapter_length, nt_cutoff, out)
-        for fq_record in readfq(fq):
-            seq_count += 1
-            contam += read_proccessor(fq_record)
+    if out_file:
+        out = open(out_file, 'w')
+    else:
+        out = sys.stdout
+
+    if fqfile:
+        fq = xopen(fqfile)
+    else:
+        fq = sys.stdin
+
+    read_proccessor = partial(process_read, aligner, adapter_length, nt_cutoff, out)
+    for fq_record in readfq(fq):
+        seq_count += 1
+        contam += read_proccessor(fq_record)
+
+    if out_file:
+        out.close()
+    if fqfile:
+        fq.close()
+
     return seq_count, contam
+
+if __name__ == '__main__':
+    seq_count, contam = find_r2()
+    print('%i sequences %i contaminations' %(seq_count, contam))

@@ -191,10 +191,9 @@ rule tRNA_fragments:
 
     shell:
         'cat {params.REF} | egrep "^TR" --color=no '\
-        '| bedtools intersect -abam {input} -b - '\
-        '| bamtools filter -script filter.json '\
-        '| samtools sort -n -@ {params.THREADS} -T {params.TEMP_DIR} '\
+        '| bedtools pairtobed -abam {input} -b - -type both '\
         '| filter_soft_clip.py --pe -i - -o - '\
+        '| bamtools filter -script filter.json '\
         '| python ~/ngs_qc_plot/bam_viz.py '\
         '| samtools view -b@ {params.THREADS} ' \
         '| sambamba sort -t {params.THREADS} -o {output} /dev/stdin'

@@ -41,7 +41,7 @@ def plot_strand(ax):
     ax.set_xticklabels(ax.get_xticklabels(), rotation = 70, ha = 'right',rotation_mode="anchor")
     ax.legend()
     ax.set_xlabel('')
-    ax.set_ylabel('Protein-coding bases (%)')
+    ax.set_ylabel('Protein-coding reads (%)')
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[::-1], labels[::-1], 
               bbox_to_anchor = (.9,1), fontsize = 15,

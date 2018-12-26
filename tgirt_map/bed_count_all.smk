@@ -1,4 +1,3 @@
-
 import glob
 import os
 import sys
@@ -8,22 +7,29 @@ from collections import Counter, defaultdict
 from functools import reduce
 import pandas as pd
 
+RNA_TYPES = ['counts','sncRNA','small_RNA','rRNA_mt','repeats']
+DEDUP_TYPES = ['dedup','all']
+STRANDS = ['sense', 'antisense']
+wildcard_constraints:
+    RNA_TYPE = '[A-Za-z_]+',
+    DEDUP = 'dedup|all',
+    STRAND = '[antisense]+',
+    SAMPLE_NAME = '[A-Za-z0-9_\-]+',
+    TREATMENT = '[A-Za-z_\-]+'
+
 PROJECT_PATH='/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 COUNT_PATH = PROJECT_PATH + '/Counts/all_counts'
 REF_BED_PATH = os.environ['REF'] + '/hg19/new_genes'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001')
 SAMPLE_FOLDERS = filter(lambda x: 'try' not in x, SAMPLE_FOLDERS)
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_FOLDERS))
-RNA_TYPES = ['counts','sncRNA','small_RNA','rRNA_mt','reapeats']
-DEDUP_TYPES = ['dedup','all']
-STRANDS = ['sense', 'antisense']
 COUNT_TEMPLATE = COUNT_PATH + '/{RNA_TYPE}/{SAMPLE_NAME}.{DEDUP}.{STRAND}.counts' 
 
 SAMPLE_FOLDER_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}'
 SAMPLE_COUNT_PATH = SAMPLE_FOLDER_TEMPLATE + '/count_temp'
-INTERSECTED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.{DEDUP}.intersected.bed.gz'
+INTERSECTED_TEMPLATE = SAMPLE_COUNT_PATH + '/intersected/{RNA_TYPE}.{DEDUP}.bed.gz'
 BED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.bed.gz'
-DEDUP_BED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.dedup.bed.gz'
+DEDUP_BED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.{DEDUP}.bed.gz'
 PRIMARY_BAM = SAMPLE_FOLDER_TEMPLATE + '/Combined/primary_no_sncRNA_tRNA_rRNA.bam'
 INSERT_SIZE_TABLE = PROJECT_PATH + '/fragment_sizes/{TREATMENT}.feather'
 COUNT_TABLE = COUNT_PATH + '/spreaded_all_counts.feather'
@@ -31,10 +37,16 @@ LONG_COUNT_TABLE = COUNT_PATH + '/all_counts.feather'
 
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos', 
                   'L[1234]','All','N[aA][0-9]+',
-                  'ED|DE','HS[123]','genome']
+                  'ED|DE','HS[123]','genome',
+                    'MPF4','MPF10','MPCEV',
+                    'PPF4','PPF10','PPCEV']
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
-                'exonuclease','high_salt','genome-sim'] 
+                'exonuclease','high_salt','genome-sim',
+                'EV','RNP','RNP-EV',
+                'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
+
+
 treatment_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
 def select_sample(wildcards, return_count = False):
     regex = treatment_regex_dict[wildcards.TREATMENT] 
@@ -122,10 +134,9 @@ rule count_bed:
         '> {output.TABLE}'
         '; rm -rf {params.TEMP}'
 
-
 rule intersect_bed:
     input:
-        BED = lambda w: BED_TEMPLATE if w.DEDUP=='all' else DEDUP_BED_TEMPLATE
+        BED = DEDUP_BED_TEMPLATE
     
     params:
         REF_BED = lambda w: get_parameter(w, return_format = 'ref')
@@ -197,35 +208,44 @@ def deduplicate(wildcards):
     '''
     genearte dedup command
     '''
-    if not re.search('genome-sim|L[12E]|PEV', wildcards.SAMPLE_NAME):
-        toleration = 0 
-        DEDUP_COMMAND = "  deduplicate_bed.py -i - -d '_' -f 0 -t {TOLERATE} --ct 6" \
-                        "| poisson_umi_adjustment.py -i - -o - --umi 6 "\
-                        .format(TOLERATE=toleration)
+    if wildcards.DEDUP == "dedup":
+        if not re.search('genome-sim|L[12E]|PEV', wildcards.SAMPLE_NAME):
+            toleration = 0 
+            DEDUP_COMMAND = "  deduplicate_bed.py -i - -d '_' -f 0 -t {TOLERATE} --ct 6" \
+                            "| poisson_umi_adjustment.py -i - -o - --umi 6 "\
+                            .format(TOLERATE=toleration)
+        else:
+            filter_command = "awk '$NF!~/N/ && ($3-$2) <= 300' |" if wildcards.RNA_TYPE == RNA_TYPES[1] else ''
+            DEDUP_COMMAND = filter_command + ' sort -k1,1 -k2,2n -k3,3n -k6,6n -u ' \
+                            '| cut -f1-6 '
     else:
-        filter_command = "awk '$NF!~/N/ && ($3-$2) <= 300' |" if wildcards.RNA_TYPE == 'snc_all' else ''
-        DEDUP_COMMAND = filter_command + ' sort -k1,1 -k2,2n -k3,3n -k6,6n -u ' \
-                        '| cut -f1-6 '
+        DEDUP_COMMAND = ' cat '
     return DEDUP_COMMAND
 
 def get_parameter(wildcards, return_format='bam'):
 
+
     SAMPLE_FOLDER = SAMPLE_FOLDER_TEMPLATE.format(SAMPLE_NAME = wildcards.SAMPLE_NAME) 
-    if wildcards.RNA_TYPE == 'counts':
+
+    if wildcards.RNA_TYPE == RNA_TYPES[0]:
         REF_BED = REF_BED_PATH + '/genes.bed'
         BAM = SAMPLE_FOLDER  + '/Combined/primary_no_sncRNA_tRNA_rRNA_repeats.bam'
-    elif wildcards.RNA_TYPE == 'sncRNA':
+    elif wildcards.RNA_TYPE == RNA_TYPES[1]:
         REF_BED = REF_BED_PATH + '/sncRNA_x_protein.bed'
         BAM = SAMPLE_FOLDER + '/Combined/sncRNA.bam'
-    elif wildcards.RNA_TYPE == 'small_RNA':
+    elif wildcards.RNA_TYPE == RNA_TYPES[2]:
         REF_BED = REF_BED_PATH + '/smallRNA.bed'
         BAM = SAMPLE_FOLDER + '/smallRNA/aligned.bam'
-    elif wildcards.RNA_TYPE == 'rRNA_mt':
+    elif wildcards.RNA_TYPE == RNA_TYPES[3]:
         REF_BED = REF_BED_PATH + '/rRNA_mt.bed'
         BAM = SAMPLE_FOLDER + '/rRNA_mt/aligned.bam'
-    elif wildcards.RNA_TYPE == 'repeats' or wildcards.RNA_TYPE == 'reapeats':
+    elif wildcards.RNA_TYPE == RNA_TYPES[4] or wildcards.RNA_TYPE:
         REF_BED = os.environ['REF'] + '/hg19/genome/rmsk.bed.gz'
         BAM = SAMPLE_FOLDER + '/Combined/repeats.bam'
+#    else:
+#        print(wildcards.SAMPLE_NAME, wildcards.RNA_TYPE)
+#        BAM=''
+#        REF_BED = ''
     
     if return_format == 'bam':
         return BAM

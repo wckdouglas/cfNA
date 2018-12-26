@@ -17,21 +17,33 @@ rcParams['font.sans-serif'] = ['Arial']
 def label_sample(x, salt = False):
     if 'HS' in x:
         return 'High salt (450mM)'
-    elif 'Frag' in x:
+    elif re.search('[fF]rag',x):
         return 'Fragmented'
     elif re.search('[-_]sim',x):
         return 'WGS-sim'
     elif re.search('N[aA]|[Aa]lk', x):
         #return 'Alkaline hydrolysis'
         return 'NaOH'
-    elif re.search('_L[0-9]+',x):
+    elif re.search('_L[0-9E]+',x):
         return 'Poly(A)-selected'
     elif re.search('[eE]xo|ED|DE', x):
         return 'DNase I + Exo I'
     elif re.search('[aA]ll|[Uu]nt', x):
         return 'Untreated'
-    elif re.search('Phos', x):
+    elif re.search('[pP]hos', x):
         return 'DNase I + Phosphatase'
+    elif re.search('MPF4', x):
+        return 'EV'
+    elif re.search('MPF10', x):
+        return 'RNP'
+    elif re.search('MPCEV', x):
+        return 'RNP+EV'
+    elif re.search('PPF4', x):
+        return 'MNase EV'
+    elif re.search('PPF10', x):
+        return 'MNase RNP'
+    elif re.search('PPCEV', x):
+        return 'MNase EV+RNP'
     elif re.search('[Qq][cC][Ff][0-9]+|[uU]nf', x):
         if salt:
             return 'Low salt (200mM)'

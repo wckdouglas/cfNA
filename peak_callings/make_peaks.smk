@@ -1,16 +1,11 @@
 import glob
 import os
 
-wildcard_constraints:
-    TREATMENT = '[a-zA-Z]+',
-    RNA_TYPE = '[a-zA-Z_]+',
-    STRAND = 'fwd|rvs',
-    FILTER = 'filtered|unfiltered'
 
 
 
 PROJECT_PATH= os.environ['WORK'] + '/cdw2854/cfNA/tgirt_map'
-SAMPLE_NAMES = glob.glob(PROJECT_PATH + '/Q*001')
+SAMPLE_NAMES = glob.glob(PROJECT_PATH + '/*001')
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_NAMES))
 BED_PATH = PROJECT_PATH + '/bed_files'
 MERGED_BED_PATH = BED_PATH + '/merged_bed'
@@ -39,11 +34,16 @@ THREADS = 24
 
 # set up treatments
 TREATMENT = ['unfragmented','fragmented','polyA',
-            'alkaline', 'all','exonuclease']
+            'alkaline', 'all','exonuclease',
+            'EV','RNP','RNP-EV',
+            'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|Exo|[DE][DE]', 'Frag', 'L[12]', 
-                'N[aA][0-9]+', 'All','Exo|[DE][DE]']
+                'N[aA][0-9]+', 'All','Exo|[DE][DE]',
+                'MPF4','MPF10','MPCEV',
+                'PPF4','PPF10','PPCEV']
+
 STRANDS = ['fwd', 'rvs']
-TESTED_TREATMENT = ['unfragmented','all']
+TESTED_TREATMENT = ['unfragmented','all','MNase_EV','MNase_RNP','MNase_EV-RNP','EV','RNP','RNP-EV']
 regex_dict = {t:tr for t, tr in zip(TREATMENT, TREATMENT_REGEX)}
 def get_bed(wildcards):
     regex = regex_dict[wildcards.TREATMENT]
@@ -63,12 +63,13 @@ for T in TREATMENT:
     SAMPLES.extend(list(filter(lambda x: re.search(regex_dict[T], x), SAMPLE_NAMES)))
    
 
-
-# set up contstraints
 wildcard_constraints:
-    SAMPLENAME = 'Q.*',
-    TREATMENT = '|'.join(TREATMENT),
-#    STRAND = '^rvs$|^fwd$',
+    RNA_TYPE = '[a-zA-Z_]+',
+    FILTER = 'filtered|unfiltered',
+    SAMPLENAME = 'Q.*|[MP]P.*',
+    TREATMENT = '[-_A-Za-z]+',
+    STRAND = 'rvs|fwd',
+
 
 # Run commands
 rule all:
@@ -77,7 +78,10 @@ rule all:
         expand(CMSCAN_PEAK, TREATMENT = ['unfragmented'], RNA_TYPE = RNA_TYPES), 
         expand(STRANDED_COV_FILE_TEMPLATE, STRAND = STRANDS, TREATMENT = TESTED_TREATMENT),
         UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline'),
-        expand(ANNOTATED_PEAK, TREATMENT = ['unfragmented'], FILTER = FILTERS),
+        expand(ANNOTATED_PEAK, 
+                TREATMENT = ['unfragmented','EV','RNP','RNP-EV','MNase_EV',
+                                            'MNase_RNP','MNase_EV-RNP'], 
+                FILTER = FILTERS),
         expand(FOLD_FILE, TREATMENT = ['unfragmented'], FILTER = ['filtered'])
         
 
@@ -265,7 +269,6 @@ rule SCAN_FA:
         'cmscan -o {output.CMSCAN} --tblout {output.TBL_OUT} '\
         ' --cpu {params.THREADS} '\
         '{params.SCAN_REF} {input.FA}'
-        
         
 
 rule peak_anntation:

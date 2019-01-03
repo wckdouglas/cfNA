@@ -63,7 +63,7 @@ def get_repeat_df(df, sample_regex=None):
         .pipe(lambda d: d[~d.gene_id.str.contains('rRNA|tRNA|RNA')]) \
         .query('(antisense + sense) > 0') \
         .pipe(lambda d: pd.concat([d.pipe(lambda d: d[d.gene_name.str.contains('Satellite')]),
-                              fix_simple_repeats(d)], sort=True))
+                              fix_simple_repeats(d)]))
     return p_df
     
 def model_df(p_df, ax, title=''):

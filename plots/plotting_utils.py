@@ -17,7 +17,7 @@ rcParams['font.sans-serif'] = ['Arial']
 def label_sample(x, salt = False):
     if 'HS' in x:
         return 'High salt (450mM)'
-    elif re.search('[fF]rag',x):
+    elif re.search('^[fF]rag|_[fF]rag',x):
         return 'Fragmented'
     elif re.search('[-_]sim',x):
         return 'WGS-sim'
@@ -30,8 +30,8 @@ def label_sample(x, salt = False):
         return 'DNase I + Exo I'
     elif re.search('[aA]ll|[Uu]nt', x):
         return 'Untreated'
-    elif re.search('[pP]hos', x):
-        return 'DNase I + Phosphatase'
+    elif re.search('[pP]hos|3\'P', x):
+        return "DNase I - 3'P"
     elif re.search('MPF4', x):
         return 'EV'
     elif re.search('MPF10', x):
@@ -79,10 +79,11 @@ label_ce = color_encoder()
 label_ce.encoder = {}
 for label, color in zip(['DNase I', 'DNase I + Exo I',
                          'DNase I + NaOH', 'DNase I + Exo I + NaOH',
-                         'NaOH','Untreated','Ladder'],
+                         'NaOH','Untreated','Ladder','Fragmented',"DNase I - 3'P"],
                          ['#d12604','#ff96cb',
                           '#964b06','#f2a157',
-                          '#4286f4','black', 'grey']):
+                          '#4286f4','black', 'grey',
+                          '#592782','#870c47']):
     label_ce.encoder[label] = color
 
 
@@ -96,7 +97,6 @@ rna_type_ce.fit(RNA_type, colors)
 rna_type_ce.encoder = {rna:col for rna, col in zip(RNA_type, colors)}
 
 
-label_order = ['Untreated','NaOH', 'DNase I', 'DNase I + Exo I','WGS-sim']
 
 
 figure_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/figure'

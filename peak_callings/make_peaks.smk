@@ -136,7 +136,8 @@ rule split_strand:
     #splitting bed file into postive/negative strand bed file
     #also filter out full length exons
     input:
-        BED = MERGED_BED_TEMPLATE
+        BED = MERGED_BED_TEMPLATE,
+        EXON_TABLE = EXON_TABLE
     
     params:
         OUT_PREFIX = STRANDED_BED_PATH + '/{TREATMENT}'
@@ -145,7 +146,7 @@ rule split_strand:
         expand(STRANDED_BED_TEMPLATE.replace('{TREATMENT}','{{TREATMENT}}'), STRAND = STRANDS, FILTER=FILTERS),
     
     shell:
-        'python process_bed.py {input.BED} {params.OUT_PREFIX}'
+        'python process_bed.py {input.BED} {params.OUT_PREFIX} {input.EXON_TABLE}'
     
 
 
@@ -285,7 +286,9 @@ rule peak_anntation:
         ANNOTATED_PEAK = ANNOTATED_PEAK
 
     shell:
-        'python macs_peaks.py {output.ANNOTATED_PEAK} {params.ANNOTATION_TABLE} {params.BED_PATH} {input.EXON_TABLE} {input.PEAK_FILES} '
+        'python macs_peaks.py '\
+        '{output.ANNOTATED_PEAK} {params.ANNOTATION_TABLE} '\
+        '{params.BED_PATH} {input.EXON_TABLE} {input.PEAK_FILES} '
 
 
 rule find_exon:

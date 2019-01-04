@@ -132,7 +132,7 @@ def filter_bed(tab_file, out_prefix, cov_exon, spliced_exons):
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         sys.exit('[usage] python %s <bed_file> <out_prefix> <spliced_exon.bed>' %sys.argv[0])
 
     exons = REF_PATH + '/hg19_ref/genes/exons_all.bed'

@@ -128,6 +128,8 @@ rule count_bed:
         '; zcat {input.INTERSECTED_BED} '\
         '| {params.STRAND_FILTER} '\
         '| {params.FIELDS} ' \
+        '| python selective_count.py '\
+        '| cut -f5-'\
         '| sort --temporary-directory={params.TEMP} '\
         '| uniq -c '\
         "| awk {{'print $2,$3,$4,$5,$6,$7,$8,$9,$1'}} OFS='\\t' "\
@@ -267,4 +269,4 @@ def strand_selection(wildcards):
     return "awk '$6 {operator} ${REF_STRAND} || ${REF_STRAND} == \".\" '".format(REF_STRAND = REF_STRAND, operator = operator)
 
 def field_selection(wildcards):
-    return ' cut -f7- ' if wildcards.DEDUP == 'dedup' else ' cut -f8-'
+    return ' cut -f1,2,3,4,7- ' if wildcards.DEDUP == 'dedup' else ' cut -f1,2,3,4,8-'

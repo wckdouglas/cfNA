@@ -115,6 +115,7 @@ def plot_count(ax, feature_only=True, dedup=True):
     dedup_regex = ':dedup:' if dedup else ':all:'
     countplot_df = dedup_df \
         .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-'),'Mt', d.grouped_type))\
+        .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-T'),'tRNA', d.grouped_type))\
         .filter(regex = 'type|Qcf|QCF|sim')\
         .assign(grouped_type = lambda d: np.where(d.grouped_type == "No features", 'Unannotated', d.grouped_type))\
         .assign(grouped_type = lambda d: np.where(d.grouped_type == "rDNA", 'rRNA', d.grouped_type))\
@@ -129,7 +130,7 @@ def plot_count(ax, feature_only=True, dedup=True):
         .assign(variable = lambda d: d.variable.str.split(':', expand=True).iloc[:,0])\
         .assign(treatment = lambda d: d.variable.map(label_sample)) \
         .groupby(['grouped_type','treatment'], as_index=False)\
-        .agg({'value':'sum'}) \
+        .agg({'value':'median'}) \
         .query('grouped_type != "%s"' %filter_feature)\
         .pipe(lambda d: d[d.treatment.str.contains('Exo|Na|DN|Untre|sim|3\'P')])\
         .assign(value = lambda d: d.groupby('treatment')['value'].transform(lambda x: 100*x/x.sum()))\

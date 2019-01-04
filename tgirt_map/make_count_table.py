@@ -84,7 +84,7 @@ def main():
         p.join()
 
         dfs = filter(lambda d: d is not None, dfs)
-        concat_df = pd.concat(dfs, axis=0, sort=True)  \
+        concat_df = pd.concat(dfs, axis=0)  \
                 .groupby(['samplename','strand','gene_type','gene_name','gene_id', 'dedup'], as_index=False)\
                 .agg({'read_count':'sum'})
         concat_df.to_csv(long_tablename, sep = '\t', index=False)

@@ -19,7 +19,7 @@ wildcard_constraints:
 
 PROJECT_PATH='/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 COUNT_PATH = PROJECT_PATH + '/Counts/all_counts'
-REF_BED_PATH = os.environ['REF'] + '/hg19/new_genes'
+REF_BED_PATH = os.environ['REF'] + '/hg19_ref/genes'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001')
 SAMPLE_FOLDERS = filter(lambda x: 'try' not in x, SAMPLE_FOLDERS)
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_FOLDERS))

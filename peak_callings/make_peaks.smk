@@ -2,8 +2,6 @@ import glob
 import os
 
 
-
-
 PROJECT_PATH= os.environ['WORK'] + '/cdw2854/cfNA/tgirt_map'
 SAMPLE_NAMES = glob.glob(PROJECT_PATH + '/*001')
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_NAMES))

@@ -129,7 +129,7 @@ rule count_bed:
         '| {params.STRAND_FILTER} '\
         '| {params.FIELDS} ' \
         '| python selective_count.py '\
-        '| cut -f5-'\
+        '| cut -f5,6,7,8,9,10,11,12'\
         '| sort --temporary-directory={params.TEMP} '\
         '| uniq -c '\
         "| awk {{'print $2,$3,$4,$5,$6,$7,$8,$9,$1'}} OFS='\\t' "\

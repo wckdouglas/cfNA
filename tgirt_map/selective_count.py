@@ -11,7 +11,10 @@ def extract_fields(x):
 
 def compute_overlap_score(read_start, read_end, ref_start, ref_end):
     overlapping_base = min(ref_end, read_end) -  max(ref_start, read_start)
-    return overlapping_base/(read_end-read_start) * overlapping_base/(ref_end*ref_start)
+    read_len = read_end - read_start
+    ref_len = ref_end - ref_start
+    assert read_len > 0 and ref_len > 0, '{},{},{},{}'.format(read_start,read_end, ref_end, ref_start)
+    return overlapping_base/(read_len) * overlapping_base/(ref_len)
 
 
 def selective(read_start, read_end, lines):

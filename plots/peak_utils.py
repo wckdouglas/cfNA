@@ -335,9 +335,9 @@ def group_annotation(x):
     lab = 'Others'
     if re.search('tRNA', x):
         lab = 'tRNA'
-#    elif re.search('RNaseP',x):
-#        lab = Rfam_labs[0]
-    elif re.search('[sS][nN][oO]|HACA', x):
+    elif re.search('RNaseP',x):
+        lab = Rfam_labs[0]
+    elif re.search('[sS][nN][oO]|[sS][nN][rR]|HACA', x):
         lab = 'snoRNA'
     elif x == 'IsrR':
         lab = 'IsrR'
@@ -351,10 +351,12 @@ def get_peak_rfam_annotation(peaks):
     cmscan_df = read_tbl(peak_path + '/unfragmented.Long_RNA.tblout') \
         .assign(peakname = lambda d: d['query name'].str.split('(', expand=True).iloc[:,0])\
         .merge(peaks.filter(['sense_gname','peakname']), on = 'peakname', how = 'right')\
+        .assign(score = lambda d: d.score.fillna(0))\
         .fillna('NA')\
-        .assign(strand = lambda d: np.where(d.strand=="+", 0,1) )\
+        .assign(strand = lambda d: np.where(d.strand=="+", 0, 1) )\
+        .assign(score = lambda d: d.score.astype(float))\
         .groupby('peakname', as_index=False)\
-        .apply(lambda d: d.pipe(lambda d1: d1[d1.strand==d1.strand.min()]).pipe(lambda d1: d1[d1.score==d1.score.max()]))\
+        .apply(lambda d: d.pipe(lambda d1: d1[d1.strand==d1.strand.min()]).nlargest(1,'score'))\
         .assign(rfam_lab = lambda d: d['target name'].map(group_annotation))
 
     return {row['sense_gname']:row['rfam_lab'] for i, row in cmscan_df.iterrows()}
@@ -589,6 +591,7 @@ def plot_anti_bar(antisense_peaks, ax):
                                                     d.antisense_gname))\
         .assign(is_hb = lambda d: [is_hb(row) for i, row in d.iterrows()])\
         .merge(read_tbl(peak_path + '/unfragmented.others.tblout') \
+               .assign(score=lambda d: d.score.astype(float))\
                 .groupby('query name', as_index=False)\
                 .apply(lambda d: d[d.score == d.score.max()])\
                 .query('strand == "+"') \
@@ -599,6 +602,8 @@ def plot_anti_bar(antisense_peaks, ax):
             on = 'peakname', how = 'left')\
         .assign(rfam = lambda d: d.rfam.fillna('Others'))\
         .assign(rfam = lambda d: np.where(d.is_hb=="HB", 'Hemaglobin', d.rfam))\
+        .assign(rfam = lambda d: np.where(d.rfam=="HBM", 'Hemaglobin', d.rfam))\
+        .assign(rfam = lambda d: np.where(d.rfam=="FHbp_thermometer", 'Others', d.rfam))\
         .sort_values('log10p', ascending=False)
 
     anti_plot\

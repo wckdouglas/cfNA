@@ -62,7 +62,7 @@ def make_table(out_table, bam_file):
     print('Written %s' %out_table)
 
     BedTool(out_table) \
-        .intersect(b='/stor/work/Lambowitz/ref/hg19_ref/genes/exon.bed', s=True)\
+        .intersect(b='/stor/work/Lambowitz/ref/hg19_ref/genes/exons.bed', s=True)\
         .saveas(out_table)
 
 

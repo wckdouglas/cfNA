@@ -2,6 +2,7 @@ import glob
 import os
 
 
+MITO_INDEX= os.environ['REF'] + '/hg19/genome/chrM.fa'
 PROJECT_PATH= os.environ['WORK'] + '/cdw2854/cfNA/tgirt_map'
 SAMPLE_NAMES = glob.glob(PROJECT_PATH + '/*001')
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_NAMES))
@@ -10,12 +11,14 @@ MERGED_BED_PATH = BED_PATH + '/merged_bed'
 COV_PATH = MERGED_BED_PATH + '/coverage'
 STRANDED_BED_PATH = MERGED_BED_PATH + '/stranded'
 MACS2_PATH = MERGED_BED_PATH + '/MACS2'
-EXON_TABLE = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/unfragmentd.spliced.tsv.gz'
+GENOME_BAM = PROJECT_PATH + '/merged_bam/{TREATMENT}.bam'
+EXON_TABLE = PROJECT_PATH + '/merged_bam/{TREATMENT}.spliced.tsv.gz'
 ANNOTATED_PEAK_PATH = MACS2_PATH + '/annotated' 
 ANNOTATED_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.tsv'
 ANNOTATION_TABLE = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz' 
 BED_TEMPLATE = BED_PATH + '/{SAMPLENAME}.bed.gz'
 BAM_TEMPLATE = PROJECT_PATH + '/{SAMPLENAME}/Combined/primary.bam'
+FILTER_BAM_TEMPLATE = PROJECT_PATH + '/{SAMPLENAME}/Combined/primary.chrM_filtered.bam'
 MERGED_BED_TEMPLATE = MERGED_BED_PATH + '/{TREATMENT}.bed.gz'
 STRANDED_BED_TEMPLATE = STRANDED_BED_PATH + '/{TREATMENT}.{FILTER}.{STRAND}.bed.gz'
 MACS2_PEAK_TEMPLATE = MACS2_PATH + '/{TREATMENT}.{FILTER}.{STRAND}_peaks.narrowPeak' 
@@ -137,7 +140,7 @@ rule split_strand:
     #also filter out full length exons
     input:
         BED = MERGED_BED_TEMPLATE,
-        EXON_TABLE = EXON_TABLE
+        EXON_TABLE = EXON_TABLE.format(TREATMENT = 'unfragmented')
     
     params:
         OUT_PREFIX = STRANDED_BED_PATH + '/{TREATMENT}'
@@ -166,10 +169,25 @@ rule merged_bed:
         '; tabix -p bed -f {output.MERGED_BED}'
 
 
+rule filter_bam:
+    input:
+        BAM = BAM_TEMPLATE
+
+    params:
+        INDEX = MITO_INDEX
+
+    output:
+        BAM = FILTER_BAM_TEMPLATE
+
+    shell:
+        'python chrM_filter.py '\
+        '-i {input.BAM} -o {output.BAM} '\
+        '-x {params.INDEX} '
+
 
 rule make_bed:
     input:
-        BAM = BAM_TEMPLATE
+        BAM = FILTER_BAM_TEMPLATE
 
     params:
         TMP_FOLDER = BED_PATH + '/{SAMPLENAME}_TMP',
@@ -276,7 +294,7 @@ rule peak_anntation:
                 .replace('{TREATMENT}','{{TREATMENT}}')\
                 .replace('{FILTER}','{{FILTER}}'), 
             STRAND = STRANDS),
-        EXON_TABLE = EXON_TABLE
+        EXON_TABLE = EXON_TABLE.format(TREATMENT = 'unfragmented')
     
     params:
         ANNOTATION_TABLE = ANNOTATION_TABLE,
@@ -293,7 +311,7 @@ rule peak_anntation:
 
 rule find_exon:
     input:
-        '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/kallisto_result/bam_files/unfragmented_kallisto.bam'
+        GENOME_BAM
 
     output:
         EXON_TABLE

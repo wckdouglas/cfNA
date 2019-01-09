@@ -45,7 +45,8 @@ rule tRNA_bed:
     
     shell:
         'cat {input} '\
-        '| bam_to_bed.py -i - --cigar '\
+        '| samtools view -bF 4 ' \
+        '| bam_to_bed.py -i - -c '\
         '| sort -k1,1 -k2,2n -k3,3n '\
         '| bgzip '\
         '> {output}'

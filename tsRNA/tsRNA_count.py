@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 
 from multiprocessing import Pool
@@ -16,8 +17,7 @@ def coordinate_grouper(x):
     return itemgetter(0,1,2,5,6)(fields)
 
 class tsRNA_counter():
-    def __init__(self, bed, samplename):
-        anticodon_table = '/stor/work/Lambowitz/ref/hg19_ref/genes/tRNA/anticodon_annotations.tsv'
+    def __init__(self, bed, samplename, anticodon_table):
         self.bed = pysam.Tabixfile(bed)
         self.aligned_contig = set(self.bed.contigs)
         self.anticodon_df = pd.read_table(anticodon_table)\
@@ -62,7 +62,7 @@ class tsRNA_counter():
                         self.tsRNA_counter[tRNA['tRNA']]['Others'] += read_count
     
     
-    def write_table(self, tablename):
+    def write_table(self):
         dfs = []
         for tRNA, frag_dict in self.tsRNA_counter.items():
             df = pd.DataFrame({'frag_type':list(frag_dict.keys()),
@@ -71,20 +71,35 @@ class tsRNA_counter():
                 .assign(tRNA = tRNA)
             dfs.append(df)
 
-        pd.concat(dfs).reset_index(drop=True).to_feather(tablename)
-        print('Written %s' %tablename)
+        return pd.concat(dfs).reset_index(drop=True)
 
 
 def count_ts(sample_folder):
-    bed = sample_folder + '/count_temp/small_RNA.all.bed.gz'
     samplename = os.path.basename(sample_folder)
     tablename = sample_folder + '/count_temp/tRNA_frag.feather'
+
+    # genomic tRNA
+    anticodon_table = '/stor/work/Lambowitz/ref/hg19_ref/genes/tRNA/anticodon_annotations.tsv'
+    bed = sample_folder + '/count_temp/small_RNA.all.bed.gz'
     os.system('tabix -f -p bed %s' %bed)
+
+    # mt tRNA
+    mt_anticodon_table = '/stor/work/Lambowitz/ref/hg19_ref/genes/mt_tRNA.anticodon_annotations.tsv'
+    mt_bed = sample_folder + '/rRNA_mt/mt_tRNA.bed.gz'
+    os.system('tabix -f -p bed %s' %mt_bed)
+
     if not os.path.isfile(tablename):
         print('Running %s' %sample_folder)
-        tsRNA = tsRNA_counter(bed, samplename)
+        tsRNA = tsRNA_counter(bed, samplename, anticodon_table)
         tsRNA.count_tRNA()
-        tsRNA.write_table(tablename)
+        tab = tsRNA.write_table()
+        
+        tsRNA = tsRNA_counter(mt_bed, samplename, mt_anticodon_table)
+        tsRNA.count_tRNA()
+        mt_tab = tsRNA.write_table()
+
+    pd.concat([mt_tab, tab]).reset_index(drop=True).to_feather(tablename)
+    print('Written %s' %tablename)
     return tablename
 
 
@@ -110,7 +125,6 @@ if __name__ == '__main__':
 
 
                 
-
 
 
 

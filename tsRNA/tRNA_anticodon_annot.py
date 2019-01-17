@@ -82,8 +82,8 @@ def parse_mt_tRNA_tab(ss_file):
 def mt_tRNA_tab(mature_fa):
     rows = []
     for record in read(mature_fa, 'fasta'):
-        rows.append((record.metadata['id'], str(record)))
-    return pd.DataFrame(rows, columns=['tRNA','seq'])
+        rows.append((record.metadata['id'], str(record), 0, len(str(record))))
+    return pd.DataFrame(rows, columns=['tRNA','seq','start', 'end'])
 
 def mt_tRNA():
     mature_fa = tRNA_PATH + '/mt_tRNA.fa'

@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 
 from multiprocessing import Pool
@@ -25,16 +24,16 @@ class tsRNA_counter():
         self.tsRNA_counter = defaultdict(Counter)
         self.samplename = samplename
         self.splice = re.compile('([0-9]+)S')
-        self.aligned = re.compile('([0-9]+)')
+        self.aligned = re.compile('([0-9]+)[SM]')
     
     def count_tRNA(self):
         for _, tRNA in self.anticodon_df.iterrows():
             iterator = self.bed.fetch(tRNA['tRNA'])
-            for (chrom, start, end, strand, cigar) ,lines in groupby(iterator, coordinate_grouper):
+            for (chrom, start, end, strand, cigar), lines in groupby(iterator, coordinate_grouper):
                 clipped = sum(map(int,self.splice.findall(cigar)))
                 total_base = sum(map(int, self.aligned.findall(cigar)))
 
-                if clipped/total_base < 0.1 and strand == '+':
+                if clipped/total_base < 0.2 and strand == '+':
                     start, end = int(start), int(end)
                     umis = set()
                     for line in lines:
@@ -60,7 +59,7 @@ class tsRNA_counter():
                     
                     else:
                         self.tsRNA_counter[tRNA['tRNA']]['Others'] += read_count
-    
+
     
     def write_table(self):
         dfs = []
@@ -71,7 +70,14 @@ class tsRNA_counter():
                 .assign(tRNA = tRNA)
             dfs.append(df)
 
-        return pd.concat(dfs).reset_index(drop=True)
+        if dfs:
+            return pd.concat(dfs)\
+                .reset_index(drop=True) \
+                .merge(self.anticodon_df\
+                        .filter(['tRNA','anticodon','aa']),
+                    on = 'tRNA')
+        else:
+            return None
 
 
 def count_ts(sample_folder):
@@ -88,25 +94,34 @@ def count_ts(sample_folder):
     mt_bed = sample_folder + '/rRNA_mt/mt_tRNA.bed.gz'
     os.system('tabix -f -p bed %s' %mt_bed)
 
-    if not os.path.isfile(tablename):
+    if True: #not os.path.isfile(tablename):
         print('Running %s' %sample_folder)
-        tsRNA = tsRNA_counter(bed, samplename, anticodon_table)
-        tsRNA.count_tRNA()
-        tab = tsRNA.write_table()
-        
         tsRNA = tsRNA_counter(mt_bed, samplename, mt_anticodon_table)
         tsRNA.count_tRNA()
         mt_tab = tsRNA.write_table()
 
-    pd.concat([mt_tab, tab]).reset_index(drop=True).to_feather(tablename)
-    print('Written %s' %tablename)
+        tsRNA = tsRNA_counter(bed, samplename, anticodon_table)
+        tsRNA.count_tRNA()
+        tab = tsRNA.write_table()
+
+        if tab is None and mt_tab is None:
+            tablename = None
+        elif tab is None:
+            ts_table = mt_tab
+        elif mt_tab is None:
+            ts_table = tab
+        else:
+            ts_table = pd.concat([mt_tab, tab]).reset_index(drop=True)
+        ts_table.to_feather(tablename)
+        print('Written %s' %tablename)
     return tablename
 
 
 def main():
     project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
     sample_folders = glob.glob(project_path + '/*001')
-    sample_folders = filter(lambda x: 'genome-sim' not in x, sample_folders)
+    sample_folders = filter(lambda x: not re.search('genome-sim|L[0-9E]+',x), sample_folders)
+    sample_folders = filter(lambda x: re.search('[qQ][cC][fF]', x), sample_folders)
     
     p = Pool(24)
     dfs = p.map(count_ts, sample_folders)
@@ -114,6 +129,7 @@ def main():
     p.join()
 
     tablename = project_path + '/Counts/tsRNA.feather'
+    dfs = filter(lambda df: df is not None, dfs)
     pd.concat(map(pd.read_feather, dfs))\
         .reset_index(drop=True)\
         .to_feather(tablename)

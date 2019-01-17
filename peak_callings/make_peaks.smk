@@ -27,6 +27,7 @@ UNSTRANDED_COV_FILE_TEMPLATE = COV_PATH + '/{TREATMENT}.bigWig'
 PEAK_FA = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.fa'
 CMSCAN_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.cmscan'
 CMTBLOUT_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.tblout'
+INTRON_TAB = ANNOTATED_PEAK_PATH + '/{TREATMENT}.intron.bed'
 FOLD_FILE = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.fold.fa'
 GENOME = os.environ['REF'] + '/hg19_ref/genome/hg19_genome.fa'
 RNA_TYPES = ['Long_RNA','others']
@@ -83,8 +84,25 @@ rule all:
                 TREATMENT = ['unfragmented','EV','RNP','RNP-EV','MNase_EV',
                                             'MNase_RNP','MNase_EV-RNP'], 
                 FILTER = FILTERS),
-        expand(FOLD_FILE, TREATMENT = ['unfragmented'], FILTER = ['filtered'])
+        expand(FOLD_FILE, TREATMENT = ['unfragmented'], FILTER = ['filtered']),
+        expand(PEAK_FA, TREATMENT = ['unfragmented'], RNA_TYPE = ['Long_RNA','RBP']),
+        expand(INTRON_TAB, TREATMENT = TESTED_TREATMENT),
         
+rule intron:
+    input:
+        TAB = ANNOTATED_PEAK.replace('{FILTER}','unfiltered')
+
+    params:
+        INDEPENDENT_INTRON = '/stor/work/Lambowitz/ref/hg19/genome/independent_intron.bed'
+
+    output:
+        INTRON_TAB
+        
+    shell:
+        'cat {input.TAB} '\
+        '| csvtk cut -t -f chrom,start,end,peakname,pileup,strand ' \
+        '| bedtools intersect -f 0.8 -F 0.8 -wb -a - -b {params.INDEPENDENT_INTRON} '\
+        '> {output}'
 
 rule fold:
     input:

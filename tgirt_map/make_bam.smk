@@ -1,8 +1,13 @@
-
 import re
 import glob
 import os
 from collections import Counter
+
+
+wildcard_constraints:
+    TREATMENT = '[a-zA-Z-_0-9]+',
+    STRAND = 'antisense|sense',
+    PMSTRAND = '[plusmin]+'
 
 PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001') 
@@ -26,9 +31,9 @@ COMBINED_METRICS_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.RNA_Metrics'
 COMBINED_BAM_TEMPLATE = COMBINED_BAM_PATH + '/{TREATMENT}.bam'
 COMBINED_NAME_SORT_BAM_TEMPLATE = COMBINED_BAM_PATH + '/{TREATMENT}.nameSorted.bam'
 COMBINED_FILTERED_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.bam'
-FILTERED_STRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.{STRAND,[antisense]+}.bam'
-FILTERED_PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND,[plusmin]+}_{STRAND,[antisense]+}.bam'
-PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND,[plusmin]+}.bam'
+FILTERED_STRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.{STRAND}.bam'
+FILTERED_PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND}_{STRAND}.bam'
+PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND}.bam'
 
 SAMPLE_FOLDER = PROJECT_PATH + '/{SAMPLE}'
 PICARD_FOLDER = SAMPLE_FOLDER + '/picard'
@@ -37,9 +42,9 @@ SAMPLE_DEDUP_BAM = SAMPLE_FOLDER + '/Combined/primary.deduplicated.bam'
 SAMPLE_MARKDUP_BAM = SAMPLE_FOLDER + '/Combined/primary.mark_duplicated.bam'
 SAMPLE_SORTED_BAM = SAMPLE_FOLDER + '/Combined/primary.sorted.bam'
 SAMPLE_NAME_SORT_BAM = SAMPLE_FOLDER + '/Combined/primary.mark_duplicated.name_sorted.bam'
-SAMPLE_FILTERED_STRAND_BAM_TEMPLATE = PICARD_FOLDER + '/protein.{STRAND,[antisense]+}.bam'
-SAMPLE_FILTERED_PMSTRAND_BAM_TEMPLATE = PICARD_FOLDER + '/protein.{PMSTRAND,[plusmin]+}_{STRAND,[antisense]+}.bam'
-SAMPLE_PMSTRAND_BAM_TEMPLATE = PICARD_FOLDER + '/protein.{PMSTRAND,[plusmin]+}.bam'
+SAMPLE_FILTERED_STRAND_BAM_TEMPLATE = PICARD_FOLDER + '/protein.{STRAND}.bam'
+SAMPLE_FILTERED_PMSTRAND_BAM_TEMPLATE = PICARD_FOLDER + '/protein.{PMSTRAND}_{STRAND}.bam'
+SAMPLE_PMSTRAND_BAM_TEMPLATE = PICARD_FOLDER + '/protein.{PMSTRAND}.bam'
 SAMPLE_METRIC_TEMPLATE = PICARD_FOLDER + '/protein.{STRAND}.RNA_Metrics'
 
 
@@ -47,12 +52,12 @@ SAMPLE_METRIC_TEMPLATE = PICARD_FOLDER + '/protein.{STRAND}.RNA_Metrics'
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos', 
                   'L[1234]','All','N[aA][0-9]+',
                   'ED|DE','HS[123]','genome',
-                    'MPF4','MPF10','MPCEV',
+                    'MPF4','MPF10','MPCEV','^GC',
                     'PPF4','PPF10','PPCEV']
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
                 'exonuclease','high_salt','genome-sim',
-                'EV','RNP','RNP-EV',
+                'EV','RNP','RNP-EV','HEK293',
                 'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
 treatment_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
 def select_sample(wildcards, return_count = False):
@@ -168,8 +173,7 @@ rule RNAseqPICARD:
         REFFLAT = REFFLAT
 
     output:
-        METRIC = COMBINED_METRICS_TEMPLATE\
-            .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
+        METRIC = COMBINED_METRICS_TEMPLATE
 
     shell:
         run_RNASeqMetrics
@@ -179,7 +183,6 @@ rule RNAseqPICARD:
 rule make_protein_bam:
     input:
         BAMS = expand(FILTERED_STRAND_BAM_TEMPLATE\
-                        .replace(',[antisense]+','')\
                         .replace('{TREATMENT}','{{TREATMENT}}'),
                     STRAND = ['sense','antisense'])
     
@@ -196,15 +199,13 @@ rule make_protein_bam:
 
 rule Stranded_RNAseqPICARD:
     input:
-        BAM = FILTERED_STRAND_BAM_TEMPLATE\
-            .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
+        BAM = FILTERED_STRAND_BAM_TEMPLATE
     
     params:
         REFFLAT = REFFLAT
     
     output:
-        METRIC = STRANDED_METRICS_TEMPLATE\
-            .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
+        METRIC = STRANDED_METRICS_TEMPLATE
 
     log:
         STRANDED_METRICS_TEMPLATE.replace('.RNA_Metrics','.log')
@@ -216,9 +217,8 @@ rule Combine_strand:
     # combingin plus_sense and minus_sense // plus_antisense and minus_antisense
     input:
         BAMS = expand(FILTERED_PMSTRAND_BAM_TEMPLATE\
-                .replace('{STRAND,[antisense]+}', '{{STRAND}}')\
-                .replace('{TREATMENT}', '{{TREATMENT}}')\
-                .replace('{PMSTRAND,[plusmin]+}', '{PMSTRAND}'),
+                .replace('{STRAND}', '{{STRAND}}')\
+                .replace('{TREATMENT}', '{{TREATMENT}}'),
             PMSTRAND = ['plus','minus'])
 
     params:
@@ -226,8 +226,7 @@ rule Combine_strand:
         TMPDIR = FILTERED_STRAND_BAM_TEMPLATE.replace('.bam','.log')
 
     output:
-        BAM = FILTERED_STRAND_BAM_TEMPLATE\
-            .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
+        BAM = FILTERED_STRAND_BAM_TEMPLATE
     
     log:
         FILTERED_STRAND_BAM_TEMPLATE.replace('.bam','.log')
@@ -238,8 +237,7 @@ rule Combine_strand:
 
 rule Filter_protein:
     input:
-        BAM = PMSTRAND_BAM_TEMPLATE\
-            .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
+        BAM = PMSTRAND_BAM_TEMPLATE
 
     params:
         SNC_ANNOTATION = snc_annotation,
@@ -259,16 +257,14 @@ rule Filter_protein:
 
 rule Split_strand:
     input:
-        BAM = COMBINED_NAME_SORT_BAM_TEMPLATE\
-            .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
+        BAM = COMBINED_NAME_SORT_BAM_TEMPLATE
 
     params:
         THREADS = THREADS,
         FILTER_COMMAND = lambda w: get_filter_command(w),
 
     output:
-        PMSTRAND_BAM = PMSTRAND_BAM_TEMPLATE\
-            .replace('{TREATMENT}', '{TREATMENT,[a-zA-Z-_]+}')
+        PMSTRAND_BAM = PMSTRAND_BAM_TEMPLATE
     
     log:
         PMSTRAND_BAM_TEMPLATE.replace('.bam','.log')
@@ -396,9 +392,8 @@ rule RNAseqPICARD_sample:
 rule Combine_strand_sample:
     input:
         BAMS = expand(SAMPLE_FILTERED_PMSTRAND_BAM_TEMPLATE\
-                .replace('{STRAND,[antisense]+}', '{{STRAND}}')\
-                .replace('{SAMPLE}', '{{SAMPLE}}')\
-                .replace('{PMSTRAND,[plusmin]+}', '{PMSTRAND}'),
+                .replace('{STRAND}', '{{STRAND}}')\
+                .replace('{SAMPLE}', '{{SAMPLE}}'),
             PMSTRAND = ['plus','minus'])
     
     params:

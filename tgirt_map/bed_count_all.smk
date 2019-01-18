@@ -15,7 +15,7 @@ wildcard_constraints:
     DEDUP = 'dedup|all',
     STRAND = '[antisense]+',
     SAMPLE_NAME = '[A-Za-z0-9_\-]+',
-    TREATMENT = '[A-Za-z_\-]+'
+    TREATMENT = '[A-Za-z_\-0-9]+'
 
 PROJECT_PATH='/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 COUNT_PATH = PROJECT_PATH + '/Counts/all_counts'
@@ -38,12 +38,12 @@ LONG_COUNT_TABLE = COUNT_PATH + '/all_counts.feather'
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos', 
                   'L[1234]','All','N[aA][0-9]+',
                   'ED|DE','HS[123]','genome',
-                    'MPF4','MPF10','MPCEV',
+                    'MPF4','MPF10','MPCEV','^GC',
                     'PPF4','PPF10','PPCEV']
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
                 'exonuclease','high_salt','genome-sim',
-                'EV','RNP','RNP-EV',
+                'EV','RNP','RNP-EV','HEK293',
                 'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
 
 

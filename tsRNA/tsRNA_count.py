@@ -45,7 +45,7 @@ class tsRNA_counter():
                     start_in_anticodon = tRNA['anticodon_start'] -1 < start < tRNA['anticodon_end']+1
                     end_at3 = end > tRNA['end'] - 5 
                     start_at5 = start <  5 
-                    end_in_anticodon = tRNA['anticodon_start'] - 1 < end < tRNA['anticodon_end'] + 1
+                    end_in_anticodon = tRNA['anticodon_start'] - 3 < end < tRNA['anticodon_end'] + 3
                     short_frag = end - start < 23
 
                     if end_at3 and short_frag:
@@ -57,6 +57,8 @@ class tsRNA_counter():
                     elif start_at5 and end_in_anticodon:
                         self.tsRNA_counter[tRNA['tRNA']]["5' half"] += read_count
                     
+                    elif start_at5 and end_at3:
+                        self.tsRNA_counter[tRNA['tRNA']]['Full-length'] += read_count
                     else:
                         self.tsRNA_counter[tRNA['tRNA']]['Others'] += read_count
 

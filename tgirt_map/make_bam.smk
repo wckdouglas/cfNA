@@ -96,7 +96,7 @@ def get_filter_command(wildcards):
 
 # for deduplication
 def get_dedup_command(wildcards):
-    if not re.search('genome|[pP]olyA|L[0-9E]+|PEV_', wildcards.SAMPLE):
+    if not re.search('genome|[pP]olyA|L[0-9E]+|PEV_|^GC', wildcards.SAMPLE):
         UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics').format(SAMPLE=wildcards.SAMPLE)
         md = 'picard UmiAwareMarkDuplicatesWithMateCigar '\
             ' UMI_METRICS_FILE={UMI_METRIC} '\

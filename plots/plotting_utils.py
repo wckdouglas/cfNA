@@ -38,6 +38,8 @@ def label_sample(x, salt = False):
         return 'RNP'
     elif re.search('MPCEV', x):
         return 'RNP+EV'
+    elif re.search('^GC', x):
+        return 'HEK293'
     elif re.search('PPF4', x):
         return 'MNase EV'
     elif re.search('PPF10', x):
@@ -79,11 +81,12 @@ label_ce = color_encoder()
 label_ce.encoder = {}
 for label, color in zip(['DNase I', 'DNase I + Exo I',
                          'DNase I + NaOH', 'DNase I + Exo I + NaOH',
-                         'NaOH','Untreated','Ladder','Fragmented',"DNase I - 3'P"],
+                         'NaOH','Untreated','Ladder','Fragmented',"DNase I - 3'P",
+                         'HEK293'],
                          ['#d12604','#ff96cb',
                           '#964b06','#f2a157',
                           '#4286f4','black', 'grey',
-                          '#592782','#870c47']):
+                          '#592782','#870c47','black']):
     label_ce.encoder[label] = color
 
 

@@ -107,7 +107,7 @@ rule collect_insert_size:
                       'size_count': list(bed_dict.values())})\
                 .assign(bed = bed)
             dfs.append(df)
-        dfs = pd.concat(dfs, sort=False)\
+        dfs = pd.concat(dfs)\
             .reset_index(drop=True)
         dfs.to_feather(output.TABLE_NAME)
 

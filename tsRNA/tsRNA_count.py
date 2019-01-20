@@ -96,7 +96,7 @@ def count_ts(sample_folder):
     mt_bed = sample_folder + '/rRNA_mt/mt_tRNA.bed.gz'
     os.system('tabix -f -p bed %s' %mt_bed)
 
-    if True: #not os.path.isfile(tablename):
+    if not os.path.isfile(tablename):
         print('Running %s' %sample_folder)
         tsRNA = tsRNA_counter(mt_bed, samplename, mt_anticodon_table)
         tsRNA.count_tRNA()
@@ -123,7 +123,7 @@ def main():
     project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
     sample_folders = glob.glob(project_path + '/*001')
     sample_folders = filter(lambda x: not re.search('genome-sim|L[0-9E]+',x), sample_folders)
-    sample_folders = filter(lambda x: re.search('[qQ][cC][fF]', x), sample_folders)
+    sample_folders = filter(lambda x: re.search('[qQ][cC][fF]|GC|EV|PF', x), sample_folders)
     
     p = Pool(24)
     dfs = p.map(count_ts, sample_folders)

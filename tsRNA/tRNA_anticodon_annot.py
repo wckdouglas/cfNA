@@ -107,8 +107,13 @@ def genomic_tRNA():
     make_tRNA_table(mature_fa, tRNA_detail, tRNA_fa, tablename, prefix='TR')
         
 def main():
-    mt_tRNA()
-    genomic_tRNA()
+    if len(sys.argv) != 2:
+        sys.exit('[usage] python %s <mt|nucleo>' %(sys.argv[0]))
+    if sys.argv[1] in {'mt','nucleo'}:
+        if sys.argv[1] == "mt"
+            mt_tRNA()
+        else:
+            genomic_tRNA()
 
 if __name__ == '__main__':
     main()

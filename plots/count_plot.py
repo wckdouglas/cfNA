@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches 
 import seaborn as sns
+from tgirt_map.table_tools import change_gene_type
 from collections import defaultdict
 from sequencing_tools.viz_tools import okabeito_palette, \
                         simpsons_palette, \
@@ -106,42 +107,98 @@ def plot_insert(ax, samples=['DNase I']):
     
     return df
 
-
-def plot_count(ax, feature_only=True, dedup=True):
+def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type'):
     count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather'
     dedup_df = pd.read_feather(count_file)
 
     filter_feature = 'Unannotated' if feature_only else ''
     dedup_regex = ':dedup:' if dedup else ':all:'
     countplot_df = dedup_df \
-        .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-'),'Mt', d.grouped_type))\
-        .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-T'),'tRNA', d.grouped_type))\
+        .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-'),'Mt', d[rna_group_type]))\
+        .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-T'),'tRNA', d[rna_group_type]))\
         .filter(regex = 'type|Qcf|QCF|sim')\
-        .assign(grouped_type = lambda d: np.where(d.grouped_type == "No features", 'Unannotated', d.grouped_type))\
-        .assign(grouped_type = lambda d: np.where(d.grouped_type == "rDNA", 'rRNA', d.grouped_type))\
-        .assign(grouped_type = lambda d: np.where(d.grouped_type.str.contains('Y-RNA'), 'Other sncRNA', d.grouped_type))\
-        .assign(grouped_type = lambda d: np.where(d.grouped_type.str.contains("vaultRNA|VT|vt"),'Vault RNA', d.grouped_type))\
-        .groupby('grouped_type')\
+        .assign(grouped_type = lambda d: np.where(d[rna_group_type] == "No features", 'Unannotated', d[rna_group_type]))\
+        .assign(grouped_type = lambda d: np.where(d[rna_group_type] == "rDNA", 'rRNA', d[rna_group_type]))\
+        .assign(grouped_type = lambda d: np.where(d[rna_group_type].str.contains('Y-RNA'), 'Other sncRNA', d[rna_group_type]))\
+        .assign(grouped_type = lambda d: np.where(d[rna_group_type].str.contains("vaultRNA|VT|vt"),'Vault RNA', d[rna_group_type]))\
+        .groupby(rna_group_type)\
         .sum() \
         .pipe(lambda d: d[d.columns[~d.columns.str.contains('anti')]])\
         .pipe(lambda d: d[d.columns[d.columns.str.contains(dedup_regex)]]) \
         .reset_index()\
-        .pipe(pd.melt, id_vars = ['grouped_type']) \
+        .pipe(pd.melt, id_vars = [rna_group_type]) \
         .assign(variable = lambda d: d.variable.str.split(':', expand=True).iloc[:,0])\
         .assign(treatment = lambda d: d.variable.map(label_sample)) \
-        .groupby(['grouped_type','treatment'], as_index=False)\
+        .groupby([rna_group_type,'treatment'], as_index=False)\
         .agg({'value':'median'}) \
-        .query('grouped_type != "%s"' %filter_feature)\
+        .query('%s != "%s"' %(rna_group_type, filter_feature))\
         .pipe(lambda d: d[d.treatment.str.contains('Exo|Na|DN|Untre|sim|3\'P')])\
         .assign(value = lambda d: d.groupby('treatment')['value'].transform(lambda x: 100*x/x.sum()))\
         .pipe(pd.pivot_table, index = 'treatment', 
-             columns = 'grouped_type',
+             columns = rna_group_type,
              values = 'value')\
         .reset_index() \
         .sort_values('treatment')\
         .set_index('treatment')\
         .pipe(lambda d: d.reindex(sorted(d.columns), axis=1))
-    
+    return countplot_df
+
+def rename_rRNA(x):
+    if '5S' in x:
+        return '5S_rRNA'
+    elif '5-8S' in x:
+        return '5.8S_rRNA'
+    else:
+        return x
+ 
+def plot_small_count_pie(ax):
+    count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
+    small_df = pd.read_feather(count_file) \
+        .query("dedup == 'dedup'")\
+        .query('gene_type != "No features"')\
+        .assign(grouped_type = lambda d: d.gene_type.map(change_gene_type)) \
+        .pipe(lambda d: d[d.grouped_type.str.contains('sncRNA|snoRNA|tRNA|miRNA|rRNA|rDNA')])\
+        .pipe(lambda d: d[~d.gene_id.str.contains('^[21]8S')])\
+        .assign(gene_id = lambda d: np.where(d.grouped_type.str.contains('rRNA'), 
+                                            d.gene_id.map(rename_rRNA),
+                                            d.gene_id))\
+        .assign(gene_type = lambda d: np.where(d.grouped_type.str.contains('rRNA'), 
+                                            d.gene_id.map(rename_rRNA),
+                                            d.gene_type))\
+        .assign(gene_id = lambda d: np.where(d.gene_type=="Mt_tRNA",d.gene_name, d.gene_id))\
+        .assign(gene_type = lambda d: np.where((d.gene_type=="tRNA") & (d.gene_id.str.contains('^MT')),
+                                                'Mt_tRNA',
+                                                d.gene_type))\
+        .pipe(lambda d: d[~d.gene_id.str.contains('tRNA')])\
+        .assign(treatment = lambda d: d.samplename.map(label_sample))\
+        .assign(gene_id = lambda d: d.gene_id.str.replace('-[0-9]+-[0-9]+',''))\
+        .groupby(['treatment','gene_id', 'gene_type'], as_index=False)\
+        .agg({'read_count':'sum'})\
+        .groupby(['treatment','gene_type'], as_index=False)\
+        .agg({'read_count':'sum',
+            'gene_id':'count'})\
+        .query('treatment == "DNase I"')\
+        .assign(value = lambda d: d.groupby('treatment').read_count.transform(lambda x: 100*x/x.sum()))\
+        .assign(gene_type = lambda d: d.gene_type.str.replace('Mt_','MT-').str.replace('_',' '))\
+        .assign(gene_type = lambda d: d.gene_type + ' (' + d['value'].round(2).astype(str) +'%)')\
+        .set_index('gene_type')\
+        .assign(explode = lambda d: (100-d['value'])/100) \
+        .assign(explode = lambda d: np.where(d.explode < 0.95,0, 
+                                            np.where(d.explode < 0.99, 0.2,
+                                                    np.where(d.explode < 0.994, 0.4, 0.8))))\
+        .sort_values('value', ascending=False) \
+        .assign(label = lambda d: np.where(d['value']>2,d.index, ''))
+    ax.pie(small_df['value'], 
+       labels=small_df.label,
+       startangle = -50,
+        wedgeprops=dict(width=0.5), colors = simpsons_palette())
+    ax.legend(small_df.index, bbox_to_anchor=(1.1,0.9),
+            frameon=False, fontsize=15)
+
+
+def plot_count(ax, feature_only=True, dedup=True):
+    countplot_df = read_count(feature_only=feature_only, dedup=dedup, rna_group_type = 'grouped_type')
+   
     colors = rna_type_ce.transform(countplot_df.columns)
     countplot_df\
         .reindex(index=label_order)\

@@ -123,7 +123,7 @@ rule make_piRNA:
     shell:
         'curl {params.LINK} '\
         '| zcat '\
-        "| awk '{{print $0, \"piRNA\",\"piRNA\"}}' OFS='\\t' " \
+        "| awk '$5 > 1000 {{print $0, \"piRNA\",\"piRNA\"}}' OFS='\\t' " \
         '| bgzip '\
         '> {output}'
 

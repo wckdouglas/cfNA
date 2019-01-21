@@ -10,6 +10,8 @@ import pysam
 from sequencing_tools.bam_tools.poisson_umi_tools import correct_umi_count
 from itertools import groupby
 import re
+import sys
+from functools import partial
 
 def coordinate_grouper(x):
     fields = x.strip().split('\t')
@@ -42,10 +44,10 @@ class tsRNA_counter():
                         umis.add(umi)
                     read_count = correct_umi_count(len(umis), umi_nt = 6)
                     
-                    start_in_anticodon = tRNA['anticodon_start'] -1 < start < tRNA['anticodon_end']+1
+                    start_in_anticodon = tRNA['anticodon_start'] -5 < start < tRNA['anticodon_end']+5
                     end_at3 = end > tRNA['end'] - 5 
                     start_at5 = start <  5 
-                    end_in_anticodon = tRNA['anticodon_start'] - 3 < end < tRNA['anticodon_end'] + 3
+                    end_in_anticodon = tRNA['anticodon_start'] - 5 < end < tRNA['anticodon_end'] + 5
                     short_frag = end - start < 23
 
                     if end_at3 and short_frag:
@@ -82,7 +84,7 @@ class tsRNA_counter():
             return None
 
 
-def count_ts(sample_folder):
+def count_ts(force, sample_folder):
     samplename = os.path.basename(sample_folder)
     tablename = sample_folder + '/count_temp/tRNA_frag.feather'
 
@@ -96,7 +98,7 @@ def count_ts(sample_folder):
     mt_bed = sample_folder + '/rRNA_mt/mt_tRNA.bed.gz'
     os.system('tabix -f -p bed %s' %mt_bed)
 
-    if not os.path.isfile(tablename):
+    if not os.path.isfile(tablename) or force:
         print('Running %s' %sample_folder)
         tsRNA = tsRNA_counter(mt_bed, samplename, mt_anticodon_table)
         tsRNA.count_tRNA()
@@ -125,8 +127,10 @@ def main():
     sample_folders = filter(lambda x: not re.search('genome-sim|L[0-9E]+',x), sample_folders)
     sample_folders = filter(lambda x: re.search('[qQ][cC][fF]|GC|EV|PF', x), sample_folders)
     
+    force = '-f' in sys.argv
+    count_func = partial(count_ts, force)
     p = Pool(24)
-    dfs = p.map(count_ts, sample_folders)
+    dfs = p.map(count_func, sample_folders)
     p.close()
     p.join()
 

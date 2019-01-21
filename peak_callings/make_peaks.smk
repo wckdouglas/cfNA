@@ -87,6 +87,21 @@ rule all:
         expand(FOLD_FILE, TREATMENT = ['unfragmented'], FILTER = ['filtered']),
         expand(PEAK_FA, TREATMENT = ['unfragmented'], RNA_TYPE = ['Long_RNA','RBP']),
         expand(INTRON_TAB, TREATMENT = TESTED_TREATMENT),
+
+
+rule make_IGV:
+    input:
+
+    params:
+        SESS = '/Users/wckdouglas/Desktop/plasma_bam/coverages/igv_session.xml'
+
+    output:
+
+    shell:
+        'cat {input}'\
+        '| sed 1d'\
+        '| bedtools igv -i - -slop 100 '\
+        '| -sess {params.SESS} -name -img png -path {output} '
         
 rule intron:
     input:

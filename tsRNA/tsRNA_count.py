@@ -44,11 +44,11 @@ class tsRNA_counter():
                         umis.add(umi)
                     read_count = correct_umi_count(len(umis), umi_nt = 6)
                     
-                    start_in_anticodon = tRNA['anticodon_start'] -5 < start < tRNA['anticodon_end']+5
-                    end_at3 = end > tRNA['end'] - 5 
+                    start_in_anticodon = (tRNA['anticodon_start'] - 5) < start < (tRNA['anticodon_end']+5)
+                    end_at3 = end > (tRNA['end'] - 5 )
                     start_at5 = start <  5 
-                    end_in_anticodon = tRNA['anticodon_start'] - 5 < end < tRNA['anticodon_end'] + 5
-                    short_frag = end - start < 23
+                    end_in_anticodon = (tRNA['anticodon_start'] - 5) < end < (tRNA['anticodon_end'] + 5)
+                    short_frag = (end - start) < 23
 
                     if end_at3 and short_frag:
                         self.tsRNA_counter[tRNA['tRNA']]["3' tsRNA"] += read_count

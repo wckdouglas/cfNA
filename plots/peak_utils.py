@@ -370,6 +370,7 @@ def pick_lp(d):
     
 def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
     lp = peaks[peaks.sense_gtype.str.contains('Long RNA')] \
+        .query('sample_count >= %i' %sample_cutoff)\
         .groupby('sense_gname', as_index=False)\
         .apply(pick_lp) \
         .nlargest(top_n, y_val)

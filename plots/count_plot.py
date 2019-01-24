@@ -169,6 +169,7 @@ def plot_small_count_pie(ax):
         .assign(gene_type = lambda d: np.where((d.gene_type=="tRNA") & (d.gene_id.str.contains('^MT')),
                                                 'Mt_tRNA',
                                                 d.gene_type))\
+        .assign(gene_type = lambda d: d.gene_type.str.replace('^tRNA','Nucleo-tRNA'))\
         .pipe(lambda d: d[~d.gene_id.str.contains('tRNA')])\
         .assign(treatment = lambda d: d.samplename.map(label_sample))\
         .assign(gene_id = lambda d: d.gene_id.str.replace('-[0-9]+-[0-9]+',''))\
@@ -180,7 +181,9 @@ def plot_small_count_pie(ax):
         .query('treatment == "DNase I"')\
         .assign(value = lambda d: d.groupby('treatment').read_count.transform(lambda x: 100*x/x.sum()))\
         .assign(gene_type = lambda d: d.gene_type.str.replace('Mt_','MT-').str.replace('_',' '))\
-        .assign(gene_type = lambda d: d.gene_type + ' (' + d['value'].round(2).astype(str) +'%)')\
+        .assign(gene_type = lambda d: d.gene_type + ' '+ \
+                                      d['value'].round(2).astype(str)+ '% (' +\
+                                      d.gene_id.astype(str) +')')\
         .set_index('gene_type')\
         .assign(explode = lambda d: (100-d['value'])/100) \
         .assign(explode = lambda d: np.where(d.explode < 0.95,0, 
@@ -190,9 +193,9 @@ def plot_small_count_pie(ax):
         .assign(label = lambda d: np.where(d['value']>2,d.index, ''))
     ax.pie(small_df['value'], 
        labels=small_df.label,
-       startangle = -50,
+       startangle = 40,
         wedgeprops=dict(width=0.5), colors = simpsons_palette())
-    ax.legend(small_df.index, bbox_to_anchor=(1.1,0.9),
+    ax.legend(small_df.index, bbox_to_anchor=(1.2,0.9),
             frameon=False, fontsize=15)
 
 

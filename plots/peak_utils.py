@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 from sequencing_tools.viz_tools import okabeito_palette, color_encoder, simpsons_palette
@@ -580,7 +579,7 @@ def is_hb(row):
     answer = 'Not HB'
     if row['chrom'] in HB_genes.chrom.tolist():
         hb_chrom = HB_genes.query('chrom =="%s"' %row['chrom'])
-        if any((hb_row['start'] <= row['start'] and hb_row['end'] >= row['end']) for i, hb_row in hb_chrom.iterrows()):
+        if any(max(hb_row['start'], row['start']) <= min(hb_row['end'],row['end']) for i, hb_row in hb_chrom.iterrows()):
             answer = 'HB'
     return answer
 

@@ -20,6 +20,7 @@ snc_annotation = os.environ['REF'] + '/hg19_ref/genes/sncRNA_rRNA_for_bam_filter
 rmsk_annotation = os.environ['REF'] + '/hg19/genome/rmsk.bed'
 protein_bed = os.environ['REF'] + '/hg19_ref/genes/protein.bed'
 stranded_bed = os.environ['REF'] + '/hg19/new_genes/protein_{PMSTRAND}.bed'
+chrM = os.environ['REF'] + '/hg19/genome/chrM.fa'
 THREADS = 1
 
 # set up templates
@@ -34,6 +35,8 @@ COMBINED_FILTERED_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.bam'
 FILTERED_STRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.{STRAND}.bam'
 FILTERED_PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND}_{STRAND}.bam'
 PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND}.bam'
+chrM_FILTERED_BAM = COMBINED_BAM_PATH + '/dedup/unfragmented.chrM_filter.bam'
+PAIRED_DEDUP_BAM = COMBINED_BAM_PATH + '/dedup/unfragmented.chrM_filter.dedup.bam'
 
 SAMPLE_FOLDER = PROJECT_PATH + '/{SAMPLE}'
 PICARD_FOLDER = SAMPLE_FOLDER + '/picard'
@@ -164,6 +167,37 @@ rule all:
             STRAND = ['sense', 'antisense']),
         expand(COMBINED_METRICS_TEMPLATE,
                 TREATMENT = TREATMENTS),
+        PAIRED_DEDUP_BAM
+
+
+rule dedup_umi:
+    input:
+        BAM = chrM_FILTERED_BAM
+
+    output:
+        PAIRED_DEDUP_BAM
+
+    shell:
+        'umi_tools dedup -I {input.BAM} '\
+        '-S {output} --paired --extract-umi-method tag '\
+        '--umi-tag RX --cell-tag RG'
+
+
+rule chrM_filter_bam:
+    input:
+        BAM = expand(COMBINED_BAM_TEMPLATE, TREATMENT = ['unfragmented'])
+
+    params:
+        INDEX = chrM
+
+    output:
+        BAM = chrM_FILTERED_BAM
+
+    shell:
+        'python ~/cfNA/peak_callings/chrM_filter.py '\
+        '-i {input.BAM} -o {output.BAM} '\
+        '-x {params.INDEX} '
+
 
 rule RNAseqPICARD:
     input:
@@ -216,15 +250,15 @@ rule Stranded_RNAseqPICARD:
 rule Combine_strand:
     # combingin plus_sense and minus_sense // plus_antisense and minus_antisense
     input:
-        BAMS = expand(FILTERED_PMSTRAND_BAM_TEMPLATE\
-                .replace('{STRAND}', '{{STRAND}}')\
+        BAMS = expand(FILTERED_PMSTRAND_BAM_TEMPLATE \
+                .replace('{STRAND}', '{{STRAND}}') \
                 .replace('{TREATMENT}', '{{TREATMENT}}'),
             PMSTRAND = ['plus','minus'])
 
     params:
         THREADS = THREADS,
         TMPDIR = FILTERED_STRAND_BAM_TEMPLATE.replace('.bam','.log')
-
+    
     output:
         BAM = FILTERED_STRAND_BAM_TEMPLATE
     

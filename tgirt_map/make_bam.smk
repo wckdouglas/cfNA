@@ -1,7 +1,7 @@
-
 import re
 import glob
 import os
+from collections import Counter
 
 PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001') 
@@ -10,11 +10,11 @@ SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_FOLDERS))
 COMBINED_BAM_PATH = PROJECT_PATH + '/merged_bam'
 FILTER_BAM_PATH = COMBINED_BAM_PATH + '/filtered_bam'
 REFFLAT = '/stor/work/Lambowitz/ref/hg19/new_genes/proteins.refflat'
-snc_annotation = os.environ['REF'] + '/hg19/new_genes/sncRNA_rRNA_for_bam_filter.bed'
+snc_annotation = os.environ['REF'] + '/hg19_ref/genes/sncRNA_rRNA_for_bam_filter.bed'
 rmsk_annotation = os.environ['REF'] + '/hg19/genome/rmsk.bed'
-protein_bed = os.environ['REF'] + '/hg19/new_genes/protein.bed'
+protein_bed = os.environ['REF'] + '/hg19_ref/genes/protein.bed'
 stranded_bed = os.environ['REF'] + '/hg19/new_genes/protein_{PMSTRAND}.bed'
-THREADS = 6
+THREADS = 1
 
 # set up templates
 #STRAND: sense, antisense
@@ -43,10 +43,10 @@ SAMPLE_METRIC_TEMPLATE = PICARD_FOLDER + '/protein.{STRAND}.RNA_Metrics'
 
 
 # for combining samples
-TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag', 
+TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos', 
                   'L[1234]','All','N[aA][0-9]+',
                   'ED|DE','HS[123]','genome']
-TREATMENTS = ['unfragmented','fragmented',
+TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
                 'exonuclease','high_salt','genome-sim'] 
 treatment_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
@@ -62,7 +62,8 @@ def select_sample(wildcards, return_count = False):
 
 def get_bams(wildcards):
     samples = select_sample(wildcards)
-    bams = [SAMPLE_PRIMARY_BAM.format(SAMPLE = s) for s in samples]
+    #bams = [SAMPLE_SORTED_BAM.format(SAMPLE = s) for s in samples]
+    bams = [SAMPLE_DEDUP_BAM.format(SAMPLE = s) for s in samples]
     return bams
 
 def get_preprocessing(wildcards):
@@ -87,13 +88,16 @@ def get_filter_command(wildcards):
 def get_dedup_command(wildcards):
     if not re.search('genome|[pP]olyA|L[0-9E]+|PEV_', wildcards.SAMPLE):
         UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics').format(SAMPLE=wildcards.SAMPLE)
-        md = 'picard UmiAwareMarkDuplicatesWithMateCigar UMI_METRICS_FILE={UMI_METRIC} '\
-            ' MAX_EDIT_DISTANCE_TO_JOIN=1 TAG_DUPLICATE_SET_MEMBERS=true ' \
-            ' UMI_TAG_NAME=RX ' \
+        md = 'picard UmiAwareMarkDuplicatesWithMateCigar '\
+            ' UMI_METRICS_FILE={UMI_METRIC} '\
+            ' MAX_EDIT_DISTANCE_TO_JOIN=1 '\
+            ' TAG_DUPLICATE_SET_MEMBERS=true ' \
+            ' UMI_TAG_NAME=RX '\
+            'ASSUME_SORT_ORDER=coordinate ' \
             .format(UMI_METRIC = UMI_METRIC)
     
     else:
-        md = 'picard MarkDuplicates ' 
+        md = 'picard MarkDuplicates ASSUME_SORT_ORDER=coordinate ' 
 
     return md 
 
@@ -124,7 +128,7 @@ run_RNASeqMetrics = 'picard CollectRnaSeqMetrics ' \
 
 run_StrandCombination = 'samtools cat {input.BAMS} '\
         '| samtools view -bF 1024 -@ {params.THREADS} '\
-        '| sambamba sort -t {params.THREADS} '\
+        '| sambamba sort -t {params.THREADS} --tmpdir={params.TMPDIR} '\
         ' -o {output.BAM}  /dev/stdin'
 
 run_ProteinFilter =  'bedtools pairtobed -abam {input.BAM} -b {params.SNC_ANNOTATION} -type neither  '\
@@ -135,7 +139,7 @@ run_ProteinFilter =  'bedtools pairtobed -abam {input.BAM} -b {params.SNC_ANNOTA
 run_SplitStrand = 'samtools view -h@ {params.THREADS} {input.BAM} | {params.FILTER_COMMAND}' \
         '| samtools view -b@ {params.THREADS} - > {output.PMSTRAND_BAM} '
 
-run_NameSort = 'sambamba sort -t {params.THREADS} -n '\
+run_NameSort = 'sambamba sort -t {params.THREADS} -n --tmpdir={params.TMPDIR} '\
         ' -o /dev/stdout {input.BAM}'\
         '| samtools fixmate -@ {params.THREADS} - {output.NAME_SORT_BAM} '
 
@@ -149,7 +153,7 @@ rule all:
             SAMPLE = SAMPLE_NAMES,
             STRAND = ['sense', 'antisense']),
         expand(COMBINED_METRICS_TEMPLATE,
-                TREATMENT = TREATMENTS)
+                TREATMENT = TREATMENTS),
 
 rule RNAseqPICARD:
     input:
@@ -175,7 +179,8 @@ rule make_protein_bam:
                     STRAND = ['sense','antisense'])
     
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        TMPDIR = COMBINED_FILTERED_BAM_TEMPLATE.replace('.bam','')
 
     output:
         BAM = COMBINED_FILTERED_BAM_TEMPLATE
@@ -212,7 +217,8 @@ rule Combine_strand:
             PMSTRAND = ['plus','minus'])
 
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        TMPDIR = FILTERED_STRAND_BAM_TEMPLATE.replace('.bam','.log')
 
     output:
         BAM = FILTERED_STRAND_BAM_TEMPLATE\
@@ -272,6 +278,7 @@ rule Name_sort:
 
     params:
         THREADS = THREADS,
+        TMPDIR = COMBINED_NAME_SORT_BAM_TEMPLATE.replace('.bam','')
 
     output:
         NAME_SORT_BAM = COMBINED_NAME_SORT_BAM_TEMPLATE
@@ -288,7 +295,8 @@ rule Combined_bam:
         BAM_LIST = lambda w: get_bams(w)
 
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        TMPDIR = COMBINED_BAM_TEMPLATE.replace('.bam','')
 
     output:
         BAM = COMBINED_BAM_TEMPLATE
@@ -297,10 +305,25 @@ rule Combined_bam:
         COMBINED_BAM_TEMPLATE.replace('.bam','.log')
 
     shell:
-        'samtools merge -@ {params.THREADS} {output.BAM} {input.BAM_LIST}'
+        'samtools merge -@ {params.THREADS} - {input.BAM_LIST} '\
+        '| sambamba sort --tmpdir={params.TMPDIR} -t {params.THREADS} -o {output.BAM} /dev/stdin'
     
 
-rule dedup_bam_sample:
+rule remove_dup_sample:
+    input:
+        BAM = SAMPLE_MARKDUP_BAM
+    
+    output:
+        BAM = SAMPLE_DEDUP_BAM,
+        BAI = SAMPLE_DEDUP_BAM.replace('.bam','.bam.bai')
+    
+    shell:
+        'samtools view -bF 1024 {input.BAM}' \
+        '> {output.BAM} ' \
+        '; samtools index {output.BAM}'
+
+
+rule markdup_bam_sample:
     input:
         BAM = SAMPLE_SORTED_BAM
 
@@ -308,7 +331,6 @@ rule dedup_bam_sample:
         DEDUP_COMMAND = lambda w: get_dedup_command(w)
 
     output:
-        DEDUP_BAM = SAMPLE_DEDUP_BAM,
         MARKDUP_BAM = SAMPLE_MARKDUP_BAM,
         DEDUP_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.dedup_metrics')
 
@@ -316,13 +338,11 @@ rule dedup_bam_sample:
         SAMPLE_DEDUP_BAM.replace('.bam','.log')
 
     shell:
-        '{params.DEDUP_COMMAND} INPUT={input.BAM} REMOVE_SEQUENCING_DUPLICATES=true '\
-        'OUTPUT=/dev/stdout '\
-        'METRICS_FILE={output.DEDUP_METRIC} REMOVE_DUPLICATES=false ASSUME_SORT_ORDER=coordinate '\
-        '| tee {output.MARKDUP_BAM} '\
-        '| samtools view -bF 1024 ' \
-        '> {output.DEDUP_BAM} ' \
-        '; samtools index {output.DEDUP_BAM}'
+        '{params.DEDUP_COMMAND} INPUT={input.BAM} '\
+        'REMOVE_SEQUENCING_DUPLICATES=true '\
+        'OUTPUT={output.MARKDUP_BAM} '\
+        'METRICS_FILE={output.DEDUP_METRIC} '\
+        'REMOVE_DUPLICATES=false '
 
 
 rule sort_bam_sample:
@@ -331,7 +351,8 @@ rule sort_bam_sample:
 
     params:
         ID = lambda w: w.SAMPLE,
-        PREPROCESS = lambda w: get_preprocessing(w)
+        PREPROCESS = lambda w: get_preprocessing(w),
+        TMPDIR = SAMPLE_SORTED_BAM.replace('.bam','')
 
     output:
         BAM = SAMPLE_SORTED_BAM
@@ -345,10 +366,10 @@ rule sort_bam_sample:
         '| samtools view -bF 256 -F4 -F2048 '\
         '| samtools addreplacerg -r ID:{params.ID} -r SM:{params.ID}  - '\
         '| samtools view -b '\
-        '| sambamba sort -n -o /dev/stdout /dev/stdin '\
+        '| sambamba sort -n --tmpdir={params.TMPDIR}_1 -o /dev/stdout /dev/stdin'\
         '| picard FixMateInformation ADD_MATE_CIGAR=true '\
         ' ASSUME_SORTED=true INPUT=/dev/stdin OUTPUT=/dev/stdout ' \
-        '| sambamba sort -o {output.BAM} /dev/stdin'
+        '| sambamba sort --tmpdir={params.TMPDIR}_2 -o {output.BAM} /dev/stdin'
 
 rule RNAseqPICARD_sample:
     input:
@@ -376,7 +397,8 @@ rule Combine_strand_sample:
             PMSTRAND = ['plus','minus'])
     
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        TMPDIR = SAMPLE_FILTERED_STRAND_BAM_TEMPLATE.replace('.bam','')
 
     output:
         BAM = SAMPLE_FILTERED_STRAND_BAM_TEMPLATE 
@@ -429,6 +451,7 @@ rule Name_sort_sample:
     
     params:
         THREADS = THREADS,
+        TMPDIR = SAMPLE_NAME_SORT_BAM.replace('.bam','')
     
     output:
         NAME_SORT_BAM = SAMPLE_NAME_SORT_BAM

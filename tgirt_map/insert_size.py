@@ -27,18 +27,27 @@ def bed_fragments(bed_file):
             size_dict[isize] += 1
     return size_dict
 
-def sample_fragments(sample_folder):
+def sample_fragments(sample_folder, return_beds = False):
     samplename = os.path.basename(sample_folder)
-    print('Running %s' %samplename)
+    #print('Running %s' %samplename)
     size_dict = Counter()
 
     bed_path = sample_folder + '/count_temp'
+    beds = []
     for bed in ['counts.dedup.bed.gz', 'reapeats.dedup.bed.gz', 
                 'rRNA_mt.bed.gz', 'small_RNA.dedup.bed.gz', 
                 'sncRNA.dedup.bed.gz']:
-        bed = bed.replace('.dedup','')
-        size_dict += bed_fragments(bed_path + '/' + bed)
-    return size_dict
+        #bed = bed.replace('.dedup','')
+        bed_file = bed_path + '/' + bed
+        if not return_beds:
+            size_dict += bed_fragments(bed_file)
+        else:
+            beds += [bed_file]
+    
+    if not return_beds:
+        return size_dict
+    else:
+        return beds
 
 def get_isize(samples, insert_size_path, args): 
     regex, label = args

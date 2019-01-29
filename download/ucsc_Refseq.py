@@ -55,15 +55,19 @@ def fetch_bed():
                                 'txEnd':'end' })
 
 
+def main(refseq_bed):
+    gtf = fetch_gtf()
+    bed = fetch_bed()
+    bed.merge(gtf, how = 'inner', 
+            on = ['start','end','strand','gene_name']) \
+        .pipe(lambda d: d[['chrom','start','end','gene_name',
+                        'score','strand','gene_type','name']]) \
+        .to_csv(refseq_bed, 
+                sep ='\t',
+                index=False,
+                header=False)
 
-gtf = fetch_gtf()
-bed = fetch_bed()
-bed.merge(gtf, how = 'inner', 
-        on = ['start','end','strand','gene_name']) \
-    .pipe(lambda d: d[['chrom','start','end','gene_name',
-                    'score','strand','gene_type','name']]) \
-    .to_csv('/stor/work/Lambowitz/ref/hg19/genome/hg19_refseq.bed', 
-            sep ='\t',
-            index=False,
-            header=False)
+
+if __name__ == '__main__':
+    main('/stor/work/Lambowitz/ref/hg19/genome/hg19_refseq.bed')
 

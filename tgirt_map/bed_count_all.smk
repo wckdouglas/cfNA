@@ -1,7 +1,12 @@
+
 import glob
 import os
 import sys
 import re
+from insert_size import bed_fragments, sample_fragments, add_dict
+from collections import Counter, defaultdict
+from functools import reduce
+import pandas as pd
 
 PROJECT_PATH='/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 COUNT_PATH = PROJECT_PATH + '/Counts/all_counts'
@@ -13,21 +18,86 @@ RNA_TYPES = ['counts','sncRNA','small_RNA','rRNA_mt','reapeats']
 DEDUP_TYPES = ['dedup','all']
 STRANDS = ['sense', 'antisense']
 COUNT_TEMPLATE = COUNT_PATH + '/{RNA_TYPE}/{SAMPLE_NAME}.{DEDUP}.{STRAND}.counts' 
-INTERSECTED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.{DEDUP}.intersected.bed.gz'
-BED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.bed.gz'
-DEDUP_BED_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}/count_temp/{RNA_TYPE}.dedup.bed.gz'
-PRIMARY_BAM = PROJECT_PATH + '/{SAMPLE_NAME}/Combined/primary_no_sncRNA_tRNA_rRNA.bam'
+
 SAMPLE_FOLDER_TEMPLATE = PROJECT_PATH + '/{SAMPLE_NAME}'
+SAMPLE_COUNT_PATH = SAMPLE_FOLDER_TEMPLATE + '/count_temp'
+INTERSECTED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.{DEDUP}.intersected.bed.gz'
+BED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.bed.gz'
+DEDUP_BED_TEMPLATE = SAMPLE_COUNT_PATH + '/{RNA_TYPE}.dedup.bed.gz'
+PRIMARY_BAM = SAMPLE_FOLDER_TEMPLATE + '/Combined/primary_no_sncRNA_tRNA_rRNA.bam'
+INSERT_SIZE_TABLE = PROJECT_PATH + '/fragment_sizes/{TREATMENT}.feather'
+COUNT_TABLE = COUNT_PATH + '/spreaded_all_counts.feather'
+LONG_COUNT_TABLE = COUNT_PATH + '/all_counts.feather'
+
+TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos', 
+                  'L[1234]','All','N[aA][0-9]+',
+                  'ED|DE','HS[123]','genome']
+TREATMENTS = ['unfragmented','fragmented','phosphatase',
+                'polyA','untreated', 'alkaline_hydrolysis',
+                'exonuclease','high_salt','genome-sim'] 
+treatment_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
+def select_sample(wildcards, return_count = False):
+    regex = treatment_regex_dict[wildcards.TREATMENT] 
+    selected_samples = filter(lambda x: re.search(regex, x), SAMPLE_NAMES)
+    selected_samples = list(selected_samples)
+    if return_count:
+        return len(selected_samples)
+    else:
+        return selected_samples
+
+def select_treatment_bed(wildcards):
+    selected_samples = select_sample(wildcards, return_count=False)
+    selected_folders = expand(SAMPLE_FOLDER_TEMPLATE, SAMPLE_NAME = selected_samples)
+    BEDS = []
+    for selected_folder in selected_folders:
+        BED = sample_fragments(selected_folder, return_beds = True)
+        BEDS.extend(BED)
+    return BEDS
 
 
 rule all:
+    input:
+        LONG_COUNT_TABLE, COUNT_TABLE,
+        expand(INSERT_SIZE_TABLE,
+            TREATMENT = TREATMENTS),
+
+rule make_table:
     input:
         expand(COUNT_TEMPLATE,
                 SAMPLE_NAME = SAMPLE_NAMES,
                 RNA_TYPE = RNA_TYPES,
                 DEDUP = DEDUP_TYPES,
                 STRAND = STRANDS),
+        
+    output:
+        COUNT_TABLE,
+        LONG_COUNT_TABLE
+        
+    shell:
+        'python make_count_table.py'
+        
 
+rule collect_insert_size:
+    input:
+        BEDS = lambda w:  select_treatment_bed(w)
+    
+    output:
+        TABLE_NAME = INSERT_SIZE_TABLE
+    
+    run:
+        size_dict = defaultdict(Counter)
+        for bed in input.BEDS:
+            size_dict[bed] += bed_fragments(bed)
+
+        dfs = []
+        for bed, bed_dict in size_dict.items():
+            df = pd.DataFrame({'isize': list(bed_dict.keys()),
+                      'size_count': list(bed_dict.values())})\
+                .assign(bed = bed)
+            dfs.append(df)
+        dfs = pd.concat(dfs, sort=False)\
+            .reset_index(drop=True)
+        dfs.to_feather(output.TABLE_NAME)
 
 rule count_bed:
     input:
@@ -174,7 +244,7 @@ def strand_selection(wildcards):
         operator = '=='
     elif wildcards.STRAND == 'antisense':
         operator = '!='
-    return "awk '$6 {operator} ${REF_STRAND}'".format(REF_STRAND = REF_STRAND, operator = operator)
+    return "awk '$6 {operator} ${REF_STRAND} || ${REF_STRAND} == \".\" '".format(REF_STRAND = REF_STRAND, operator = operator)
 
 def field_selection(wildcards):
     return ' cut -f7- ' if wildcards.DEDUP == 'dedup' else ' cut -f8-'

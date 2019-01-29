@@ -63,7 +63,7 @@ def is_mt(seq, rnr=False):
         is_chrM = 'is_MT'
     return is_chrM
 
-fa = pysam.Fastafile('/stor/work/Lambowitz/ref/hg19/genome/hg19_genome.fa')
+fa = pysam.Fastafile('/stor/work/Lambowitz/ref/hg19_ref/genome/hg19_genome.fa')
 def fetch_seq(chrom, start, end, strand):
     seq = fa.fetch(chrom, int(start), int(end))
     seq = seq.upper()
@@ -110,7 +110,7 @@ def retype_junctions(df, junctions_tab):
 
 def process_broad(broad_peak, bed_path):
     filename = os.path.basename(broad_peak)
-    samplename = filename.split('.')[0]
+    samplename = filename.replace('.rvs_peaks.narrowPeak','').replace('.fwd_peaks.narrowPeak','')
     strand = re.findall('fwd|rvs', filename)[0]
 
     fragment_file = '%s/%s.%s.bed.gz' %(bed_path, samplename, strand)
@@ -290,6 +290,7 @@ def make_table(base_name = 'unfragmented'):
     annotated_path = peak_path + '/annotated'
     out_table = annotated_path + '/%s.annotated_peaks.tsv' %base_name
     annotation_file = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz'
+    annotation_file = os.environ['REF'] + '/hg19_ref/genes/all_annotation.bed.gz'
 
 
     if not os.path.isdir(annotated_path):

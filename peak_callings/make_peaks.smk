@@ -1,6 +1,13 @@
 import glob
 import os
 
+wildcard_constraints:
+    TREATMENT = '[a-zA-Z]+',
+    RNA_TYPE = '[a-zA-Z_]+',
+    STRAND = 'fwd|rvs',
+    FILTER = 'filtered|unfiltered'
+
+
 
 PROJECT_PATH= os.environ['WORK'] + '/cdw2854/cfNA/tgirt_map'
 SAMPLE_NAMES = glob.glob(PROJECT_PATH + '/Q*001')
@@ -12,15 +19,23 @@ STRANDED_BED_PATH = MERGED_BED_PATH + '/stranded'
 MACS2_PATH = MERGED_BED_PATH + '/MACS2'
 EXON_TABLE = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/unfragmentd.spliced.tsv.gz'
 ANNOTATED_PEAK_PATH = MACS2_PATH + '/annotated' 
-ANNOTATED_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.tsv'
+ANNOTATED_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.tsv'
 ANNOTATION_TABLE = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz' 
 BED_TEMPLATE = BED_PATH + '/{SAMPLENAME}.bed.gz'
 BAM_TEMPLATE = PROJECT_PATH + '/{SAMPLENAME}/Combined/primary.bam'
 MERGED_BED_TEMPLATE = MERGED_BED_PATH + '/{TREATMENT}.bed.gz'
-STRANDED_BED_TEMPLATE = STRANDED_BED_PATH + '/{TREATMENT}.{STRAND}.bed.gz'
-MACS2_PEAK_TEMPLATE = MACS2_PATH + '/{TREATMENT}.{STRAND}_peaks.narrowPeak' 
+STRANDED_BED_TEMPLATE = STRANDED_BED_PATH + '/{TREATMENT}.{FILTER}.{STRAND}.bed.gz'
+MACS2_PEAK_TEMPLATE = MACS2_PATH + '/{TREATMENT}.{FILTER}.{STRAND}_peaks.narrowPeak' 
 STRANDED_COV_FILE_TEMPLATE = COV_PATH + '/{TREATMENT}.{STRAND}.bigWig'
 UNSTRANDED_COV_FILE_TEMPLATE = COV_PATH + '/{TREATMENT}.bigWig'
+PEAK_FA = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.fa'
+CMSCAN_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.cmscan'
+CMTBLOUT_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.tblout'
+FOLD_FILE = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.fold.fa'
+GENOME = os.environ['REF'] + '/hg19_ref/genome/hg19_genome.fa'
+RNA_TYPES = ['Long_RNA','others']
+FILTERS = ['filtered','unfiltered']
+THREADS = 24
 
 # set up treatments
 TREATMENT = ['unfragmented','fragmented','polyA',
@@ -36,9 +51,18 @@ def get_bed(wildcards):
     beds = [BED_TEMPLATE.format(SAMPLENAME = x) for x in samplenames]
     return beds
 
+
+def peak_filter(wildcards):
+    TERM = wildcards.RNA_TYPE.replace('_',' ')
+    if TERM == 'others':
+        TERM = ''
+    return '$pileup >= 4 && $sample_count >= 5 && $sense_gtype=="{TERM}"'.format(TERM = TERM)
+
 SAMPLES = []
 for T in TREATMENT:
     SAMPLES.extend(list(filter(lambda x: re.search(regex_dict[T], x), SAMPLE_NAMES)))
+   
+
 
 # set up contstraints
 wildcard_constraints:
@@ -49,11 +73,38 @@ wildcard_constraints:
 # Run commands
 rule all:
     input:
-        expand(ANNOTATED_PEAK, 
-                TREATMENT = ['unfragmented'] ),# TESTED_TREATMENT),
+        expand(CMTBLOUT_PEAK, TREATMENT = ['unfragmented'], RNA_TYPE = RNA_TYPES), 
+        expand(CMSCAN_PEAK, TREATMENT = ['unfragmented'], RNA_TYPE = RNA_TYPES), 
         expand(STRANDED_COV_FILE_TEMPLATE, STRAND = STRANDS, TREATMENT = TESTED_TREATMENT),
-        UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline')
+        UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline'),
+        expand(ANNOTATED_PEAK, TREATMENT = ['unfragmented'], FILTER = FILTERS),
+        expand(FOLD_FILE, TREATMENT = ['unfragmented'], FILTER = ['filtered'])
         
+
+rule fold:
+    input:
+        ANNOTATED_PEAK
+    
+    threads: THREADS
+    params:
+        GENOME = GENOME,
+        OUTPREFIX = ANNOTATED_PEAK_PATH + '/unannotated_fold'
+
+    output:
+        FOLD_FILE
+
+    shell:
+        'cat {input} '\
+        '| csvtk filter2 -t -f \'$sense_gname=="" && $pileup>3 && $sample_count > 5\'  '\
+        '| csvtk cut -t -f1,2,3,4,5,13 '\
+        '| sed 1d '\
+        '| bedtools getfasta -fi {params.GENOME} -bed - -s '\
+        '| RNAfold --jobs={threads} --noPS ' \
+        "| cut -d' ' -f1 "\
+        '> {output}'
+
+
+
 rule macs2:
     #call strand specific peaks
     input:
@@ -63,7 +114,8 @@ rule macs2:
     params:
         OUT_PATH = MACS2_PATH,
         STRAND = '{STRAND}',
-        TREATMENT = '{TREATMENT}'
+        TREATMENT = '{TREATMENT}',
+        FILTER = '{FILTER}'
         
     output:
         MACS2_PEAK_TEMPLATE
@@ -73,11 +125,11 @@ rule macs2:
         '--treatment {input.STRANDED_BED} ' \
         '--control {input.CONTROL_BED} '\
         '--outdir {params.OUT_PATH} ' \
-        '--name {params.TREATMENT}.{params.STRAND} '\
+        '--name {params.TREATMENT}.{params.FILTER}.{params.STRAND} '\
         '--nomodel  --format BEDPE --keep-dup all '\
         '--gsize hs --qvalue 0.05 '
-    
 
+       
 rule split_strand:
     #splitting bed file into postive/negative strand bed file
     #also filter out full length exons
@@ -88,11 +140,12 @@ rule split_strand:
         OUT_PREFIX = STRANDED_BED_PATH + '/{TREATMENT}'
 
     output:
-        expand(STRANDED_BED_TEMPLATE.replace('{TREATMENT}','{{TREATMENT}}'), STRAND = STRANDS)
+        expand(STRANDED_BED_TEMPLATE.replace('{TREATMENT}','{{TREATMENT}}'), STRAND = STRANDS, FILTER=FILTERS),
     
     shell:
         'python process_bed.py {input.BED} {params.OUT_PREFIX}'
     
+
 
 rule merged_bed:
     #merging fragment files
@@ -147,11 +200,11 @@ COVERAGE_COMMAND = 'bedtools genomecov -bga -i {input.BED} -g {params.GENOME}'\
 
 rule bed_coverage_strand:
     input:
-        BED = STRANDED_BED_TEMPLATE
+        BED = STRANDED_BED_TEMPLATE.replace('{FILTER}','filtered')
 
     params:
-        GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai',
-        TEMP = STRANDED_COV_FILE_TEMPLATE.replace('bigWig','.bedGraph')
+        GENOME = GENOME + '.fai',
+        TEMP = STRANDED_COV_FILE_TEMPLATE.replace('.bigWig','.bedGraph')
 
     output:
         COV_FILE = STRANDED_COV_FILE_TEMPLATE
@@ -165,7 +218,7 @@ rule bed_coverage_unstranded:
         BED = MERGED_BED_TEMPLATE
     
     params:
-        GENOME = os.environ['REF'] + '/hg19/genome/hg19_genome.fa.fai',
+        GENOME = GENOME + '.fai',
         TEMP = UNSTRANDED_COV_FILE_TEMPLATE.replace('.bigWig','.bedGraph')
 
     output:
@@ -174,10 +227,52 @@ rule bed_coverage_unstranded:
     shell:
         COVERAGE_COMMAND
 
+
+rule PEAK_TO_FA:
+    input:
+        ANNOTATED_PEAK = ANNOTATED_PEAK.replace('{FILTER}','filtered')
+
+    params:
+        FILTER_TERM = lambda w: peak_filter(w),
+        GENOME = GENOME
+
+    output:
+        FA = PEAK_FA
+
+    shell:
+        'cat {input.ANNOTATED_PEAK} '\
+        "| csvtk filter2 -t -f '{params.FILTER_TERM}' "\
+        '| csvtk cut -t -f chrom,start,end,peakname,score,strand '\
+        '| sed 1d '\
+        "| awk '{{print $1,$2-20,$3+20,$4,$5,$6}}' OFS='\\t' " \
+        '| bedtools getfasta -fi {params.GENOME} -bed - -s -name '\
+        '| seqtk seq -U '\
+        '> {output.FA}'
+
+rule SCAN_FA:
+    input:
+        FA = PEAK_FA.replace('{RNA_TYPE}','{RNA_TYPE, [a-zA-Z_]+}')
+
+    params:
+        SCAN_REF = os.environ['REF'] + '/Rfam/Rfam.cm',
+        THREADS = THREADS
+
+    output:
+        TBL_OUT = CMTBLOUT_PEAK,
+        CMSCAN = CMSCAN_PEAK
+
+    shell:
+        'cmscan -o {output.CMSCAN} --tblout {output.TBL_OUT} '\
+        ' --cpu {params.THREADS} '\
+        '{params.SCAN_REF} {input.FA}'
+        
+        
+
 rule peak_anntation:
     input:
         PEAK_FILES = expand(MACS2_PEAK_TEMPLATE\
-                .replace('{TREATMENT}','{{TREATMENT}}'), 
+                .replace('{TREATMENT}','{{TREATMENT}}')\
+                .replace('{FILTER}','{{FILTER}}'), 
             STRAND = STRANDS),
         EXON_TABLE = EXON_TABLE
     
@@ -194,7 +289,7 @@ rule peak_anntation:
 
 rule find_exon:
     input:
-        '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/unfragmented.bam'
+        '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/kallisto_result/bam_files/unfragmented_kallisto.bam'
 
     output:
         EXON_TABLE

@@ -24,8 +24,8 @@ def label_sample(x, salt = False):
     elif re.search('N[aA]|[Aa]lk', x):
         #return 'Alkaline hydrolysis'
         return 'NaOH'
-    elif re.search('L[12]',x):
-        return 'PolyA-selected'
+    elif re.search('_L[0-9]+',x):
+        return 'Poly(A)-selected'
     elif re.search('[eE]xo|ED|DE', x):
         return 'DNase I + Exo I'
     elif re.search('[aA]ll|[Uu]nt', x):
@@ -37,6 +37,21 @@ def label_sample(x, salt = False):
             return 'Low salt (200mM)'
         else:
             return 'DNase I'
+
+prep_order = ['Unfragmented', 'Fragmented', 
+              'Unfragmented + Phosphatase', 'SMART-Seq']
+def label_prep(x):
+    if re.search('[Uu]nfrag', x):
+        return prep_order[0]
+    elif re.search('[fF]ragme', x):
+        return prep_order[1]
+    elif re.search('[pP]hos', x):
+        return prep_order[2]
+    elif re.search('[Pp]oly', x):
+        return prep_order[3]
+    else:
+        return x
+    
     
 def rename_sample(xs):
     sample_dict = defaultdict(int)
@@ -60,7 +75,7 @@ for label, color in zip(['DNase I', 'DNase I + Exo I',
 
 
 RNA_type = ['Antisense', 'Mt', 'Other ncRNA', 'Other sncRNA', 'Protein coding',
-            'Repeats', 'miRNA', 'rRNA', 'snoRNA', 'tRNA', 'Vault RNA','No features']
+            'Repeats', 'miRNA', 'rRNA', 'snoRNA', 'tRNA', 'Vault RNA','Unannotated']
 colors = okabeito_palette()
 colors = sns.color_palette("Paired", 10)
 colors.extend(['gray','black'])

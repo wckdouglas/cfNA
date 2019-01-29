@@ -114,7 +114,7 @@ def filter_bed(tab_file, out_prefix, cov_exon, spliced_exons):
     bed_filters = [REF_PATH + '/hg19_ref/genes/tRNA/hg19-tRNAs.bed',
         REF_PATH + '/hg19_ref/genes/sncRNA_x_protein.bed',
         REF_PATH + '/hg19_ref/genes/rmsk.smRNA.bed.gz',
-        REF_PATH + '/hg19_ref/genes/hg19_refseq.smRNA.bed.gz',
+        REF_PATH + '/hg19_ref/genes/hg19_refseq.sncRNA.bed',
         REF_PATH + '/hg19_ref/genes/dashr.bed.gz',
         REF_PATH + '/hg19_ref/genes/piRNA.bed.gz',
         REF_PATH + '/hg19_ref/genes/rRNA_for_bam_filter.bed']
@@ -135,7 +135,7 @@ def main():
     if len(sys.argv) != 4:
         sys.exit('[usage] python %s <bed_file> <out_prefix> <spliced_exon.bed>' %sys.argv[0])
 
-    exons = REF_PATH + '/hg19_ref/genes/exons_all.bed'
+    exons = REF_PATH + '/hg19_ref/genes/exons_all.bed_temp'
     tab_file = sys.argv[1]
     out_prefix =  sys.argv[2]
     spliced_exons = sys.argv[3]

@@ -20,6 +20,9 @@ from plotting_utils import label_sample, rename_sample, \
                         figure_path
 
 label_order = ['Untreated','NaOH', 'DNase I', 'DNase I + Exo I',"DNase I - 3'P",'WGS-sim']
+def label_rna(x):
+    return 0
+
 
 metric_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/filtered_bam'
 metrics = glob.glob(metric_path + '/*.RNA_Metrics')
@@ -119,7 +122,7 @@ def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type'):
         .filter(regex = 'type|Qcf|QCF|sim')\
         .assign(grouped_type = lambda d: np.where(d[rna_group_type] == "No features", 'Unannotated', d[rna_group_type]))\
         .assign(grouped_type = lambda d: np.where(d[rna_group_type] == "rDNA", 'rRNA', d[rna_group_type]))\
-        .assign(grouped_type = lambda d: np.where(d[rna_group_type].str.contains('Y-RNA'), 'Other sncRNA', d[rna_group_type]))\
+        .assign(grouped_type = lambda d: np.where(d[rna_group_type].str.contains('snoRNA|Y-RNA'), 'Other sncRNA', d[rna_group_type]))\
         .assign(grouped_type = lambda d: np.where(d[rna_group_type].str.contains("vaultRNA|VT|vt"),'Vault RNA', d[rna_group_type]))\
         .groupby(rna_group_type)\
         .sum() \
@@ -150,6 +153,68 @@ def rename_rRNA(x):
         return '5.8S_rRNA'
     else:
         return x
+
+def plot_small_count_bar(ax):
+    count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
+    small_df = pd.read_feather(count_file) \
+        .query("dedup == 'dedup'")\
+        .query('gene_type != "No features"')\
+        .assign(grouped_type = lambda d: d.gene_type.map(change_gene_type)) \
+        .pipe(lambda d: d[d.grouped_type.str.contains('sncRNA|snoRNA|tRNA|miRNA|rRNA|rDNA')])\
+        .pipe(lambda d: d[~d.gene_id.str.contains('^[21]8S')])\
+        .assign(gene_id = lambda d: np.where(d.grouped_type.str.contains('rRNA'), 
+                                            d.gene_id.map(rename_rRNA),
+                                            d.gene_id))\
+        .assign(gene_type = lambda d: np.where(d.grouped_type.str.contains('rRNA'), 
+                                            d.gene_id.map(rename_rRNA),
+                                            d.gene_type))\
+        .assign(gene_id = lambda d: np.where(d.gene_type=="Mt_tRNA",d.gene_name, d.gene_id))\
+        .assign(gene_type = lambda d: np.where((d.gene_type=="tRNA") & (d.gene_id.str.contains('^MT')),
+                                                'Mt_tRNA',
+                                                d.gene_type))\
+        .assign(gene_type = lambda d: d.gene_type.str.replace('^tRNA','Nucleo-tRNA'))\
+        .pipe(lambda d: d[~d.gene_type.str.contains('^ENSG')])\
+        .pipe(lambda d: d[~d.gene_id.str.contains('tRNA')])\
+        .assign(treatment = lambda d: d.samplename.map(label_sample))\
+        .assign(gene_id = lambda d: d.gene_id.str.replace('-[0-9]+-[0-9]+',''))\
+        .groupby(['treatment','gene_id', 'gene_type'], as_index=False)\
+        .agg({'read_count':'sum'})\
+        .groupby(['treatment','gene_type'], as_index=False)\
+        .agg({'read_count':'sum',
+            'gene_id':'count'})\
+        .assign(value = lambda d: d.groupby('treatment').read_count.transform(lambda x: 100*x/x.sum()))\
+        .assign(gene_type = lambda d: d.gene_type.str.replace('Mt_','MT-').str.replace('_',' '))\
+        .pipe(lambda d: d[d.treatment.str.contains('DNase|WGS-sim|NaOH|Untreated')])\
+        .pipe(pd.pivot_table, index=['treatment'], columns = 'gene_type', values = 'value')\
+        .reindex(label_order)
+
+    small_RNA_color= ['#f58231','#e6194b', '#3cb44b', '#ffe119', '#1f78b4', '#6a3d9a', 
+                        #(5.8S, 5S, 7SK, 7SL, Mt-tRNA, nucleo-tRNA)
+                        '#03A8FB', '#F8BF6C', '#CAF5CB', '#fabebe', 
+                        #(Y-RNA, miRNA, miscRNA, piRNA)
+                        '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', 
+                        #(snRNA, snoRNA, vaultRNA)
+                        '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000']
+    small_df\
+        .plot.bar(stacked=True,
+                ax = ax, 
+                color = small_RNA_color,
+                width = 0.8)
+    xt = [xt.set_text(xt.get_text()) for xt in ax.get_xticklabels()]
+    ax.set_xticklabels(ax.get_xticklabels(), 
+                       rotation = 70, 
+                       ha = 'left', va = 'top',
+                      rotation_mode="anchor")
+    ax.legend()
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles[::-1], labels[::-1], 
+              bbox_to_anchor = (0.9,1), fontsize = 15,
+             frameon=False)
+    ax.set_xlabel('')
+    ax.set_ylabel('Small RNA read pairs (%)')
+    sns.despine()
+
+
  
 def plot_small_count_pie(ax):
     count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'

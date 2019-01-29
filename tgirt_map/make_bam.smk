@@ -36,6 +36,8 @@ FILTERED_STRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.{STRAND}.
 FILTERED_PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND}_{STRAND}.bam'
 PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND}.bam'
 chrM_FILTERED_BAM = COMBINED_BAM_PATH + '/dedup/unfragmented.chrM_filter.bam'
+chrM_BAM = COMBINED_BAM_PATH + '/dedup/chrM.bam'
+ECOLI_BAM = COMBINED_BAM_PATH + '/dedup/ecoli.bam'
 PAIRED_DEDUP_BAM = COMBINED_BAM_PATH + '/dedup/unfragmented.chrM_filter.dedup.bam'
 
 SAMPLE_FOLDER = PROJECT_PATH + '/{SAMPLE}'
@@ -172,7 +174,8 @@ rule all:
 
 rule dedup_umi:
     input:
-        BAM = chrM_FILTERED_BAM
+        BAM = chrM_FILTERED_BAM,
+        INDEX= chrM_FILTERED_BAM + '.bai'
 
     output:
         PAIRED_DEDUP_BAM
@@ -183,20 +186,39 @@ rule dedup_umi:
         '--umi-tag RX --cell-tag RG'
 
 
-rule chrM_filter_bam:
+rule indexing:
     input:
-        BAM = expand(COMBINED_BAM_TEMPLATE, TREATMENT = ['unfragmented'])
-
-    params:
-        INDEX = chrM
-
-    output:
         BAM = chrM_FILTERED_BAM
+        
+    output:
+        chrM_FILTERED_BAM + '.bai'
 
     shell:
-        'python ~/cfNA/peak_callings/chrM_filter.py '\
-        '-i {input.BAM} -o {output.BAM} '\
-        '-x {params.INDEX} '
+        'samtools index {input}'
+
+
+rule chrM_filter_bam:
+    input:
+        BAM = expand(COMBINED_NAME_SORT_BAM_TEMPLATE, TREATMENT = ['unfragmented'])
+
+    params:
+        INDEX = chrM,
+        ECOLI = '/stor/work/Lambowitz/ref/Ecoli/BL21_DE3.fa'
+
+    output:
+        BAM = chrM_FILTERED_BAM,
+        chrM_BAM = chrM_BAM,
+        ECOLI_BAM = ECOLI_BAM
+
+    shell:
+        'samtools view -h {input.BAM} '
+        "| awk '$1~/^@/ || $2~/^147$|^99$|^83$|^163$/'"\
+        '| python ~/cfNA/peak_callings/exogenous_filter.py '\
+        '-i - -o - '\
+        '-x {params.INDEX} --filtered_bam {output.chrM_BAM}'\
+        '| python ~/cfNA/peak_callings/exogenous_filter.py '\
+        '-i - -o {output.BAM} '\
+        '-x {params.ECOLI} --filtered_bam {output.ECOLI_BAM}'
 
 
 rule RNAseqPICARD:

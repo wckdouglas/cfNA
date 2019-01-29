@@ -3,6 +3,7 @@ import os
 
 
 MITO_INDEX= os.environ['REF'] + '/hg19/genome/chrM.fa'
+ECOLI_INDEX= os.environ['REF'] + '/Ecoli/BL21_DE3.fa'
 PROJECT_PATH= os.environ['WORK'] + '/cdw2854/cfNA/tgirt_map'
 SAMPLE_NAMES = glob.glob(PROJECT_PATH + '/*001')
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_NAMES))
@@ -207,15 +208,18 @@ rule filter_bam:
         BAM = BAM_TEMPLATE
 
     params:
-        INDEX = MITO_INDEX
+        MITO_INDEX = MITO_INDEX,
+        ECOLI_INDEX = ECOLI_INDEX,
 
     output:
         BAM = FILTER_BAM_TEMPLATE
 
     shell:
-        'python chrM_filter.py '\
-        '-i {input.BAM} -o {output.BAM} '\
-        '-x {params.INDEX} '
+        'cat {input.BAM} '\
+        '| python exogenous_filter.py '\
+        ' -i - -o -  -x {params.MITO_INDEX} '\
+        '| python exogenous_filter.py '\
+        ' -i - -o {output.BAM} -x {params.ECOLI_INDEX}'
 
 
 rule make_bed:
@@ -298,7 +302,7 @@ rule PEAK_TO_FA:
         "| csvtk filter2 -t -f '{params.FILTER_TERM}' "\
         '| csvtk cut -t -f chrom,start,end,peakname,score,strand '\
         '| sed 1d '\
-        "| awk '{{print $1,$2-20,$3+20,$4,$5,$6}}' OFS='\\t' " \
+        "| awk '{{printf \"%s\\t%s\\t%s\\t%s_%s:%s-%s\\t%s\\t%s\\n\", $1,$2-20,$3+20,$4,$1,$2,$3,$5,$6}}'"\
         '| bedtools getfasta -fi {params.GENOME} -bed - -s -name '\
         '| seqtk seq -U '\
         '> {output.FA}'

@@ -348,7 +348,7 @@ def group_annotation(x):
 
 def get_peak_rfam_annotation(peaks):
     cmscan_df = read_tbl(peak_path + '/unfragmented.Long_RNA.tblout') \
-        .assign(peakname = lambda d: d['query name'].str.split('(', expand=True).iloc[:,0])\
+        .assign(peakname = lambda d: d['query name'].str.split('_chr', expand=True).iloc[:,0])\
         .merge(peaks.filter(['sense_gname','peakname']), on = 'peakname', how = 'right')\
         .assign(score = lambda d: d.score.fillna(0))\
         .fillna('NA')\
@@ -528,6 +528,8 @@ def plot_peak_size(peak_df, ax):
     
 
 
+
+
 def is_mt(seq, rnr=False):
     is_chrM = 'not_MT'
     chrom_path = '/stor/work/Lambowitz/ref/hg19'
@@ -598,7 +600,7 @@ def plot_anti_bar(antisense_peaks, ax):
                 .filter(regex='name') \
                 .rename(columns = {'query name':'peakname',
                                     'target name':'rfam'})\
-                .assign(peakname = lambda d: d.peakname.str.replace('\([+-]\)','')),
+               .assign(peakname = lambda d: d.peakname.str.split('_chr',expand=True).iloc[:,0]),
             on = 'peakname', how = 'left')\
         .assign(rfam = lambda d: d.rfam.fillna('Others'))\
         .assign(rfam = lambda d: np.where(d.is_hb=="HB", 'Hemaglobin', d.rfam))\
@@ -630,3 +632,20 @@ def plot_anti_bar(antisense_peaks, ax):
     plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
     plot_ce.show_legend(ax, frameon=False, fontsize=15,
                         bbox_to_anchor=(-0.1,0))
+
+
+
+class ecoli_mapper():
+    def __init__(self):
+        bam = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.bam'
+        index = '/stor/work/Lambowitz/ref/Ecoli/BL21_DE3.fa.minimap2_idx'
+        self.bam = pysam.Samfile(bam)
+        self.aligner = mappy.Aligner(index, preset='sr')
+
+    def ecoli_map(self, chrom, start, end):
+        aligned = 0.0
+        for aln_count, aln in enumerate(self.bam.fetch(chrom, start, end)):
+            alns = self.aligner.map(aln.query_sequence)
+            if list(alns):
+                aligned += 1
+        return aligned / (aln_count + 1)

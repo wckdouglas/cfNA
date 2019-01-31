@@ -20,8 +20,6 @@ from plotting_utils import label_sample, rename_sample, \
                         figure_path
 
 label_order = ['Untreated','NaOH', 'DNase I', 'DNase I + Exo I',"DNase I - 3'P",'WGS-sim']
-def label_rna(x):
-    return 0
 
 
 metric_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/filtered_bam'
@@ -110,6 +108,14 @@ def plot_insert(ax, samples=['DNase I']):
     
     return df
 
+def recat_rRNA(gname, gtype):
+    if '18S' in gname or '28S' in gname:
+        return '18/28S rRNA'
+    elif '5.8S' in gname or '5S' in gname or '5_8S' in gname:
+        return '5/5.8S rRNA'
+    else:
+        return gtype
+
 def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type'):
     count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather'
     dedup_df = pd.read_feather(count_file)
@@ -124,6 +130,8 @@ def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type'):
         .assign(grouped_type = lambda d: np.where(d[rna_group_type] == "rDNA", 'rRNA', d[rna_group_type]))\
         .assign(grouped_type = lambda d: np.where(d[rna_group_type].str.contains('snoRNA|Y-RNA'), 'Other sncRNA', d[rna_group_type]))\
         .assign(grouped_type = lambda d: np.where(d[rna_group_type].str.contains("vaultRNA|VT|vt"),'Vault RNA', d[rna_group_type]))\
+        .assign(grouped_type = lambda d: list(map(recat_rRNA, d.gene_type, d.grouped_type)))\
+        .query('grouped_type != "rRNA"')\
         .groupby(rna_group_type)\
         .sum() \
         .pipe(lambda d: d[d.columns[~d.columns.str.contains('anti')]])\

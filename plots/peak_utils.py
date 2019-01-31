@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import mappy
 from tblout_parser import read_tbl
+from bwapy import BwaAligner
 import io
 
 
@@ -638,14 +639,29 @@ def plot_anti_bar(antisense_peaks, ax):
 class ecoli_mapper():
     def __init__(self):
         bam = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.bam'
-        index = '/stor/work/Lambowitz/ref/Ecoli/BL21_DE3.fa.minimap2_idx'
+        index = '/stor/work/Lambowitz/ref/Ecoli/BL21_DE3.fa'
         self.bam = pysam.Samfile(bam)
-        self.aligner = mappy.Aligner(index, preset='sr')
+        self.aligner = BwaAligner(index, options = '-k 12')
+        self.matched = re.compile('([0-9]+)M')
+        self.clipped = re.compile('([0-9]+)S')
+        self.alignments = None
 
     def ecoli_map(self, chrom, start, end):
         aligned = 0.0
+        self.alignments = []
         for aln_count, aln in enumerate(self.bam.fetch(chrom, start, end)):
-            alns = self.aligner.map(aln.query_sequence)
-            if list(alns):
+            alns = self.aligner.align_seq(aln.query_sequence)
+            self.alignments.append(alns)
+            filtered_alignments = filter(self.filter_bad_cigar, alns)
+            if list(filtered_alignments) :
                 aligned += 1
         return aligned / (aln_count + 1)
+
+
+    def filter_bad_cigar(self, aln):
+        clipped_base = sum(map(int, self.clipped.findall(aln.cigar))) or 0
+        mapped_base = sum(map(int, self.matched.findall(aln.cigar)))
+        return (float(clipped_base) / mapped_base) < 0.2  and aln.NM < 3
+
+
+

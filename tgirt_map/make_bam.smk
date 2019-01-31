@@ -169,13 +169,12 @@ rule all:
             STRAND = ['sense', 'antisense']),
         expand(COMBINED_METRICS_TEMPLATE,
                 TREATMENT = TREATMENTS),
-        PAIRED_DEDUP_BAM
+        PAIRED_DEDUP_BAM + '.bai'
 
 
 rule dedup_umi:
     input:
         BAM = chrM_FILTERED_BAM,
-        INDEX= chrM_FILTERED_BAM + '.bai'
 
     output:
         PAIRED_DEDUP_BAM
@@ -188,10 +187,10 @@ rule dedup_umi:
 
 rule indexing:
     input:
-        BAM = chrM_FILTERED_BAM
+        BAM = PAIRED_DEDUP_BAM
         
     output:
-        chrM_FILTERED_BAM + '.bai'
+        PAIRED_DEDUP_BAM + '.bai'
 
     shell:
         'samtools index {input}'
@@ -201,6 +200,7 @@ rule chrM_filter_bam:
     input:
         BAM = expand(COMBINED_NAME_SORT_BAM_TEMPLATE, TREATMENT = ['unfragmented'])
 
+    threads: THREADS
     params:
         INDEX = chrM,
         ECOLI = '/stor/work/Lambowitz/ref/Ecoli/BL21_DE3.fa'
@@ -214,11 +214,10 @@ rule chrM_filter_bam:
         'samtools view -h {input.BAM} '
         "| awk '$1~/^@/ || $2~/^147$|^99$|^83$|^163$/'"\
         '| python ~/cfNA/peak_callings/exogenous_filter.py '\
-        '-i - -o - '\
-        '-x {params.INDEX} --filtered_bam {output.chrM_BAM}'\
+        '-i - -o - -x {params.INDEX} --filtered_bam {output.chrM_BAM}'\
         '| python ~/cfNA/peak_callings/exogenous_filter.py '\
-        '-i - -o {output.BAM} '\
-        '-x {params.ECOLI} --filtered_bam {output.ECOLI_BAM}'
+        '-i - -o - -x {params.ECOLI} --filtered_bam {output.ECOLI_BAM} '\
+        '| sambamba sort -t {threads} -o {output.BAM} /dev/stdin'
 
 
 rule RNAseqPICARD:

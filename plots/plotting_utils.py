@@ -6,6 +6,32 @@ from sequencing_tools.viz_tools import color_encoder, okabeito_palette
 import numpy as np
 import seaborn as sns
 from collections import defaultdict
+import pandas as pd
+
+
+class cpm_total():
+    def __init__(self, dedup=True):
+        count_df = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
+        dedup_variable = 'dedup' if dedup else 'all'
+        self.count_df = pd.read_feather(count_df)\
+                .query('dedup == "%s" & strand == "sense"' %dedup_variable)\
+                .groupby('samplename', as_index=False)\
+                .agg({'read_count':'sum'})
+
+        self.sample_cpm = {}
+        for i, row in self.count_df.iterrows():
+            self.sample_cpm[row['samplename']] = row['read_count']
+
+        self.sample_df = self.count_df\
+            .assign(prep = lambda d: d.samplename.map(label_sample))\
+            .groupby('prep', as_index=False)\
+            .agg({'read_count':'sum'})
+
+        self.prep_cpm = {}
+        for i, row in self.sample_df.iterrows():
+            self.prep_cpm[row['prep']] = row['read_count']
+        
+            
 
 
 plt.rc('axes', labelsize=15)
@@ -91,10 +117,11 @@ for label, color in zip(['DNase I', 'DNase I + Exo I',
 
 
 RNA_type = ['Antisense', 'Mt', 'Other ncRNA', 'Other sncRNA', 'Protein coding',
-            'Repeats', 'miRNA', 'rRNA', 'snoRNA', 'tRNA', 'Vault RNA','Unannotated']
+            'Repeats', 'miRNA', 'rRNA', 'snoRNA', 'tRNA', 'Vault RNA','Unannotated',
+            '5/5.8S rRNA', '18/28S rRNA']
 colors = okabeito_palette()
 colors = sns.color_palette("Paired", 10)
-colors.extend(['gray','black'])
+colors.extend(['gray','black','#f2cf5c','#f29c07'])
 rna_type_ce = color_encoder()
 rna_type_ce.fit(RNA_type, colors)
 rna_type_ce.encoder = {rna:col for rna, col in zip(RNA_type, colors)}

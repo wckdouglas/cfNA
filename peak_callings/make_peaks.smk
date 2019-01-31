@@ -216,10 +216,10 @@ rule filter_bam:
 
     shell:
         'cat {input.BAM} '\
-        '| python exogenous_filter.py '\
-        ' -i - -o -  -x {params.MITO_INDEX} '\
-        '| python exogenous_filter.py '\
-        ' -i - -o {output.BAM} -x {params.ECOLI_INDEX}'
+        '| python ~/ngs_qc_plot/exogenous_filter.py '\
+        ' -i - -o -  -x {params.MITO_INDEX} --nm 0.1 '\
+        '| python ~/ngs_qc_plot/exogenous_filter.py '\
+        ' -i - -o {output.BAM} -x {params.ECOLI_INDEX} --nm 0.1 '
 
 
 rule make_bed:

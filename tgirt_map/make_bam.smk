@@ -213,10 +213,10 @@ rule chrM_filter_bam:
     shell:
         'samtools view -h {input.BAM} '
         "| awk '$1~/^@/ || $2~/^147$|^99$|^83$|^163$/'"\
-        '| python ~/cfNA/peak_callings/exogenous_filter.py '\
-        '-i - -o - -x {params.INDEX} --filtered_bam {output.chrM_BAM}'\
-        '| python ~/cfNA/peak_callings/exogenous_filter.py '\
-        '-i - -o - -x {params.ECOLI} --filtered_bam {output.ECOLI_BAM} '\
+        '| python ~/ngs_qc_plot/exogenous_filter.py '\
+        '-i - -o - -x {params.INDEX} --filtered_bam {output.chrM_BAM} --nm 0.1 '\
+        '| python ~/ngs_qc_plot/exogenous_filter.py '\
+        '-i - -o - -x {params.ECOLI} --filtered_bam {output.ECOLI_BAM} --nm 0.1 '\
         '| sambamba sort -t {threads} -o {output.BAM} /dev/stdin'
 
 

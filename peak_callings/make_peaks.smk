@@ -217,14 +217,16 @@ rule filter_bam:
     shell:
         'cat {input.BAM} '\
         '| python ~/ngs_qc_plot/exogenous_filter.py '\
-        ' -i - -o -  -x {params.MITO_INDEX} --nm 0.1 '\
+        ' -i - -o -  -x {params.MITO_INDEX} --nm 0.15 '\
         '| python ~/ngs_qc_plot/exogenous_filter.py '\
-        ' -i - -o {output.BAM} -x {params.ECOLI_INDEX} --nm 0.1 '
+        ' -i - -o {output.BAM} -x {params.ECOLI_INDEX} --nm 0.15 '
 
 
 rule make_bed:
     input:
-        BAM = FILTER_BAM_TEMPLATE
+        BAM = lambda w: BAM_TEMPLATE.replace('{SAMPLENAME}',w.SAMPLENAME) \
+                        if re.search('[aA]ll|[nN][aA]', w.SAMPLENAME) \
+                        else FILTER_BAM_TEMPLATE.replace('{SAMPLENAME}',w.SAMPLENAME)
 
     params:
         TMP_FOLDER = BED_PATH + '/{SAMPLENAME}_TMP',

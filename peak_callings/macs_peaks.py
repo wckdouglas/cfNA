@@ -267,9 +267,9 @@ def main():
 
 
 
-    bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks], sort=False) \
+    bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks]) \
         .sort_values([0,1,2]) \
-        .reindex() 
+        .reset_index(drop=True) 
 
     inbed = annotate_peaks(annotation_file, bed)  
 
@@ -299,7 +299,7 @@ def make_table(base_name = 'unfragmented'):
     broad_peaks = glob.glob(peak_path + '/%s.*_peaks.narrowPeak' %base_name)
     print('Merging: ', ', '.join(map(os.path.basename, broad_peaks)))
 
-    bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks], sort=False) \
+    bed = pd.concat([process_broad(broad_peak, bed_path) for broad_peak in broad_peaks]) \
         .sort_values([0,1,2]) \
         .reindex() 
     

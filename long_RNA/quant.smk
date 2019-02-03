@@ -5,12 +5,12 @@ from collections import deque
 import re
 
 wildcard_constraints:
-    TREATMENT = '[a-zA]+',
+    TREATMENT = '[a-zA-Z_-]+',
+    SAMPLE = '[A-Za-z0-9_-]+',
     RNA_TYPE = '[a-z]+'
 
 project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 SAMPLES = glob.glob(project_path + '/*R1_001')
-SAMPLES = filter(lambda x: re.search('_L[0-9]+|Frag|Phos|[qQ][cC][fF][0-9]+|[ED][DE]|Exo', x), SAMPLES)
 SAMPLES = map(lambda x: os.path.basename(x.replace('_R1_001','')), SAMPLES)
 SAMPLES = list(SAMPLES)
 
@@ -38,9 +38,15 @@ def get_LIBTYPE(wildcards):
     return lt
 
 RNA_TYPES = ['all','protein']
-TREATMENTS = ['polyA','unfragmented','fragmented','phosphatase']
-TREATMENTS_regexes = ['_L[0-9]+','[Qq][cC][fF][0-9]+|[ED][ED]|Exo', '[fF]rag[0-9]+', '_Phos']
-TREATMENTS_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENTS_regexes)}
+TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo', '[fF]rag[0-9]+','[pP]hos',
+                  'L[1234]','MPF4','MPF10','MPCEV',
+                    'PPF4','PPF10','PPCEV']
+TREATMENTS = ['unfragmented','fragmented','phosphatase',
+                'polyA','EV','RNP','RNP-EV',
+                'MNase_EV','MNase_RNP','MNase_EV-RNP']
+
+TREATMENTS_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
+print(TREATMENTS_regex_dict)
 def regex_samples(w):
     regex = TREATMENTS_regex_dict[w.TREATMENT]
     sample = list(filter(lambda x: re.search(regex, x), SAMPLES))
@@ -114,7 +120,7 @@ rule kallisto_quant:
         OUT = KALLISTO_template
     
     output: 
-        BAM = KALLISTO_SAMPLE_BAM.replace('{SAMPLE}','{SAMPLE, [a-zA-Z0-9_]+}')
+        BAM = KALLISTO_SAMPLE_BAM
     
     shell:
         'kallisto quant --bias '\

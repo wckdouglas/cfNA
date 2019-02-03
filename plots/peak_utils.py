@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 from sequencing_tools.viz_tools import okabeito_palette, color_encoder, simpsons_palette
@@ -19,6 +18,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import mappy
 from tblout_parser import read_tbl
+from bwapy import BwaAligner
 import io
 
 
@@ -51,6 +51,7 @@ def peak_info_table(row):
         .reset_index()
     return peak_info
     
+
 full_length_mRNA = '^HIST|^FT[LH]|^RP[LS]'
 full_length_regex = re.compile(full_length_mRNA)
 def rank_peaks(row):
@@ -187,13 +188,24 @@ def plot_peak_strand(peaks, ax):
     ax.legend().set_visible(False)
 
 
+def change_annotation(lab):
+    if 'RBP' in lab:
+        return lab.replace('RBP','Long RNA (RBP)')
+    elif 'Long RNA' in lab:
+        return lab.replace('Long RNA', 'Long RNA (narrow peak)')
+    else:
+        return lab
+
+
+
 def plot_peak_pie(peaks, ax, ce, gtype='sense_gtype'):
     peak_pie= peaks\
         .query('pileup>=%i & sample_count >= %i' %(pileup_cutoff, sample_cutoff))\
         .groupby(gtype, as_index=False)\
         .agg({'pvalue':'count'}) \
         .assign(fraction = lambda d: d.pvalue.transform(lambda x: 100*x/x.sum())) \
-        .assign(merged_type = lambda d: d[gtype]+ ' (' + d.pvalue.astype(str) + ')')\
+        .assign(rtype = lambda d: d[gtype]+ ' (' + d.pvalue.astype(str) + ')')\
+        .assign(merged_type = lambda d: d.rtype.map(change_annotation))\
         .set_index('merged_type')\
         .assign(explode = lambda d: (100-d.fraction)/100) \
         .assign(explode = lambda d: np.where(d.explode < 0.95,0, 
@@ -201,7 +213,7 @@ def plot_peak_pie(peaks, ax, ce, gtype='sense_gtype'):
                                                   np.where(d.explode < 0.994, 0.4, 0.8))))\
         .sort_values('pvalue', ascending=False)
     
-    rna_types = list(map(lambda x: x.split('(')[0].strip(), peak_pie.index))
+    rna_types = list(map(lambda x: x.split('(')[0].strip(), peak_pie.rtype))
     colors = pd.Series(rna_types).map(ce.encoder)
     peak_pie.plot(kind = 'pie',
               y = 'fraction', 
@@ -217,7 +229,6 @@ def plot_peak_pie(peaks, ax, ce, gtype='sense_gtype'):
     
     ax.set_ylabel('')
     ax.legend().set_visible(False)
-
 
 def plot_peak_bar(ax,peaks):
     for i, row in combined_peaks \
@@ -324,9 +335,9 @@ def group_annotation(x):
     lab = 'Others'
     if re.search('tRNA', x):
         lab = 'tRNA'
-#    elif re.search('RNaseP',x):
-#        lab = Rfam_labs[0]
-    elif re.search('[sS][nN][oO]|HACA', x):
+    elif re.search('RNaseP',x):
+        lab = Rfam_labs[0]
+    elif re.search('[sS][nN][oO]|[sS][nN][rR]|HACA', x):
         lab = 'snoRNA'
     elif x == 'IsrR':
         lab = 'IsrR'
@@ -338,12 +349,14 @@ def group_annotation(x):
 
 def get_peak_rfam_annotation(peaks):
     cmscan_df = read_tbl(peak_path + '/unfragmented.Long_RNA.tblout') \
-        .assign(peakname = lambda d: d['query name'].str.split('(', expand=True).iloc[:,0])\
+        .assign(peakname = lambda d: d['query name'].str.split('_chr', expand=True).iloc[:,0])\
         .merge(peaks.filter(['sense_gname','peakname']), on = 'peakname', how = 'right')\
+        .assign(score = lambda d: d.score.fillna(0))\
         .fillna('NA')\
-        .assign(strand = lambda d: np.where(d.strand=="+", 0,1) )\
+        .assign(strand = lambda d: np.where(d.strand=="+", 0, 1) )\
+        .assign(score = lambda d: d.score.astype(float))\
         .groupby('peakname', as_index=False)\
-        .apply(lambda d: d.pipe(lambda d1: d1[d1.strand==d1.strand.min()]).pipe(lambda d1: d1[d1.score==d1.score.max()]))\
+        .apply(lambda d: d.pipe(lambda d1: d1[d1.strand==d1.strand.min()]).nlargest(1,'score'))\
         .assign(rfam_lab = lambda d: d['target name'].map(group_annotation))
 
     return {row['sense_gname']:row['rfam_lab'] for i, row in cmscan_df.iterrows()}
@@ -357,6 +370,7 @@ def pick_lp(d):
     
 def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
     lp = peaks[peaks.sense_gtype.str.contains('Long RNA')] \
+        .query('sample_count >= %i' %sample_cutoff)\
         .groupby('sense_gname', as_index=False)\
         .apply(pick_lp) \
         .nlargest(top_n, y_val)
@@ -515,6 +529,8 @@ def plot_peak_size(peak_df, ax):
     
 
 
+
+
 def is_mt(seq, rnr=False):
     is_chrM = 'not_MT'
     chrom_path = '/stor/work/Lambowitz/ref/hg19'
@@ -566,7 +582,7 @@ def is_hb(row):
     answer = 'Not HB'
     if row['chrom'] in HB_genes.chrom.tolist():
         hb_chrom = HB_genes.query('chrom =="%s"' %row['chrom'])
-        if any((hb_row['start'] <= row['start'] and hb_row['end'] >= row['end']) for i, hb_row in hb_chrom.iterrows()):
+        if any(max(hb_row['start'], row['start']) <= min(hb_row['end'],row['end']) for i, hb_row in hb_chrom.iterrows()):
             answer = 'HB'
     return answer
 
@@ -578,16 +594,19 @@ def plot_anti_bar(antisense_peaks, ax):
                                                     d.antisense_gname))\
         .assign(is_hb = lambda d: [is_hb(row) for i, row in d.iterrows()])\
         .merge(read_tbl(peak_path + '/unfragmented.others.tblout') \
+               .assign(score=lambda d: d.score.astype(float))\
                 .groupby('query name', as_index=False)\
                 .apply(lambda d: d[d.score == d.score.max()])\
                 .query('strand == "+"') \
                 .filter(regex='name') \
                 .rename(columns = {'query name':'peakname',
                                     'target name':'rfam'})\
-                .assign(peakname = lambda d: d.peakname.str.replace('\([+-]\)','')),
+               .assign(peakname = lambda d: d.peakname.str.split('_chr',expand=True).iloc[:,0]),
             on = 'peakname', how = 'left')\
         .assign(rfam = lambda d: d.rfam.fillna('Others'))\
         .assign(rfam = lambda d: np.where(d.is_hb=="HB", 'Hemaglobin', d.rfam))\
+        .assign(rfam = lambda d: np.where(d.rfam=="HBM", 'Hemaglobin', d.rfam))\
+        .assign(rfam = lambda d: np.where(d.rfam=="FHbp_thermometer", 'Others', d.rfam))\
         .sort_values('log10p', ascending=False)
 
     anti_plot\
@@ -614,3 +633,35 @@ def plot_anti_bar(antisense_peaks, ax):
     plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
     plot_ce.show_legend(ax, frameon=False, fontsize=15,
                         bbox_to_anchor=(-0.1,0))
+
+
+
+class ecoli_mapper():
+    def __init__(self):
+        bam = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.bam'
+        index = '/stor/work/Lambowitz/ref/Ecoli/BL21_DE3.fa'
+        self.bam = pysam.Samfile(bam)
+        self.aligner = BwaAligner(index, options = '-k 12')
+        self.matched = re.compile('([0-9]+)M')
+        self.clipped = re.compile('([0-9]+)S')
+        self.alignments = None
+
+    def ecoli_map(self, chrom, start, end):
+        aligned = 0.0
+        self.alignments = []
+        for aln_count, aln in enumerate(self.bam.fetch(chrom, start, end)):
+            alns = self.aligner.align_seq(aln.query_sequence)
+            self.alignments.append(alns)
+            filtered_alignments = filter(self.filter_bad_cigar, alns)
+            if list(filtered_alignments) :
+                aligned += 1
+        return aligned / (aln_count + 1)
+
+
+    def filter_bad_cigar(self, aln):
+        clipped_base = sum(map(int, self.clipped.findall(aln.cigar))) or 0
+        mapped_base = sum(map(int, self.matched.findall(aln.cigar)))
+        return (float(clipped_base) / mapped_base) < 0.2  and aln.NM < 3
+
+
+

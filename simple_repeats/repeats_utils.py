@@ -2,9 +2,6 @@
 import pandas as pd
 import numpy as np
 from numpy import log, exp
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import os 
 from scipy.stats import binom_test
 from scipy.stats import beta
@@ -12,6 +9,8 @@ from scipy.special import betaln
 from functools import partial
 from sequencing_tools.fastq_tools import reverse_complement
 from collections import defaultdict
+os.environ["MKL_THREADING_LAYER"] = "GNU"
+
 
 
 
@@ -63,7 +62,8 @@ def get_repeat_df(df, sample_regex=None):
         .pipe(lambda d: d[~d.gene_id.str.contains('rRNA|tRNA|RNA')]) \
         .query('(antisense + sense) > 0') \
         .pipe(lambda d: pd.concat([d.pipe(lambda d: d[d.gene_name.str.contains('Satellite')]),
-                              fix_simple_repeats(d)]))
+                              fix_simple_repeats(d)]))\
+        .reset_index(drop=True)
     return p_df
     
 def model_df(p_df, ax, title=''):

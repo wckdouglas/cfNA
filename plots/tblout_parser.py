@@ -29,12 +29,33 @@ def read_tbl(tbl_file):
         records = []
         header, field_starts, field_ends = define_table(infile)
         line_parser = partial(parse_line, field_starts, field_ends)
+        if debug:
+            print(header)
+            print(field_starts, field_ends)
         for line_count, line in enumerate(infile):
             if not line.startswith('#'):
                 fields = line_parser(line)
                 record = {h:f for f, h in zip(fields, header)}
                 records.append(record)
     return pd.DataFrame(records) 
+
+def read_tbl(tbl_file, truncate=None):
+    with open(tbl_file) as infile:
+        header = 'target name|accession|query name|accession_null|mdl|mdl from|mdl to'\
+                '|seq from|seq to|strand|trunc|pass|'\
+                'gc|bias|score|E-value|inc|description of target'
+        headers = header.split('|')
+        rows = []
+        for i, line in enumerate(infile):
+            if not line.startswith('#'):
+                fields = line.strip().split(' ')
+                fields = list(filter(lambda x: x!='',fields))
+                rows.append(fields)
+            if truncate and i ==truncate:
+                break
+    return pd.DataFrame(rows, columns = headers)
+        
+                
 
 
 

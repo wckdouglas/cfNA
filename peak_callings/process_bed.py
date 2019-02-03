@@ -109,12 +109,12 @@ def write_stranded(bed_iterable, out_prefix):
 
 
 
-def filter_bed(tab_file, out_prefix, cov_exon):
+def filter_bed(tab_file, out_prefix, cov_exon, spliced_exons):
     set_tempdir(os.path.dirname(out_prefix))
     bed_filters = [REF_PATH + '/hg19_ref/genes/tRNA/hg19-tRNAs.bed',
         REF_PATH + '/hg19_ref/genes/sncRNA_x_protein.bed',
         REF_PATH + '/hg19_ref/genes/rmsk.smRNA.bed.gz',
-        REF_PATH + '/hg19_ref/genes/hg19_refseq.smRNA.bed.gz',
+        REF_PATH + '/hg19_ref/genes/hg19_refseq.sncRNA.bed',
         REF_PATH + '/hg19_ref/genes/dashr.bed.gz',
         REF_PATH + '/hg19_ref/genes/piRNA.bed.gz',
         REF_PATH + '/hg19_ref/genes/rRNA_for_bam_filter.bed']
@@ -124,7 +124,7 @@ def filter_bed(tab_file, out_prefix, cov_exon):
         .saveas()
    
     _filtered = _filtered \
-        .intersect(b = cov_exon, s=True, v=True) \
+        .intersect(b = [cov_exon,spliced_exons], s=True, v=True) \
         .saveas()
     
     write_stranded(BedTool(tab_file), out_prefix + '.unfiltered')
@@ -132,18 +132,19 @@ def filter_bed(tab_file, out_prefix, cov_exon):
 
 
 def main():
-    if len(sys.argv) != 3:
-        sys.exit('[usage] python %s <bed_file> <out_prefix>' %sys.argv[0])
+    if len(sys.argv) != 4:
+        sys.exit('[usage] python %s <bed_file> <out_prefix> <spliced_exon.bed>' %sys.argv[0])
 
-    exons = REF_PATH + '/hg19_ref/genes/exons_all.bed'
+    exons = REF_PATH + '/hg19_ref/genes/exons_all.bed_temp'
     tab_file = sys.argv[1]
     out_prefix =  sys.argv[2]
+    spliced_exons = sys.argv[3]
 
     prefix = os.path.basename(tab_file).split('.')[0]
     cov_exon = out_prefix + '_exons.bed'
 
     make_exons(tab_file, cov_exon, exons)
-    filter_bed(tab_file, out_prefix, cov_exon)
+    filter_bed(tab_file, out_prefix, cov_exon, spliced_exons)
 
 def main1():
     tab_files = glob.glob(PROJECT_PATH + '/*.bed.gz')

@@ -4,7 +4,7 @@ import re
 
 wildcard_constraints:
     DEDUP_PARAM="total|deduplicated",
-    TREATMENT = "[a-zA-Z]+",
+    TREATMENT = "[a-zA-Z0-9_\-]+",
     RNA_TYPE = "[a-zRNA_]+",
     STRAND = 'fwd|rvs'
 
@@ -34,15 +34,24 @@ FQ1_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','_R1.fq.gz')
 FQ2_TEMPLATE = FQ1_TEMPLATE.replace('_R1.fq.gz','_R2.fq.gz')
 THREADS=12
 RNA_TYPES = ['rRNA_mt','smallRNA']
-TREATMENTS = ['unfragmented','phosphatase','fragmented']
+TREATMENTS = ['unfragmented','phosphatase','fragmented','HEK293']
 STRANDS = ['fwd','rvs']
-REGEXES = ['[Qq][cC][fF][0-9]+','[pP]hos[0-9]+','[fF]rag[0-9]+']
+REGEXES = ['[Qq][cC][fF][0-9]+','[pP]hos[0-9]+','[fF]rag[0-9]+','GC']
 
 ## wildcard functions
 REGEX_DICT = {TREATMENT:REGEX for TREATMENT, REGEX in zip(TREATMENTS, REGEXES)}
 def select_sample_folders(wildcards):
     REGEX = REGEX_DICT[wildcards.TREATMENT]
     return list(filter(lambda x: re.search(REGEX, x), SAMPLE_FOLDERS))
+
+
+def cat_bam_command(wildcards):
+    if len(select_bam(wildcards)) == 1:
+        command = 'samtools sort -@ %i -o ' %THREADS
+    else:
+        command = 'sambamba merge -t %i ' %THREADS
+    return command
+
 
 def select_bam(wildcards):
     bamlist = ''
@@ -169,10 +178,11 @@ rule cat_bam:
         BAM = SORT_BAM_TEMPLATE
 
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        CAT_COMMAND = lambda w: cat_bam_command(w)
 
     shell:
-        'sambamba merge -t {params.THREADS} /dev/stdout {input.BAMS} '\
+        '{params.CAT_COMMAND} /dev/stdout {input.BAMS} '\
         '| samtools view -b@ {params.THREADS} -F4 '\
         '| sambamba sort -n -t {params.THREADS} -o {output.BAM} /dev/stdin'
 
@@ -191,10 +201,9 @@ rule tRNA_fragments:
 
     shell:
         'cat {params.REF} | egrep "^TR" --color=no '\
-        '| bedtools intersect -abam {input} -b - '\
-        '| bamtools filter -script filter.json '\
-        '| samtools sort -n -@ {params.THREADS} -T {params.TEMP_DIR} '\
+        '| bedtools pairtobed -abam {input} -b - -type both '\
         '| filter_soft_clip.py --pe -i - -o - '\
+        '| bamtools filter -script filter.json '\
         '| python ~/ngs_qc_plot/bam_viz.py '\
         '| samtools view -b@ {params.THREADS} ' \
         '| sambamba sort -t {params.THREADS} -o {output} /dev/stdin'

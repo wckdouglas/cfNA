@@ -29,8 +29,8 @@ def read_count_file(file_count, samplename, count_file, count_type, strand, dedu
             .assign(gene_type = 'Repeats')
 
     if count_type not in ['sncRNA', 'small_RNA']:
-        count_mat = count_mat \
-            .pipe(lambda d: d[~d.gene_type.isin(['miRNA','misc_RNA','snoRNA','snRNA','tRNA','rRNA','piRNA'])])
+        count_mat = count_mat #\
+#            .pipe(lambda d: d[~d.gene_type.isin(['miRNA','misc_RNA','snoRNA','snRNA','tRNA','rRNA','piRNA'])])
 
 
     if file_count % 20 == 0:
@@ -84,7 +84,7 @@ def main():
         p.join()
 
         dfs = filter(lambda d: d is not None, dfs)
-        concat_df = pd.concat(dfs, axis=0, sort=True)  \
+        concat_df = pd.concat(dfs, axis=0)  \
                 .groupby(['samplename','strand','gene_type','gene_name','gene_id', 'dedup'], as_index=False)\
                 .agg({'read_count':'sum'})
         concat_df.to_csv(long_tablename, sep = '\t', index=False)

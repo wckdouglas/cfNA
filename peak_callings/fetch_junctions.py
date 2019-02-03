@@ -22,7 +22,7 @@ def index_table(table_name):
 
 
 def add_gene(table_name):
-    protein_bed = '/stor/work/Lambowitz/ref/hg19/new_genes/protein.bed.gz'
+    protein_bed = '/stor/work/Lambowitz/ref/hg19_ref/genes/protein.bed.gz'
     BedTool(table_name) \
         .intersect(s=True, wb = True, b = protein_bed) \
         .to_dataframe(usecols = [0,1,2,3,4,5,9])\
@@ -62,7 +62,7 @@ def make_table(out_table, bam_file):
     print('Written %s' %out_table)
 
     BedTool(out_table) \
-        .intersect(b='/stor/work/Lambowitz/ref/hg19/new_genes/exons.bed', s=True)\
+        .intersect(b='/stor/work/Lambowitz/ref/hg19_ref/genes/exons.bed', s=True)\
         .saveas(out_table)
 
 

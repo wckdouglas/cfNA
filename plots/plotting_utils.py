@@ -6,6 +6,32 @@ from sequencing_tools.viz_tools import color_encoder, okabeito_palette
 import numpy as np
 import seaborn as sns
 from collections import defaultdict
+import pandas as pd
+
+
+class cpm_total():
+    def __init__(self, dedup=True):
+        count_df = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
+        dedup_variable = 'dedup' if dedup else 'all'
+        self.count_df = pd.read_feather(count_df)\
+                .query('dedup == "%s" & strand == "sense"' %dedup_variable)\
+                .groupby('samplename', as_index=False)\
+                .agg({'read_count':'sum'})
+
+        self.sample_cpm = {}
+        for i, row in self.count_df.iterrows():
+            self.sample_cpm[row['samplename']] = row['read_count']
+
+        self.sample_df = self.count_df\
+            .assign(prep = lambda d: d.samplename.map(label_sample))\
+            .groupby('prep', as_index=False)\
+            .agg({'read_count':'sum'})
+
+        self.prep_cpm = {}
+        for i, row in self.sample_df.iterrows():
+            self.prep_cpm[row['prep']] = row['read_count']
+        
+            
 
 
 plt.rc('axes', labelsize=15)
@@ -17,21 +43,35 @@ rcParams['font.sans-serif'] = ['Arial']
 def label_sample(x, salt = False):
     if 'HS' in x:
         return 'High salt (450mM)'
-    elif 'Frag' in x:
+    elif re.search('^[fF]rag|_[fF]rag',x):
         return 'Fragmented'
     elif re.search('[-_]sim',x):
         return 'WGS-sim'
     elif re.search('N[aA]|[Aa]lk', x):
         #return 'Alkaline hydrolysis'
         return 'NaOH'
-    elif re.search('_L[0-9]+',x):
+    elif re.search('_L[0-9E]+',x):
         return 'Poly(A)-selected'
     elif re.search('[eE]xo|ED|DE', x):
         return 'DNase I + Exo I'
     elif re.search('[aA]ll|[Uu]nt', x):
         return 'Untreated'
-    elif re.search('Phos', x):
-        return 'DNase I + Phosphatase'
+    elif re.search('[pP]hos|3\'P', x):
+        return "DNase I - 3'P"
+    elif re.search('MPF4', x):
+        return 'EV'
+    elif re.search('MPF10', x):
+        return 'RNP'
+    elif re.search('MPCEV', x):
+        return 'RNP+EV'
+    elif re.search('^GC', x):
+        return 'HEK293'
+    elif re.search('PPF4', x):
+        return 'MNase EV'
+    elif re.search('PPF10', x):
+        return 'MNase RNP'
+    elif re.search('PPCEV', x):
+        return 'MNase EV+RNP'
     elif re.search('[Qq][cC][Ff][0-9]+|[uU]nf', x):
         if salt:
             return 'Low salt (200mM)'
@@ -67,24 +107,26 @@ label_ce = color_encoder()
 label_ce.encoder = {}
 for label, color in zip(['DNase I', 'DNase I + Exo I',
                          'DNase I + NaOH', 'DNase I + Exo I + NaOH',
-                         'NaOH','Untreated','Ladder'],
+                         'NaOH','Untreated','Ladder','Fragmented',"DNase I - 3'P",
+                         'HEK293'],
                          ['#d12604','#ff96cb',
                           '#964b06','#f2a157',
-                          '#4286f4','black', 'grey']):
+                          '#4286f4','black', 'grey',
+                          '#592782','#870c47','black']):
     label_ce.encoder[label] = color
 
 
 RNA_type = ['Antisense', 'Mt', 'Other ncRNA', 'Other sncRNA', 'Protein coding',
-            'Repeats', 'miRNA', 'rRNA', 'snoRNA', 'tRNA', 'Vault RNA','Unannotated']
+            'Repeats', 'miRNA', 'rRNA', 'snoRNA', 'tRNA', 'Vault RNA','Unannotated',
+            '5/5.8S rRNA', '18/28S rRNA']
 colors = okabeito_palette()
 colors = sns.color_palette("Paired", 10)
-colors.extend(['gray','black'])
+colors.extend(['gray','black','#f2cf5c','#f29c07'])
 rna_type_ce = color_encoder()
 rna_type_ce.fit(RNA_type, colors)
 rna_type_ce.encoder = {rna:col for rna, col in zip(RNA_type, colors)}
 
 
-label_order = ['Untreated','NaOH', 'DNase I', 'DNase I + Exo I','WGS-sim']
 
 
 figure_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/figure'

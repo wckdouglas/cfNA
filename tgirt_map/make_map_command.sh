@@ -10,7 +10,7 @@ REF_PATH=/scratch/02727/cdw2854/ref/hg19_ref
 GENE_PATH=$REF_PATH/genes
 GENOME_PATH=$REF_PATH/genome
 LOG_PATH=$RESULT_PATH/log
-THREADS=24
+THREADS=12
 
 
 mkdir -p $LOG_PATH
@@ -43,21 +43,21 @@ do
         \; tgirt_count.py map -1 $FQ1 -2 $FQ2 \
 		--outdir $RESULT_PATH \
         --samplename ${SAMPLENAME}_R1_001 \
-        --univec $GENE_PATH/UniVec_core \
+        --univec $GENE_PATH/UniVec_Core_Ecoli \
 		--hisat_index $GENOME_PATH/hg19_genome \
 		--bowtie2_index $GENOME_PATH/hg19_genome \
 		--bedpath $GENE_PATH \
 		--splicesite $GENE_PATH/splicesites.tsv \
 		--rRNA_mt_index $GENE_PATH/rRNA_mt \
         --smRNA_index $GENE_PATH/smallRNA \
-		-p $THREADS $UMI $TTN \
+        --multi 20 -p $THREADS $UMI $TTN \
         --trim_aggressive ${polyA} \
 		--repeats $GENE_PATH/rmsk.bed.gz \
 		--repeats_index $GENE_PATH/rmsk \
         --rerun \
 		2\>\&1 \
 		\| tee $RESULT_PATH/log/${SAMPLENAME}.log
-done #|  egrep -v  '[PT]EV|TeI|GsI|SRR|[TG]0|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
+done |  egrep -v  '[PT]TeI|GsI|SRR|[TG]0|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
 #		--skip_trim  --skip_hisat --skip_premap --skip_bowtie --skip_post_process_bam --skip_remap \
 #		--repeats_index $REF_PATH/rmsk \
 #		--repeats_index $REF_PATH/repeat_mask/all_rmsk_From_bed \

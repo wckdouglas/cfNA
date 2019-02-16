@@ -206,8 +206,9 @@ rule tsFrag:
 
     shell:
         'cat {input} '\
+        '| filter_soft_clip.py -i - --pe '\
         '| python filter_end.py -i - -o - --type {params.FRAG_TYPE} '\
-        '| samtools view '\
+        '| samtools view -h '\
         '| python ~/ngs_qc_plot/bam_viz.py '\
         '| samtools view -b '\
         '| sambamba sort -t {params.THREADS} -o {output} /dev/stdin '

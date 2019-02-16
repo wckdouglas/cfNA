@@ -14,7 +14,9 @@ pyximport.install(setup_args={'include_dirs': pysam.get_include()})
 import junction_function
 
 def index_table(table_name):
-    os.system('cat {tab} | sort -k1,1 -k2,2n -k3,3n '\
+    os.system('cat {tab} '\
+              '| sort -k1,1 -k2,2n -k3,3n '\
+              '| uniq '\
               '| bgzip > {tab}.gz'\
               '; tabix -f -p bed {tab}.gz'\
               .format(tab = table_name))
@@ -24,8 +26,9 @@ def index_table(table_name):
 def add_gene(table_name):
     protein_bed = '/stor/work/Lambowitz/ref/hg19_ref/genes/protein.bed.gz'
     BedTool(table_name) \
-        .intersect(s=True, wb = True, b = protein_bed) \
+        .intersect(s=True, wao = True, b = protein_bed) \
         .to_dataframe(usecols = [0,1,2,3,4,5,9])\
+        .drop_duplicates()\
         .to_csv(table_name, index=False, header=False, sep='\t')
     print('Intersected protein')
 
@@ -61,9 +64,9 @@ def make_table(out_table, bam_file):
                 print(line_template.format(start = start2, end = end2), file= out)
     print('Written %s' %out_table)
 
-    BedTool(out_table) \
-        .intersect(b='/stor/work/Lambowitz/ref/hg19_ref/genes/exons.bed', s=True)\
-        .saveas(out_table)
+    #BedTool(out_table) \
+    #    .intersect(b='/stor/work/Lambowitz/ref/hg19_ref/genes/exons.bed', s=True)\
+    #    .saveas(out_table)
 
 
 def run(bam_file, out_table):

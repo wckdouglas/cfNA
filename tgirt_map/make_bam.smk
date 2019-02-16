@@ -425,7 +425,7 @@ rule sort_bam_sample:
         '| sambamba sort -n --tmpdir={params.TMPDIR}_1 -o /dev/stdout /dev/stdin'\
         '| picard FixMateInformation ADD_MATE_CIGAR=true '\
         ' ASSUME_SORTED=true INPUT=/dev/stdin OUTPUT=/dev/stdout ' \
-        '| sambamba sort --tmpdir={params.TMPDIR}_2 -o {output.BAM} /dev/stdin'
+        '| picard SortSam O={output.BAM} I=/dev/stdin SORT_ORDER=coordinate TMP_DIR={params.TMPDIR}_2 '
 
 rule RNAseqPICARD_sample:
     input:

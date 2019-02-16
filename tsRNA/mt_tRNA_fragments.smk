@@ -13,7 +13,8 @@ GENE_FA = GENE_REF.replace('.bed','.fa')
 tRNA_REF = os.environ['REF'] + '/hg19_ref/genes/smallRNA'
 MT_tRNA_REF = os.environ['REF'] + '/hg19_ref/genes/mt_tRNA.fa'
 MT_tRNA_REF_INDEX = MT_tRNA_REF + '.1.bt2'
-MT_tRNA_SCAN = os.environ['REF'] + '/hg19_reg/genes/mt_tRNA.tRNA_ss'
+MT_tRNA_STRUCTURE = os.environ['REF'] + '/hg19_ref/genes/mt_tRNA.tRNA_ss'
+MT_tRNA_SCAN = os.environ['REF'] + '/hg19_ref/genes/mt_tRNA.tRNA_scan'
 ANTICODON_TABLE = MT_tRNA_SCAN.replace('.tRNA_ss','.anticodon_annotations.tsv')
 SAMPLE_FOLDERS = PROJECT_PATH + '/{SAMPLENAME}'
 MT_FOLDER = SAMPLE_FOLDERS + '/rRNA_mt'
@@ -143,6 +144,7 @@ rule map_tRNA:
 rule make_anticodon:
     input:
         MT_tRNA_REF,
+        MT_tRNA_STRUCTURE,
         MT_tRNA_SCAN
 
     output:
@@ -203,11 +205,12 @@ rule find_anticodon:
         MT_tRNA_REF
 
     output:
-        MT_tRNA_SCAN
+        SCAN = MT_tRNA_SCAN,
+        SS = MT_tRNA_STRUCTURE
         
 
     shell:
-        'tRNAscan-SE -M mammal -o {output} {input}'
+        'tRNAscan-SE -M mammal -o {output.SCAN} -f {output.SS} {input}'
 
 
 

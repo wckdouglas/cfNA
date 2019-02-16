@@ -68,21 +68,22 @@ def read_kallisto(tpm_table):
         .rename(columns = {'tpm':os.path.basename(os.path.dirname(tpm_table))})
         
         
-gene_cats = ['Others', 'Ribosomal proteins', 'Histone', 'Blood','aaRS', "5' TOP"]
+gene_cats = ['Others',"5' TOP", 'Ribosomal proteins', 'Histone', 'Blood','aaRS']
 def label_gene(x):
     label = gene_cats[0]
     if re.search('^HIST',x):
-        label = gene_cats[2]
-    elif re.search('^RPL[0-9]+|^RPS[0-9]+', x) and '-' not in x:
-        label = gene_cats[1]
-    elif re.search('^HB[ABDEZMGQ][0-9]$|^HB[ABDEZMGQ]$|^ALB$|^B2M$|^FG[A-Z]|^S100', x):
         label = gene_cats[3]
-    elif re.search('^[A-Z]ARS$', x):
+    elif re.search('^RPL[0-9]+|^RPS[0-9]+', x) and '-' not in x:
+        label = gene_cats[2]
+    elif re.search('^HB[ABDEZMGQ][0-9]$|^HB[ABDEZMGQ]$|^ALB$|^B2M$|^FG[A-Z]|^S100', x):
         label = gene_cats[4]
+    elif re.search('^[A-Z]ARS$', x):
+        label = gene_cats[5]
     return label
 
 gene_encoder = color_encoder()
-gene_encoder.encoder = {g:col for g, col in zip(gene_cats, ['grey', 'skyblue','#0ba518','#d82915','#edbc61','darkblue'])}
+gene_encoder.encoder = {g:col for g, col in zip(gene_cats, 
+                        ['grey', 'skyblue','darkblue','#0ba518','#d82915','#edbc61'])}
 
 def get_top_rna():
     top_df = TOP_gene_df()\

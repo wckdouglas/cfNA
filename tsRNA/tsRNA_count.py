@@ -51,10 +51,10 @@ class tsRNA_counter():
                     short_frag = (end - start) < 23
 
                     if end_at3 and short_frag:
-                        self.tsRNA_counter[tRNA['tRNA']]["3' tsRNA"] += read_count
+                        self.tsRNA_counter[tRNA['tRNA']]["tRF-3"] += read_count
 
                     elif start_at5 and short_frag:
-                        self.tsRNA_counter[tRNA['tRNA']]["5' tsRNA"] += read_count
+                        self.tsRNA_counter[tRNA['tRNA']]["tRF-5"] += read_count
 
                     elif end_at3 and start_in_anticodon:
                         self.tsRNA_counter[tRNA['tRNA']]["3' half"] += read_count

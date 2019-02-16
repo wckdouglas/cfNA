@@ -15,7 +15,6 @@ from multiprocessing import Pool
 from functools import partial
 import re
 REF_PATH = os.environ['REF']
-PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bed'
 
 class exon:
     def __init__(self, bed_line):
@@ -143,10 +142,12 @@ def main():
     prefix = os.path.basename(tab_file).split('.')[0]
     cov_exon = out_prefix + '_exons.bed'
 
+    set_tempdir(os.path.dirname(out_prefix))
     make_exons(tab_file, cov_exon, exons)
     filter_bed(tab_file, out_prefix, cov_exon, spliced_exons)
 
 def main1():
+    PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bed'
     tab_files = glob.glob(PROJECT_PATH + '/*.bed.gz')
     tab_files = filter(lambda x: re.search('all|unfragmented', os.path.basename(x)), tab_files)
     tab_files = filter(lambda x: 'no_' not in os.path.basename(x), tab_files)

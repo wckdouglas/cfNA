@@ -1,12 +1,12 @@
 #!/bin/bash
 PROJECT_PATH=$SCRATCH/cfNA
-#PROJECT_PATH=$WORK/cdw2854/cfNA
+PROJECT_PATH=$WORK/cdw2854/cfNA
 
 
 DATA_PATH=$PROJECT_PATH/data
 RESULT_PATH=$PROJECT_PATH/tgirt_map
 #RESULT_PATH=$PROJECT_PATH/tgirt_map_new_penalty
-REF_PATH=/scratch/02727/cdw2854/ref/hg19_ref
+REF_PATH=$REF/hg19_ref
 GENE_PATH=$REF_PATH/genes
 GENOME_PATH=$REF_PATH/genome
 LOG_PATH=$RESULT_PATH/log
@@ -39,7 +39,7 @@ do
         polyA='--polyA'
     fi
 
-	echo source activate tgirt_map \
+	echo source activate tgirt_env \
         \; tgirt_count.py map -1 $FQ1 -2 $FQ2 \
 		--outdir $RESULT_PATH \
         --samplename ${SAMPLENAME}_R1_001 \

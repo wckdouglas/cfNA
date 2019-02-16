@@ -13,7 +13,8 @@ COV_PATH = MERGED_BED_PATH + '/coverage'
 STRANDED_BED_PATH = MERGED_BED_PATH + '/stranded'
 MACS2_PATH = MERGED_BED_PATH + '/MACS2'
 GENOME_BAM = PROJECT_PATH + '/merged_bam/{TREATMENT}.bam'
-EXON_TABLE = PROJECT_PATH + '/merged_bam/{TREATMENT}.spliced.tsv.gz'
+SPLICED_TABLE = PROJECT_PATH + '/merged_bam/{TREATMENT}.spliced.tsv.gz'
+SPLICED_EXON_TABLE = PROJECT_PATH + '/merged_bam/{TREATMENT}.spliced_exon.bed.gz'
 ANNOTATED_PEAK_PATH = MACS2_PATH + '/annotated' 
 ANNOTATED_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.tsv'
 ANNOTATION_TABLE = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz' 
@@ -31,6 +32,7 @@ CMTBLOUT_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.tblout'
 INTRON_TAB = ANNOTATED_PEAK_PATH + '/{TREATMENT}.intron.bed'
 FOLD_FILE = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.fold.fa'
 GENOME = os.environ['REF'] + '/hg19_ref/genome/hg19_genome.fa'
+EXON_ANNOTATION = os.environ['REF'] + '/hg19_ref/genes/exons.bed'
 RNA_TYPES = ['Long_RNA','others']
 FILTERS = ['filtered','unfiltered']
 THREADS = 24
@@ -174,7 +176,7 @@ rule split_strand:
     #also filter out full length exons
     input:
         BED = MERGED_BED_TEMPLATE,
-        EXON_TABLE = EXON_TABLE.format(TREATMENT = 'unfragmented')
+        SPLICED_TABLE = SPLICED_EXON_TABLE.format(TREATMENT = 'unfragmented')
     
     params:
         OUT_PREFIX = STRANDED_BED_PATH + '/{TREATMENT}'
@@ -183,7 +185,7 @@ rule split_strand:
         expand(STRANDED_BED_TEMPLATE.replace('{TREATMENT}','{{TREATMENT}}'), STRAND = STRANDS, FILTER=FILTERS),
     
     shell:
-        'python process_bed.py {input.BED} {params.OUT_PREFIX} {input.EXON_TABLE}'
+        'python process_bed.py {input.BED} {params.OUT_PREFIX} {input.SPLICED_TABLE}'
     
 
 
@@ -192,15 +194,19 @@ rule merged_bed:
     input:
         BEDS = lambda wildcards: get_bed(wildcards)
 
+    params:
+        TMP_DIR = MERGED_BED_TEMPLATE + '_TMP'
+
     output:
         MERGED_BED = MERGED_BED_TEMPLATE
 
     shell:
-        'zcat {input.BEDS} '\
-        '| sort -k1,1 -k2,2n -k3,3n '\
-        '| bgzip '\
-        '> {output.MERGED_BED}'\
-        '; tabix -p bed -f {output.MERGED_BED}'
+        'mkdir {params.TMP_DIR}'\
+        ';zcat {input.BEDS} '\
+        '| sort -k1,1 -k2,2n -k3,3n -T {params.TMP_DIR} '\
+        '| bgzip > {output.MERGED_BED}'\
+        '; tabix -p bed -f {output.MERGED_BED}'\
+        '; rm -rf {params.TMP_DIR}'\
 
 
 rule filter_bam:
@@ -217,9 +223,7 @@ rule filter_bam:
     shell:
         'cat {input.BAM} '\
         '| python ~/ngs_qc_plot/exogenous_filter.py '\
-        ' -i - -o -  -x {params.MITO_INDEX} --nm 0.15 '\
-        '| python ~/ngs_qc_plot/exogenous_filter.py '\
-        ' -i - -o {output.BAM} -x {params.ECOLI_INDEX} --nm 0.15 '
+        ' -i - -o {output.BAM}  -x {params.MITO_INDEX} --nm 0.2 '
 
 
 rule make_bed:
@@ -252,19 +256,21 @@ rule make_bed:
 	    '; rm -rf {params.TMP_FOLDER}'
 
 
-COVERAGE_COMMAND = 'bedtools genomecov -bga -i {input.BED} -g {params.GENOME}'\
-        '| sort -k1,1 -k2,2n '\
+COVERAGE_COMMAND = 'mkdir -p {params.TEMP_DIR}'\
+        ';bedtools genomecov -bga -i {input.BED} -g {params.GENOME}'\
+        '| sort -k1,1 -k2,2n -T {params.TEMP_DIR} '\
         '> {params.TEMP} '\
         '; bedGraphToBigWig {params.TEMP} {params.GENOME} {output.COV_FILE} '\
-        '; rm {params.TEMP} '
+        '; rm -rf {params.TEMP} {params.TEMP_DIR}'
 
 rule bed_coverage_strand:
     input:
-        BED = STRANDED_BED_TEMPLATE.replace('{FILTER}','filtered')
+        BED = STRANDED_BED_TEMPLATE.replace('{FILTER}','unfiltered')
 
     params:
         GENOME = GENOME + '.fai',
-        TEMP = STRANDED_COV_FILE_TEMPLATE.replace('.bigWig','.bedGraph')
+        TEMP = STRANDED_COV_FILE_TEMPLATE.replace('.bigWig','.bedGraph'),
+        TEMP_DIR = STRANDED_COV_FILE_TEMPLATE + 'TMP'
 
     output:
         COV_FILE = STRANDED_COV_FILE_TEMPLATE
@@ -279,7 +285,8 @@ rule bed_coverage_unstranded:
     
     params:
         GENOME = GENOME + '.fai',
-        TEMP = UNSTRANDED_COV_FILE_TEMPLATE.replace('.bigWig','.bedGraph')
+        TEMP = UNSTRANDED_COV_FILE_TEMPLATE.replace('.bigWig','.bedGraph'),
+        TEMP_DIR = UNSTRANDED_COV_FILE_TEMPLATE + 'TMP'
 
     output:
         COV_FILE = UNSTRANDED_COV_FILE_TEMPLATE
@@ -333,7 +340,7 @@ rule peak_anntation:
                 .replace('{TREATMENT}','{{TREATMENT}}')\
                 .replace('{FILTER}','{{FILTER}}'), 
             STRAND = STRANDS),
-        EXON_TABLE = EXON_TABLE.format(TREATMENT = 'unfragmented')
+        SPLICED_TABLE = SPLICED_TABLE.format(TREATMENT = 'unfragmented')
     
     params:
         ANNOTATION_TABLE = ANNOTATION_TABLE,
@@ -345,15 +352,34 @@ rule peak_anntation:
     shell:
         'python macs_peaks.py '\
         '{output.ANNOTATED_PEAK} {params.ANNOTATION_TABLE} '\
-        '{params.BED_PATH} {input.EXON_TABLE} {input.PEAK_FILES} '
+        '{params.BED_PATH} {input.SPLICED_TABLE} {input.PEAK_FILES} '
 
 
-rule find_exon:
+rule spliced_exon:
+    input:
+        SPLICED_TABLE
+
+    params:
+        EXON_ANNOTATION = EXON_ANNOTATION,
+        TMP_DIR = os.path.dirname(SPLICED_EXON_TABLE)
+ 
+    output:
+        SPLICED_EXON_TABLE
+
+    shell:
+        'bedtools intersect -a {params.EXON_ANNOTATION} -b {input} -s '\
+        '| sort -k1,1 -k2,2n -k3,3n -T {params.TMP_DIR} '\
+        '| bgzip '\
+        '> {output}'\
+        '; tabix -f -p bed {output}'
+
+
+rule find_splice:
     input:
         GENOME_BAM
 
     output:
-        EXON_TABLE
+        SPLICED_TABLE
     
     shell:
         'python fetch_junctions.py {input} {output}'

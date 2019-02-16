@@ -5,6 +5,7 @@ from skbio.io import read
 from itertools import groupby
 from collections import Counter
 import re
+import sys
 from sequencing_tools.fastq_tools import reverse_complement
 
 
@@ -110,7 +111,7 @@ def main():
     if len(sys.argv) != 2:
         sys.exit('[usage] python %s <mt|nucleo>' %(sys.argv[0]))
     if sys.argv[1] in {'mt','nucleo'}:
-        if sys.argv[1] == "mt"
+        if sys.argv[1] == "mt":
             mt_tRNA()
         else:
             genomic_tRNA()

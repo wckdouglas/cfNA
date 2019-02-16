@@ -78,8 +78,8 @@ def label_sample(x, salt = False):
         else:
             return 'DNase I'
 
-prep_order = ['Unfragmented', 'Fragmented', 
-              'Unfragmented + Phosphatase', 'SMART-Seq']
+prep_order = ['DNase I', 'DNase I + Frag', 
+              "DNase I - 3'P", 'SMART-Seq']
 def label_prep(x):
     if re.search('[Uu]nfrag', x):
         return prep_order[0]
@@ -118,10 +118,10 @@ for label, color in zip(['DNase I', 'DNase I + Exo I',
 
 RNA_type = ['Antisense', 'Mt', 'Other ncRNA', 'Other sncRNA', 'Protein coding',
             'Repeats', 'miRNA', 'rRNA', 'snoRNA', 'tRNA', 'Vault RNA','Unannotated',
-            '5/5.8S rRNA', '18/28S rRNA']
+            '5/5.8S rRNA', '18/28S rRNA','Mt-tRNA']
 colors = okabeito_palette()
 colors = sns.color_palette("Paired", 10)
-colors.extend(['gray','black','#f2cf5c','#f29c07'])
+colors.extend(['gray','black','#f2cf5c','#f29c07','#374172'])
 rna_type_ce = color_encoder()
 rna_type_ce.fit(RNA_type, colors)
 rna_type_ce.encoder = {rna:col for rna, col in zip(RNA_type, colors)}

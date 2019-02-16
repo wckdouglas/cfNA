@@ -326,23 +326,28 @@ Rfam_labs = {'RnaseP':'black',
             'miRNA': "#0072B2",
             'vRFE': "#F0E442",
             'Others':"#009E73", 
+            'Other unannotated sncRNA':"#009E73", 
             'ToxI':"#56B4E9",
             'KRAS_3UTR':"#E69F00",
-            'Hemaglobin':'red'}
+            'Hemaglobin':'red',
+            'tRNA-like': '#245db7',
+            'Excised Structural intron RNA':'#f9bb00'}
 rfam_ce = color_encoder()
 rfam_ce.encoder = Rfam_labs
 def group_annotation(x):
-    lab = 'Others'
+    lab = 'Other unannotated sncRNA'
     if re.search('tRNA', x):
         lab = 'tRNA'
-    elif re.search('RNaseP',x):
-        lab = Rfam_labs[0]
-    elif re.search('[sS][nN][oO]|[sS][nN][rR]|HACA', x):
-        lab = 'snoRNA'
-    elif x == 'IsrR':
-        lab = 'IsrR'
+        lab = 'tRNA-like'
+#    elif re.search('RNaseP',x):
+#        lab = Rfam_labs[0]
+#    elif re.search('[sS][nN][oO]|[sS][nN][rR]|HACA', x):
+#        lab = 'snoRNA'
+#    elif x == 'IsrR':
+#        lab = 'IsrR'
     elif re.search('mir|MIR', x):
         lab = 'miRNA'
+        lab = 'Excised Structural intron RNA'
     elif x == 'veev_FSE':
         lab = 'vRFE'
     return lab
@@ -423,7 +428,7 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
     plot_ce = color_encoder()
     plot_ce.encoder = Rfam_labs.copy()
     plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
-    plot_ce.show_legend(ax,bbox_to_anchor = (0.5,0.5), 
+    plot_ce.show_legend(ax,bbox_to_anchor = (0.1,0.7), 
                         fontsize=15, frameon=False)
 
 
@@ -575,6 +580,7 @@ chr11,5274420,5526835,HBG2
 chr11,5289575,5526882,HBE1
 chr16,222875,223709,HBA2
 chr16,226679,227521,HBA1
+chr16,203891,216767,HBM
 chr16,230452,231180,HBQ1'''
 HB_genes = pd.read_csv(io.StringIO(HB_genes),
                       names = ['chrom','start', 'end', 'HB'])
@@ -594,7 +600,6 @@ def plot_anti_bar(antisense_peaks, ax):
                                                     d.antisense_gname))\
         .assign(is_hb = lambda d: [is_hb(row) for i, row in d.iterrows()])\
         .merge(read_tbl(peak_path + '/unfragmented.others.tblout') \
-               .assign(score=lambda d: d.score.astype(float))\
                 .groupby('query name', as_index=False)\
                 .apply(lambda d: d[d.score == d.score.max()])\
                 .query('strand == "+"') \

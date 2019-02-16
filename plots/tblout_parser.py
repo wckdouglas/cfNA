@@ -9,7 +9,8 @@ def parse_line(field_starts, field_ends, line, header = False):
     if header:
         return [line.strip('\n#')[s:e].strip() for s, e in zip(field_starts, field_ends)]
     else:
-        return [line.strip('\n#')[s:e+1].strip() for s, e in zip(field_starts, field_ends)]
+        if len(line.split(' ')[0]) < field_ends[0] - field_starts[0]:
+            return [line.strip('\n#')[s:e+1].strip() for s, e in zip(field_starts, field_ends)]
 
 
 def define_table(infile):
@@ -29,17 +30,18 @@ def read_tbl(tbl_file):
         records = []
         header, field_starts, field_ends = define_table(infile)
         line_parser = partial(parse_line, field_starts, field_ends)
-        if debug:
-            print(header)
-            print(field_starts, field_ends)
         for line_count, line in enumerate(infile):
             if not line.startswith('#'):
                 fields = line_parser(line)
-                record = {h:f for f, h in zip(fields, header)}
-                records.append(record)
-    return pd.DataFrame(records) 
+                if fields:
+                    record = {h:f for f, h in zip(fields, header)}
+                    records.append(record)
+    return pd.DataFrame(records) \
+            .assign(score = lambda d: d.score.str.extract('([0-9]+\.[0-9]+)$', expand=False)) \
+            .assign(score=lambda d: d.score.fillna('0').astype(float))
 
-def read_tbl(tbl_file, truncate=None):
+
+def read_tbl_old(tbl_file, truncate=None):
     with open(tbl_file) as infile:
         header = 'target name|accession|query name|accession_null|mdl|mdl from|mdl to'\
                 '|seq from|seq to|strand|trunc|pass|'\

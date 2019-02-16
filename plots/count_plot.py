@@ -19,7 +19,7 @@ from plotting_utils import label_sample, rename_sample, \
                         label_ce, rna_type_ce, \
                         figure_path
 
-label_order = ['Untreated','NaOH', 'DNase I', 'DNase I + Exo I',"DNase I - 3'P",'WGS-sim']
+label_order = ['Untreated','NaOH', 'WGS-sim', 'DNase I', 'DNase I + Exo I',"DNase I - 3'P"]
 
 
 metric_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/filtered_bam'
@@ -90,7 +90,7 @@ def plot_insert(ax, samples=['DNase I']):
     for lab, lab_df in df.groupby('label'):
         ax.plot(lab_df['isize'], 
                  lab_df['size_fraction'], 
-                 linewidth=3,
+                 linewidth=2,
                  label = lab,
                  alpha=0.7,
                  color = label_ce.encoder[lab])
@@ -124,7 +124,7 @@ def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type'):
     dedup_regex = ':dedup:' if dedup else ':all:'
     countplot_df = dedup_df \
         .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-'),'Mt', d[rna_group_type]))\
-        .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-T'),'tRNA', d[rna_group_type]))\
+        .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-T'),'Mt-tRNA', d[rna_group_type]))\
         .filter(regex = 'type|Qcf|QCF|sim')\
         .assign(grouped_type = lambda d: np.where(d[rna_group_type] == "No features", 'Unannotated', d[rna_group_type]))\
         .assign(grouped_type = lambda d: np.where(d[rna_group_type] == "rDNA", 'rRNA', d[rna_group_type]))\
@@ -163,12 +163,13 @@ def rename_rRNA(x):
         return x
 
 def plot_small_count_bar(ax):
+    #.pipe(lambda d: d[d.grouped_type.str.contains('sncRNA|snoRNA|tRNA|miRNA|rRNA|rDNA')])\
     count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
     small_df = pd.read_feather(count_file) \
         .query("dedup == 'dedup'")\
         .query('gene_type != "No features"')\
         .assign(grouped_type = lambda d: d.gene_type.map(change_gene_type)) \
-        .pipe(lambda d: d[d.grouped_type.str.contains('sncRNA|snoRNA|tRNA|miRNA|rRNA|rDNA')])\
+        .pipe(lambda d: d[d.grouped_type.str.contains('Other sncRNA')])\
         .pipe(lambda d: d[~d.gene_id.str.contains('^[21]8S')])\
         .assign(gene_id = lambda d: np.where(d.grouped_type.str.contains('rRNA'), 
                                             d.gene_id.map(rename_rRNA),

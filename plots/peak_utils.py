@@ -14,7 +14,6 @@ import glob
 import re
 from pybedtools import BedTool
 from plotting_utils import figure_path
-import matplotlib.pyplot as plt
 import seaborn as sns
 import mappy
 from tblout_parser import read_tbl
@@ -380,6 +379,7 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
         .apply(pick_lp) \
         .nlargest(top_n, y_val)
     rfam_labs = get_peak_rfam_annotation(lp)
+    rfam_labs['CASKIN2'] = 'Excised Structural intron RNA'
     assert(y_val in ['log10p','pileup'])
     name_conversion = {'RP11-958N24.2': 'PKD1P4-NPIPA8',
                 'RP11-1212A22.1':'NPIPA8',
@@ -593,26 +593,38 @@ def is_hb(row):
     return answer
 
 
+def anti_tblout():
+    tblout = read_tbl(peak_path + '/unfragmented.others.tblout') \
+            .groupby('query name', as_index=False)\
+            .apply(lambda d: d[d.score == d.score.max()])\
+            .query('strand == "+"') \
+            .filter(regex='name') \
+            .rename(columns = {'query name':'peakname',
+                                'target name':'rfam'})
+    if tblout.shape[0] != 0:
+        return tblout.assign(peakname = lambda d: d.peakname.str.split('_chr',expand=True).iloc[:,0])
+
+
 def plot_anti_bar(antisense_peaks, ax):
+    tblout = anti_tblout()
     anti_plot = antisense_peaks.nlargest(15, 'log10p')\
         .assign(antisense_gname = lambda d: np.where(d.antisense_gname == ".",
                                                     d.chrom + ':' + d.start.astype(str) + '-' + d.end.astype(str),
                                                     d.antisense_gname))\
         .assign(is_hb = lambda d: [is_hb(row) for i, row in d.iterrows()])\
-        .merge(read_tbl(peak_path + '/unfragmented.others.tblout') \
-                .groupby('query name', as_index=False)\
-                .apply(lambda d: d[d.score == d.score.max()])\
-                .query('strand == "+"') \
-                .filter(regex='name') \
-                .rename(columns = {'query name':'peakname',
-                                    'target name':'rfam'})\
-               .assign(peakname = lambda d: d.peakname.str.split('_chr',expand=True).iloc[:,0]),
-            on = 'peakname', how = 'left')\
-        .assign(rfam = lambda d: d.rfam.fillna('Others'))\
-        .assign(rfam = lambda d: np.where(d.is_hb=="HB", 'Hemaglobin', d.rfam))\
-        .assign(rfam = lambda d: np.where(d.rfam=="HBM", 'Hemaglobin', d.rfam))\
-        .assign(rfam = lambda d: np.where(d.rfam=="FHbp_thermometer", 'Others', d.rfam))\
-        .sort_values('log10p', ascending=False)
+    
+    if tblout:
+        anti_plot = anti_plot.merge(tblout,
+                on = 'peakname', how = 'left')
+    else:
+        anti_plot = anti_plot.assign(rfam = None)
+    
+    anti_plot = anti_plot.assign(rfam = lambda d: d.rfam.fillna('Other unannotated sncRNA'))\
+            .assign(rfam = lambda d: np.where(d.is_hb=="HB", 'Hemaglobin', d.rfam))\
+            .assign(rfam = lambda d: np.where(d.rfam=="HBM", 'Hemaglobin', d.rfam))\
+            .assign(rfam = lambda d: np.where(d.rfam=="FHbp_thermometer", 'Other unannotated sncRNA', d.rfam))\
+            .sort_values('log10p', ascending=False)
+
 
     anti_plot\
         .plot\

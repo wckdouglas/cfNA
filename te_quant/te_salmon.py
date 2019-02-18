@@ -11,6 +11,7 @@ SAMPLE_FOLDERS = glob.glob(PROJECT_PATH + '/*001')
 SAMPLE_FOLDERS = filter(lambda x: re.search('Q[cC][fF]', x), SAMPLE_FOLDERS)
 SAMPLE_FOLDERS = filter(lambda x: re.search('[aA]ll|N[aA]|L[0-9E]+|[fF]rag|Phos|Qcf11',x), SAMPLE_FOLDERS)
 SAMPLENAMES = map(os.path.basename, SAMPLE_FOLDERS)
+SAMPLENAMES = list(SAMPLENAMES)
 
 SALMON_TE = '/stor/work/Lambowitz/cdw2854/src/SalmonTE/SalmonTE.py'
 SALMON_TE_RESULT_PATH = PROJECT_PATH + '/salmonTE'
@@ -33,16 +34,14 @@ def do_test():
         sample_regex = '[aA]ll' if experiment == "untreated" else  'Q[cC][fF][0-9]+'
 
         table_name = SALMON_TE_RESULT_PATH + '/phenotype.csv'
-        sampleID = glob.glob(SALMON_TE_RESULT_PATH + '/Q*' )
-        sampleID = filter(lambda x: 'bam' not in x, sampleID)
-        SampleID = list(map(os.path.basename, sampleID ))
-        print(SampleID)
-        DataFrame({'SampleID': SampleID} ) \
+        colData = DataFrame({'SampleID': SAMPLENAMES} ) \
+            .assign(SampleID = lambda d: d.SampleID.str.replace('_R1_001',''))
             .pipe(lambda d: d[d.SampleID.str.contains('N[aA]|%s' %sample_regex )])\
             .assign(phenotype = lambda d: where(d.SampleID.str.contains('N[aA]'), 'control', 'RNA' ) ) \
-            .sort_values('phenotype')\
-            .to_csv(table_name,index=False )
+            .sort_values('phenotype')
+        colData.to_csv(table_name,index=False )
         copyfile(table_name, table_name.replace('.csv', '_'+experiment+'.csv'))
+        colData.rename(columns = {'phenotype':'condition'}).to_csv(SALMON_TE_RESULT_PATH + '/condition.csv')
 
 
         command = '{salmonTE} test --inpath={input} '\
@@ -72,18 +71,18 @@ def make_fq(SAMPLENAME):
     in_FQ1 = REPEAT_FQ1.format(SAMPLENAME = SAMPLENAME)
     in_FQ2 = REPEAT_FQ2.format(SAMPLENAME = SAMPLENAME)
 
-    out_FQ1 = SAMPLE_FQ1.format(SAMPLENAME = SAMPLENAME.replace('_R1_001',''))
-    out_FQ2 = SAMPLE_FQ2.format(SAMPLENAME = SAMPLENAME.replace('_R1_001',''))
+    out_FQ1 = SAMPLE_FQ1.format(SAMPLENAME = SAMPLENAME.replace('_R1_001','')).replace('.fq.gz','.fastq.gz')
+    out_FQ2 = SAMPLE_FQ2.format(SAMPLENAME = SAMPLENAME.replace('_R1_001','')).replace('.fq.gz','.fastq.gz')
 
     for _in, _out in zip([in_FQ1, in_FQ2], 
                          [out_FQ1, out_FQ2]):
         command = 'cp {in_f} {out_f}'.format(in_f = _in, out_f = _out)
-        print(command)
-        os.system(command)
+#        print(command)
+#        os.system(command)
 
     return '{} {}'.format(out_FQ1, out_FQ2)
 
 
-FQs = [make_fq(SAMPLENAME) for SAMPLENAME in SAMPLENAMES]
-TE_quant(FQs)
+#FQs = [make_fq(SAMPLENAME) for SAMPLENAME in SAMPLENAMES]
+#TE_quant(FQs)
 do_test()

@@ -48,7 +48,8 @@ class filter_process:
 
             three_prime = aln_end > (rna_end - self.buffer)
             mapped = not (aln1.is_unmapped and aln2.is_unmapped)
-            if not mapped and three_prime and template_length < self.small_RNA:
+            small_RNA = template_length < self.small_RNA
+            if mapped and three_prime and small_RNA:
                 yield aln1, aln2
 
 
@@ -62,7 +63,7 @@ class filter_process:
             three_prime = aln_end > (rna_end - self.buffer)
             mapped = not (aln1.is_unmapped and aln2.is_unmapped)
             five_prime = aln_start < self.buffer
-            if not mapped and three_prime and five_prime:
+            if mapped and three_prime and five_prime:
                 yield aln1, aln2
 
     def filter_alignments(self):

@@ -123,7 +123,7 @@ def filter_bed(tab_file, out_prefix, cov_exon, spliced_exons):
         .saveas()
    
     _filtered = _filtered \
-        .intersect(b = [cov_exon,spliced_exons], s=True, v=True) \
+        .intersect(b = [cov_exon,spliced_exons], v=True, s=True) \
         .saveas()
     
     write_stranded(BedTool(tab_file), out_prefix + '.unfiltered')

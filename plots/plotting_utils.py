@@ -136,45 +136,45 @@ if not os.path.isdir(figure_path):
 
 
 
-import networkx as nx
-from scipy.spatial import Delaunay
-
-def spring_layout(ax, data, annotations, colors, iterations = 50, k=None):
-    """
-    - data: coordinates of your points [(x1,y1), (x2,y2), ..., (xn,yn)]
-    - annotations: text for your annotation ['str_1', 'str_2', ..., 'str_n']
-    - colors: colors for each annotation ['color1', 'color2',... 'color_n']
-    - iterations: number of iterations for spring layout
-    - k: optimal distance between nodes
-    """
-    if k is None:
-        k = 1 / np.sqrt(len(data))
-    G = nx.Graph()
-    init_pos = {} # initial position
-    x, y = [e[0] for e in data], [e[1] for e in data]
-    xmin, xmax = min(x), max(x)
-    ymin, ymax = min(y), max(y)
-    tri = Delaunay(data)
-    for i, text in enumerate(annotations):
-        xy = data[i]
-        G.add_node(xy)
-        G.add_node(text)
-        G.add_edge(xy, text)
-        init_pos[xy] = xy
-        init_pos[text] = xy
-    for ijk in tri.simplices.copy():
-        edges = zip(ijk, ijk[1:])
-        for edge in edges:
-            G.add_edge(annotations[edge[0]], annotations[edge[1]])
-    pos = nx.spring_layout(G ,pos=init_pos, fixed=data, iterations=iterations,\
-    k=k)
-    if not colors:
-        colors = ['black'] * len(annotation)
-    for i, (name,color) in enumerate(zip(annotations, colors)):
-        if name:
-            xy = data[i]
-            xytext = pos[name] * [xmax-xmin, ymax-ymin] + [xmin, ymin]
-            ax.annotate(name, xy, 
-                xycoords='data', xytext=xytext, textcoords='data', color = color,\
-                arrowprops=dict(arrowstyle="->", connectionstyle="arc3", \
-                color=color))
+#import networkx as nx
+#from scipy.spatial import Delaunay
+#
+#def spring_layout(ax, data, annotations, colors, iterations = 50, k=None):
+#    """
+#    - data: coordinates of your points [(x1,y1), (x2,y2), ..., (xn,yn)]
+#    - annotations: text for your annotation ['str_1', 'str_2', ..., 'str_n']
+#    - colors: colors for each annotation ['color1', 'color2',... 'color_n']
+#    - iterations: number of iterations for spring layout
+#    - k: optimal distance between nodes
+#    """
+#    if k is None:
+#        k = 1 / np.sqrt(len(data))
+#    G = nx.Graph()
+#    init_pos = {} # initial position
+#    x, y = [e[0] for e in data], [e[1] for e in data]
+#    xmin, xmax = min(x), max(x)
+#    ymin, ymax = min(y), max(y)
+#    tri = Delaunay(data)
+#    for i, text in enumerate(annotations):
+#        xy = data[i]
+#        G.add_node(xy)
+#        G.add_node(text)
+#        G.add_edge(xy, text)
+#        init_pos[xy] = xy
+#        init_pos[text] = xy
+#    for ijk in tri.simplices.copy():
+#        edges = zip(ijk, ijk[1:])
+#        for edge in edges:
+#            G.add_edge(annotations[edge[0]], annotations[edge[1]])
+#    pos = nx.spring_layout(G ,pos=init_pos, fixed=data, iterations=iterations,\
+#    k=k)
+#    if not colors:
+#        colors = ['black'] * len(annotation)
+#    for i, (name,color) in enumerate(zip(annotations, colors)):
+#        if name:
+#            xy = data[i]
+#            xytext = pos[name] * [xmax-xmin, ymax-ymin] + [xmin, ymin]
+#            ax.annotate(name, xy, 
+#                xycoords='data', xytext=xytext, textcoords='data', color = color,\
+#                arrowprops=dict(arrowstyle="->", connectionstyle="arc3", \
+#                color=color))

@@ -184,12 +184,15 @@ rule cat_bam:
 
     params:
         THREADS = THREADS,
-        CAT_COMMAND = lambda w: cat_bam_command(w)
+        CAT_COMMAND = lambda w: cat_bam_command(w),
+        TEMP_DIR = SORT_BAM_TEMPLATE + '_TMP'
 
     shell:
-        '{params.CAT_COMMAND} /dev/stdout {input.BAMS} '\
+        'mkdir -p {params.TEMP_DIR} '
+        '; {params.CAT_COMMAND} /dev/stdout {input.BAMS} '\
         '| samtools view -b@ {params.THREADS} -F4 '\
-        '| sambamba sort -n -t {params.THREADS} -o {output.BAM} /dev/stdin'
+        '| sambamba sort -n -t {params.THREADS} --tmpdir {params.TEMP_DIR} -o {output.BAM} /dev/stdin'\
+        '; rm -rf {params.TEMP_DIR} '
 
 
 
@@ -199,19 +202,22 @@ rule tsFrag:
 
     params:
         FRAG_TYPE = lambda w: w.FRAG_TYPE,
-        THREADS = THREADS
+        THREADS = THREADS,
+        TEMP_DIR = FILTERED_tRNA_FRAG_BAM_TEMPLATE + '_tmp'
 
     output:
         FILTERED_tRNA_FRAG_BAM_TEMPLATE
 
     shell:
-        'cat {input} '\
+        'mkdir -p {params.TEMP_DIR} '\
+        '; cat {input} '\
         '| filter_soft_clip.py -i - --pe '\
         '| python filter_end.py -i - -o - --type {params.FRAG_TYPE} '\
         '| samtools view -h '\
         '| python ~/ngs_qc_plot/bam_viz.py '\
         '| samtools view -b '\
-        '| sambamba sort -t {params.THREADS} -o {output} /dev/stdin '
+        '| sambamba sort -t {params.THREADS} -o {output} --tmpdir {params.TEMP_DIR} /dev/stdin '\
+        '; rm -rf {params.TEMP_DIR} '
 
 
 rule tRNA_fragments:
@@ -227,13 +233,15 @@ rule tRNA_fragments:
         tRNA_FRAG_BAM_TEMPLATE
 
     shell:
-        'cat {params.REF} | egrep "^TR" --color=no '\
+        'mkdir -p {params.TEMP_DIR} '\
+        '; cat {params.REF} | egrep "^TR" --color=no '\
         '| bedtools pairtobed -abam {input} -b - -type both '\
         '| filter_soft_clip.py --pe -i - -o - '\
         '| bamtools filter -script filter.json '\
         '| python ~/ngs_qc_plot/bam_viz.py '\
         '| samtools view -b@ {params.THREADS} ' \
-        '| sambamba sort -t {params.THREADS} -o {output} /dev/stdin'
+        '| sambamba sort -t {params.THREADS} --tmpdir {params.TEMP_DIR}  -o {output} /dev/stdin'\
+        '; rm -rf {params.TEMP_DIR} '
 
 rule vt_yRNA_bam:
     input:
@@ -241,23 +249,28 @@ rule vt_yRNA_bam:
     params:
         THREADS = THREADS,
         REF = SMALL_RNA_BED
+        TEMP_DIR = VYRNA_BAM_TEMPLATE + '_tmp'
     output:
         VYRNA_BAM_TEMPLATE
     shell:
-        'cat {params.REF} | egrep "vault|RN[Y7]" --color=no '\
+        'mkdir -p {params.TEMP_DIR} '\
+        '; cat {params.REF} | egrep "vault|RN[Y7]" --color=no '\
         '| bedtools intersect -abam {input} -b - '\
         '| python ~/ngs_qc_plot/bam_viz.py '\
         '| samtools view -b@ {params.THREADS}' \
-        '| sambamba sort -t {params.THREADS} -o {output} /dev/stdin'
+        '| sambamba sort -t {params.THREADS} -o {output} --tmpdir {params.TEMP_DIR} /dev/stdin'
+        '; rm -rf {params.TEMP_DIR} '
         
         
 
 rule miRNA_bam:
     input:
         SORT_BAM_TEMPLATE
+
     params:
         THREADS = THREADS,
         BED = SMALL_RNA_BED
+
     output:
         MIRNA_BAM_TEMPLATE
     

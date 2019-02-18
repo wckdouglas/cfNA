@@ -6,6 +6,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import os 
+import random
 from scipy.stats import binom_test
 from scipy.stats import beta
 from scipy.special import betaln
@@ -167,10 +168,26 @@ def plot_salmonTE(exp_df, treatment, ax):
                      color = color)
     ax.set_title(treatment, size=15)
     
-    for i, row in plot_df.iterrows():
-        if row['pcolor'] == 'red' and ((treatment == "DNase" and row['log2FoldChange'] > 0) or  treatment!="DNase") :
-            ax.text(row['log2FoldChange'] * 1.05, row['log_padj'] * 1.05, 
-                    row['name'], color = 'red', fontsize=15)
+    xjust = 1
+    ys = 0
+    for i, row in plot_df\
+                .query('pcolor=="red"') \
+                .nlargest(5, 'log2FoldChange')\
+                .iterrows():
+        if xjust == 1:
+            xs = 0.1
+            ys = 0
+            xjust = 2
+        elif xjust == 2:
+            xs = -0.1
+            ys = 0
+            xjust = 3
+        elif xjust == 3:
+            ys = 0.1
+            xs = 0
+            xjust = 1
+        ax.text(row['log2FoldChange'] * (1+xs), row['log_padj'] * (1 + ys), 
+                row['name'], color = 'red', fontsize=15)
     ax.set_xlabel(r'$log_2$ Fold change ($\frac{%s}{NaOH}$)' %treatment)
     ax.set_ylabel(r'$log_2$(p-value)')
     if treatment == "DNase":

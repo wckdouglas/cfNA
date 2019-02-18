@@ -35,7 +35,7 @@ def do_test():
 
         table_name = SALMON_TE_RESULT_PATH + '/phenotype.csv'
         colData = DataFrame({'SampleID': SAMPLENAMES} ) \
-            .assign(SampleID = lambda d: d.SampleID.str.replace('_R1_001',''))
+            .assign(SampleID = lambda d: d.SampleID.str.replace('_R1_001',''))\
             .pipe(lambda d: d[d.SampleID.str.contains('N[aA]|%s' %sample_regex )])\
             .assign(phenotype = lambda d: where(d.SampleID.str.contains('N[aA]'), 'control', 'RNA' ) ) \
             .sort_values('phenotype')
@@ -46,7 +46,7 @@ def do_test():
 
         command = '{salmonTE} test --inpath={input} '\
                 '--outpath={output} '\
-                '--tabletype=csv --figtype=png'\
+                '--tabletype=csv --figtype=png --conditions "RNA,control" '\
                 .format(salmonTE = SALMON_TE,
                         input = SALMON_TE_RESULT_PATH,
                         output = SALMON_TE_RESULT_PATH + '/test_' + experiment)

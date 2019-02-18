@@ -18,6 +18,7 @@ RNA_FAI = os.environ['REF'] + '/hg19_ref/genes/{RNA_TYPE}.viz.genome'
 DEDUP_PARAM = ['total'] #'deduplicated'
 OUT_PATH = PROJECT_PATH + "/merged_bam/small_rna"
 OUT_BAM_TEMPLATE =  OUT_PATH +"/{TREATMENT}.{RNA_TYPE}.{DEDUP_PARAM}.bam"
+REV_OUT_BAM_TEMPLATE =  OUT_PATH +"/{TREATMENT}.{RNA_TYPE}.{DEDUP_PARAM}.reverse.bam"
 SORT_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.nameSorted.bam')
 SUBSAMPLE_BAM_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','.subsampled.bam')
 DEDUP_BAM = '{SAMPLE_FOLDER}/{RNA_TYPE}/aligned.sorted.deduplicated.bam'
@@ -76,6 +77,7 @@ RG_COMMAND = 'samtools addreplacerg -r ID:{params.ID} -r SM:{params.ID} '\
 rule all:
     input:
         expand(OUT_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS),
+        expand(REV_OUT_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS),
         expand(SUBSAMPLE_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = RNA_TYPES, TREATMENT = TREATMENTS),
         expand(MIRNA_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS),
         expand(VYRNA_BAM_TEMPLATE, DEDUP_PARAM = DEDUP_PARAM, RNA_TYPE = ['smallRNA'], TREATMENT = TREATMENTS, STRAND = STRANDS),
@@ -138,6 +140,27 @@ rule small_rna_bed:
         '> {output.BED}'\
         '; tabix -p bed -f {output.BED}'
 
+rule reverse_bam:
+    input:
+        BAM_FILE = OUT_BAM_TEMPLATE
+
+    params:
+        TMP_DIR = REV_OUT_BAM_TEMPLATE + '_tmp'
+
+    output:
+        BAM_FILE = REV_OUT_BAM_TEMPLATE
+
+    threads: THREADS
+    shell:
+        'mkdir -p {params.TMP_DIR} '\
+        '; bamtools filter -in {input} -script reverse_filter.json '\
+        '| python ~/ngs_qc_plot/bam_viz.py '\
+        '| samtools view -b@ {threads}' \
+        '| sambamba sort -t {threads} --show-progress '\
+        '-o {output.BAM_FILE} --tmpdir={params.TMP_DIR} /dev/stdin'\
+        '; rm -rf {params.TMP_DIR}'
+
+
 rule sort_bam:
     input:
         BAM_FILE = SORT_BAM_TEMPLATE
@@ -146,14 +169,17 @@ rule sort_bam:
         BAM_FILE = OUT_BAM_TEMPLATE
 
     params:
-        THREADS = THREADS
+        THREADS = THREADS,
+        TMP_DIR = OUT_BAM_TEMPLATE + '_tmp'
 
     shell:
-        'cat {input.BAM_FILE}' \
+        'mkdir -p {params.TMP_DIR} '\
+        '; cat {input.BAM_FILE}' \
         '| python ~/ngs_qc_plot/bam_viz.py '\
         '| samtools view -b@ {params.THREADS}' \
         '| sambamba sort -t {params.THREADS} --show-progress '\
-        '-o {output.BAM_FILE} /dev/stdin'
+        '-o {output.BAM_FILE} --tmpdir={params.TMP_DIR} /dev/stdin'\
+        '; rm -rf {params.TMP_DIR}'
 
 rule subsample_bam:
     input:
@@ -248,8 +274,9 @@ rule vt_yRNA_bam:
         SORT_BAM_TEMPLATE
     params:
         THREADS = THREADS,
-        REF = SMALL_RNA_BED
+        REF = SMALL_RNA_BED,
         TEMP_DIR = VYRNA_BAM_TEMPLATE + '_tmp'
+
     output:
         VYRNA_BAM_TEMPLATE
     shell:

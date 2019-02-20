@@ -12,11 +12,14 @@ MERGED_BED_PATH = BED_PATH + '/merged_bed'
 COV_PATH = MERGED_BED_PATH + '/coverage'
 STRANDED_BED_PATH = MERGED_BED_PATH + '/stranded'
 MACS2_PATH = MERGED_BED_PATH + '/MACS2'
+PEAK_READ_COUNT_PATH =MACS2_PATH + '/EV_count'
+EV_COUNT_FILE = PEAK_READ_COUNT_PATH + '/{TREATMENT}.tsv'
 GENOME_BAM = PROJECT_PATH + '/merged_bam/{TREATMENT}.bam'
 SPLICED_TABLE = PROJECT_PATH + '/merged_bam/{TREATMENT}.spliced.tsv.gz'
 SPLICED_EXON_TABLE = PROJECT_PATH + '/merged_bam/{TREATMENT}.spliced_exon.bed.gz'
 ANNOTATED_PEAK_PATH = MACS2_PATH + '/annotated' 
 ANNOTATED_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.tsv'
+CONFIDENT_PEAK = PEAK_READ_COUNT_PATH + '/{TREATMENT}.{FILTER}.tsv'
 ANNOTATION_TABLE = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz' 
 BED_TEMPLATE = BED_PATH + '/{SAMPLENAME}.bed.gz'
 BAM_TEMPLATE = PROJECT_PATH + '/{SAMPLENAME}/Combined/primary.bam'
@@ -49,6 +52,7 @@ TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|Exo|[DE][DE]', 'Frag', 'L[12]',
 
 STRANDS = ['fwd', 'rvs']
 TESTED_TREATMENT = ['unfragmented','all','MNase_EV','MNase_RNP','MNase_EV-RNP','EV','RNP','RNP-EV']
+EV_LIBS = list(filter(lambda x: re.search('EV|RNP', x), TESTED_TREATMENT ))
 regex_dict = {t:tr for t, tr in zip(TREATMENT, TREATMENT_REGEX)}
 def get_bed(wildcards):
     regex = regex_dict[wildcards.TREATMENT]
@@ -90,6 +94,32 @@ rule all:
         expand(FOLD_FILE, TREATMENT = ['unfragmented'], FILTER = ['filtered']),
         expand(PEAK_FA, TREATMENT = ['unfragmented'], RNA_TYPE = ['Long_RNA','RBP']),
         expand(INTRON_TAB, TREATMENT = TESTED_TREATMENT),
+        expand(EV_COUNT_FILE, TREATMENT = EV_LIBS),
+
+rule EV_counting:
+    input:
+        PEAK_FILE = CONFIDENT_PEAK.format(TREATMENT = 'unfragmented',
+                                        FILTER = 'filtered'),
+        BED = MERGED_BED_TEMPLATE
+    
+    output:
+        EV_COUNT_FILE
+
+    shell:
+        'python EV_peaks.py {input.PEAK_FILE} {input.BED} '\
+        '> {output}'
+
+rule filter_peak:
+    input:
+        ANNOTATED_PEAK
+    
+    output:
+        CONFIDENT_PEAK
+    
+    shell:
+        'cat {input} '\
+        "| csvtk filter2 -t -f '$sample_count >= 5 '"\
+        '> {output} '
 
 
 rule make_IGV:

@@ -37,9 +37,9 @@ FQ1_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','_R1.fq.gz')
 FQ2_TEMPLATE = FQ1_TEMPLATE.replace('_R1.fq.gz','_R2.fq.gz')
 THREADS=12
 RNA_TYPES = ['rRNA_mt','smallRNA']
-TREATMENTS = ['unfragmented','phosphatase','fragmented','HEK293']
+TREATMENTS = ['unfragmented','phosphatase','fragmented','HEK293','alkaline_hydrolysis']
 STRANDS = ['fwd','rvs']
-REGEXES = ['[Qq][cC][fF][0-9]+','[pP]hos[0-9]+','[fF]rag[0-9]+','GC']
+REGEXES = ['[Qq][cC][fF][0-9]+','[pP]hos[0-9]+','[fF]rag[0-9]+','GC','_[Nn][aA][0-9]+_']
 
 ## wildcard functions
 REGEX_DICT = {TREATMENT:REGEX for TREATMENT, REGEX in zip(TREATMENTS, REGEXES)}
@@ -154,8 +154,6 @@ rule reverse_bam:
     shell:
         'mkdir -p {params.TMP_DIR} '\
         '; bamtools filter -in {input} -script reverse_filter.json '\
-        '| python ~/ngs_qc_plot/bam_viz.py '\
-        '| samtools view -b@ {threads}' \
         '| sambamba sort -t {threads} --show-progress '\
         '-o {output.BAM_FILE} --tmpdir={params.TMP_DIR} /dev/stdin'\
         '; rm -rf {params.TMP_DIR}'
@@ -253,7 +251,7 @@ rule tRNA_fragments:
     params:
         THREADS = THREADS,
         REF = SMALL_RNA_BED,
-        TEMP_DIR = tRNA_FRAG_BAM_TEMPLATE
+        TEMP_DIR = tRNA_FRAG_BAM_TEMPLATE + '_tmp'
 
     output:
         tRNA_FRAG_BAM_TEMPLATE

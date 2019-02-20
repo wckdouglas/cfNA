@@ -38,8 +38,7 @@ PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND}.bam'
 chrM_FILTERED_BAM = COMBINED_BAM_PATH + '/dedup/unfragmented.chrM_filter.bam'
 chrM_BAM = COMBINED_BAM_PATH + '/dedup/chrM.bam'
 ECOLI_BAM = COMBINED_BAM_PATH + '/dedup/ecoli.bam'
-PAIRED_DEDUP_BAM = COMBINED_BAM_PATH + '/dedup/unfragmented.chrM_filter.dedup.bam'
-
+PAIRED_DEDUP_BAM = COMBINED_BAM_PATH + '/dedup/{TREATMENT}.chrM_filter.dedup.bam'
 SAMPLE_FOLDER = PROJECT_PATH + '/{SAMPLE}'
 PICARD_FOLDER = SAMPLE_FOLDER + '/picard'
 SAMPLE_PRIMARY_BAM = SAMPLE_FOLDER + '/Combined/primary.bam'
@@ -159,6 +158,12 @@ run_NameSort = 'sambamba sort -t {params.THREADS} -n --tmpdir={params.TMPDIR} '\
         '| samtools fixmate -@ {params.THREADS} - {output.NAME_SORT_BAM} '
 
 
+TREATMENTS = ['unfragmented','fragmented','phosphatase',
+                'polyA','untreated', 'alkaline_hydrolysis',
+                'exonuclease','high_salt','genome-sim',
+                'EV','RNP','RNP-EV','HEK293',
+                'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
+EV_TREATMENTS = list(filter(lambda x: re.search('unfragm|RNP|EV',x), TREATMENTS))
 rule all:
     input:
         expand(STRANDED_METRICS_TEMPLATE, 
@@ -169,7 +174,8 @@ rule all:
             STRAND = ['sense', 'antisense']),
         expand(COMBINED_METRICS_TEMPLATE,
                 TREATMENT = TREATMENTS),
-        PAIRED_DEDUP_BAM + '.bai'
+        expand(PAIRED_DEDUP_BAM + '.bai',
+            TREATMENT = EV_TREATMENTS)
 
 
 rule dedup_umi:

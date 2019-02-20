@@ -330,7 +330,7 @@ Rfam_labs = {'RnaseP':'black',
             'KRAS_3UTR':"#E69F00",
             'Hemaglobin':'red',
             'tRNA-like': '#245db7',
-            'Excised Structural intron RNA':'#f9bb00'}
+            'Excised structural intron RNA':'#f9bb00'}
 rfam_ce = color_encoder()
 rfam_ce.encoder = Rfam_labs
 def group_annotation(x):
@@ -346,7 +346,7 @@ def group_annotation(x):
 #        lab = 'IsrR'
     elif re.search('mir|MIR', x):
         lab = 'miRNA'
-        lab = 'Excised Structural intron RNA'
+        lab = 'Excised structural intron RNA'
     elif x == 'veev_FSE':
         lab = 'vRFE'
     return lab
@@ -379,7 +379,7 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
         .apply(pick_lp) \
         .nlargest(top_n, y_val)
     rfam_labs = get_peak_rfam_annotation(lp)
-    rfam_labs['CASKIN2'] = 'Excised Structural intron RNA'
+    rfam_labs['CASKIN2'] = 'Excised structural intron RNA'
     assert(y_val in ['log10p','pileup'])
     name_conversion = {'RP11-958N24.2': 'PKD1P4-NPIPA8',
                 'RP11-1212A22.1':'NPIPA8',
@@ -597,7 +597,6 @@ def anti_tblout():
     tblout = read_tbl(peak_path + '/unfragmented.others.tblout') \
             .groupby('query name', as_index=False)\
             .apply(lambda d: d[d.score == d.score.max()])\
-            .query('strand == "+"') \
             .filter(regex='name') \
             .rename(columns = {'query name':'peakname',
                                 'target name':'rfam'})

@@ -161,9 +161,9 @@ run_NameSort = 'sambamba sort -t {params.THREADS} -n --tmpdir={params.TMPDIR} '\
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
                 'exonuclease','high_salt','genome-sim',
-                'EV','RNP','RNP-EV','HEK293',
+                'EV','RNP','EV-RNP','HEK293',
                 'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
-EV_TREATMENTS = list(filter(lambda x: re.search('unfragm|RNP|EV',x), TREATMENTS))
+EV_TREATMENTS = list(filter(lambda x: re.search('unfragm|RNP|EV|high',x), TREATMENTS))
 rule all:
     input:
         expand(STRANDED_METRICS_TEMPLATE, 

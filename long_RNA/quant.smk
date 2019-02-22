@@ -39,11 +39,13 @@ def get_LIBTYPE(wildcards):
 
 RNA_TYPES = ['all','protein']
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo', '[fF]rag[0-9]+','[pP]hos',
-                  'L[1234]','^PPF4','^PPF10','^PPCEV',
-                    '^MPF4','^MPF10','^MPCEV']
+                    '^MPF4','^MPF10','^MPCEV',
+                    '^PPF4','^PPF10','^PPCEV',
+                    'L[1234]']
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
-                'polyA','EV','RNP','RNP-EV',
-                'MNase_EV','MNase_RNP','MNase_RNP-EV']
+                'EV','RNP','RNP-EV',
+                'MNase_EV','MNase_RNP','MNase_RNP-EV',
+                'polyA']
 
 TREATMENTS_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
 #print(TREATMENTS_regex_dict)

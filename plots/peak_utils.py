@@ -328,7 +328,7 @@ Rfam_labs = {'RnaseP':'black',
             'Unannotated sncRNA':"#009E73", 
             'ToxI':"#56B4E9",
             'KRAS_3UTR':"#E69F00",
-            'Hemaglobin':'red',
+            'Hemoglobin':'red',
             'tRNA-like RNA': '#ad1b34',
             'rRNA':'#030544',
             'Excised structured intron RNA':'#f78d02'}
@@ -585,13 +585,18 @@ chr16,203891,216767,HBM
 chr16,230452,231180,HBQ1'''
 HB_genes = pd.read_csv(io.StringIO(HB_genes),
                       names = ['chrom','start', 'end', 'HB'])
-def is_hb(row):
+def is_hb(row, return_name = False):
     answer = 'Not HB'
+    HB_name = ''
     if row['chrom'] in HB_genes.chrom.tolist():
         hb_chrom = HB_genes.query('chrom =="%s"' %row['chrom'])
         if any(max(hb_row['start'], row['start']) <= min(hb_row['end'],row['end']) for i, hb_row in hb_chrom.iterrows()):
             answer = 'HB'
-    return answer
+            HB_name = [hb_row['HB'] for i, hb_row in hb_chrom.iterrows() if max(hb_row['start'], row['start']) <= min(hb_row['end'],row['end'])]
+            
+    return answer if not return_name else HB_name[0]
+
+
 
 
 def anti_tblout():
@@ -605,14 +610,21 @@ def anti_tblout():
     if tblout.shape[0] != 0:
         return tblout.assign(peakname = lambda d: d.peakname.str.split('_chr',expand=True).iloc[:,0])
 
+def rename_hb(row):
+    if row['hb'] == 'HB':
+        gn = is_hb(row, return_name=True)
+    else:
+        gn = row['antisense_gname']
+    return gn
 
-def plot_anti_bar(antisense_peaks, ax):
+
+def plot_anti_bar(antisense_peaks, ax, bbox = (1.2,-0.3)):
     tblout = anti_tblout()
     anti_plot = antisense_peaks.nlargest(15, 'log10p')\
         .assign(antisense_gname = lambda d: np.where(d.antisense_gname == ".",
                                                     d.chrom + ':' + d.start.astype(str) + '-' + d.end.astype(str),
                                                     d.antisense_gname))\
-        .assign(is_hb = lambda d: [is_hb(row) for i, row in d.iterrows()])\
+        .assign(hb = lambda d: [is_hb(row) for i, row in d.iterrows()])\
     
     if tblout is not None:
         anti_plot = anti_plot.merge(tblout,
@@ -621,8 +633,9 @@ def plot_anti_bar(antisense_peaks, ax):
         anti_plot = anti_plot.assign(rfam = None)
     
     anti_plot = anti_plot.assign(rfam = lambda d: d.rfam.fillna('Unannotated sncRNA'))\
-            .assign(rfam = lambda d: np.where(d.is_hb=="HB", 'Hemaglobin', d.rfam))\
-            .assign(rfam = lambda d: np.where(d.rfam=="HBM", 'Hemaglobin', d.rfam))\
+            .assign(rfam = lambda d: np.where(d.hb=="HB", 'Hemoglobin', d.rfam))\
+            .assign(antisense_gname = lambda d: [rename_hb(row) for i, row in d.iterrows()])\
+            .assign(rfam = lambda d: np.where(d.rfam=="HBM", 'Hemoglobin', d.rfam))\
             .assign(rfam = lambda d: np.where(d.rfam=="FHbp_thermometer", 'Unannotated sncRNA', d.rfam))\
             .assign(rfam = lambda d: np.where((d.chrom == 'chr13') & (d.start > 57262600) & (d.end < 57262700),
                                                 'rRNA',
@@ -653,7 +666,7 @@ def plot_anti_bar(antisense_peaks, ax):
     plot_ce.encoder = Rfam_labs.copy()
     plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
     plot_ce.show_legend(ax, frameon=False, fontsize=15,
-                        bbox_to_anchor=(1.2,-0.3))
+                        bbox_to_anchor=bbox)
 
 
 

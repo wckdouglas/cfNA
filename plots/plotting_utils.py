@@ -63,15 +63,15 @@ def label_sample(x, salt = False):
     elif re.search('MPF10', x):
         return 'RNP'
     elif re.search('MPCEV', x):
-        return 'RNP+EV'
+        return 'Crude'
     elif re.search('^GC', x):
         return 'HEK293'
     elif re.search('PPF4', x):
-        return 'MNase EV'
+        return 'EV (MNase)'
     elif re.search('PPF10', x):
-        return 'MNase RNP'
+        return 'RNP (MNase)'
     elif re.search('PPCEV', x):
-        return 'MNase EV+RNP'
+        return 'Crude (MNase)'
     elif re.search('[Qq][cC][Ff][0-9]+|[uU]nf', x):
         if salt:
             return 'Low salt (200mM)'

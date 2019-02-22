@@ -173,7 +173,7 @@ def plot_salmonTE(exp_df, treatment, ax):
     texts = []
     for i, row in plot_df\
                 .query('pcolor=="red"') \
-                .nlargest(5, 'log2FoldChange')\
+                .nlargest(10, 'log2FoldChange')\
                 .iterrows():
         if xjust == 1:
             xs = 0.1

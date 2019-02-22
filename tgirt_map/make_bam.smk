@@ -35,9 +35,9 @@ COMBINED_FILTERED_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.bam'
 FILTERED_STRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.protein.{STRAND}.bam'
 FILTERED_PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND}_{STRAND}.bam'
 PMSTRAND_BAM_TEMPLATE = FILTER_BAM_PATH + '/{TREATMENT}.{PMSTRAND}.bam'
-chrM_FILTERED_BAM = COMBINED_BAM_PATH + '/dedup/unfragmented.chrM_filter.bam'
-chrM_BAM = COMBINED_BAM_PATH + '/dedup/chrM.bam'
-ECOLI_BAM = COMBINED_BAM_PATH + '/dedup/ecoli.bam'
+chrM_FILTERED_BAM = COMBINED_BAM_PATH + '/dedup/{TREATMENT}.chrM_filter.bam'
+chrM_BAM = COMBINED_BAM_PATH + '/dedup/{TREATMENT}.chrM.bam'
+ECOLI_BAM = COMBINED_BAM_PATH + '/dedup/{TREATMENT}.ecoli.bam'
 PAIRED_DEDUP_BAM = COMBINED_BAM_PATH + '/dedup/{TREATMENT}.chrM_filter.dedup.bam'
 SAMPLE_FOLDER = PROJECT_PATH + '/{SAMPLE}'
 PICARD_FOLDER = SAMPLE_FOLDER + '/picard'
@@ -61,7 +61,7 @@ TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos',
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
                 'exonuclease','high_salt','genome-sim',
-                'EV','RNP','RNP-EV','HEK293',
+                'EV','RNP','EV-RNP','HEK293',
                 'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
 treatment_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
 def select_sample(wildcards, return_count = False):
@@ -204,7 +204,7 @@ rule indexing:
 
 rule chrM_filter_bam:
     input:
-        BAM = expand(COMBINED_NAME_SORT_BAM_TEMPLATE, TREATMENT = ['unfragmented'])
+        BAM = COMBINED_NAME_SORT_BAM_TEMPLATE
 
     threads: THREADS
     params:

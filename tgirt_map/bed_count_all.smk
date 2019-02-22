@@ -43,7 +43,7 @@ TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos',
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
                 'exonuclease','high_salt','genome-sim',
-                'EV','RNP','RNP-EV','HEK293',
+                'EV','RNP','EV-RNP','HEK293',
                 'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
 
 

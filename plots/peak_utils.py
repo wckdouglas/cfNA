@@ -319,25 +319,26 @@ def plot_rbp(peaks, ax, ce, top_n = 10):
 
 
 Rfam_labs = {'RnaseP':'black',
-            'tRNA': "#999999",
+            'tRNA': "#efa002",
             'snoRNA':"#CC79A7", 
             'IsrR': "#D55E00",
             'miRNA': "#0072B2",
             'vRFE': "#F0E442",
             'Others':"#009E73", 
-            'Other unannotated sncRNA':"#009E73", 
+            'Unannotated sncRNA':"#009E73", 
             'ToxI':"#56B4E9",
             'KRAS_3UTR':"#E69F00",
             'Hemaglobin':'red',
-            'tRNA-like': '#245db7',
-            'Excised structural intron RNA':'#f9bb00'}
+            'tRNA-like RNA': '#ad1b34',
+            'rRNA':'#030544',
+            'Excised structured intron RNA':'#f78d02'}
 rfam_ce = color_encoder()
 rfam_ce.encoder = Rfam_labs
 def group_annotation(x):
-    lab = 'Other unannotated sncRNA'
+    lab = 'Unannotated sncRNA'
     if re.search('tRNA', x):
         lab = 'tRNA'
-        lab = 'tRNA-like'
+        lab = 'tRNA-like RNA'
 #    elif re.search('RNaseP',x):
 #        lab = Rfam_labs[0]
 #    elif re.search('[sS][nN][oO]|[sS][nN][rR]|HACA', x):
@@ -346,7 +347,7 @@ def group_annotation(x):
 #        lab = 'IsrR'
     elif re.search('mir|MIR', x):
         lab = 'miRNA'
-        lab = 'Excised structural intron RNA'
+        lab = 'Excised structured intron RNA'
     elif x == 'veev_FSE':
         lab = 'vRFE'
     return lab
@@ -379,7 +380,7 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
         .apply(pick_lp) \
         .nlargest(top_n, y_val)
     rfam_labs = get_peak_rfam_annotation(lp)
-    rfam_labs['CASKIN2'] = 'Excised structural intron RNA'
+    rfam_labs['CASKIN2'] = 'Excised structured intron RNA'
     assert(y_val in ['log10p','pileup'])
     name_conversion = {'RP11-958N24.2': 'PKD1P4-NPIPA8',
                 'RP11-1212A22.1':'NPIPA8',
@@ -595,6 +596,7 @@ def is_hb(row):
 
 def anti_tblout():
     tblout = read_tbl(peak_path + '/unfragmented.others.tblout') \
+            .query('strand == "+"')\
             .groupby('query name', as_index=False)\
             .apply(lambda d: d[d.score == d.score.max()])\
             .filter(regex='name') \
@@ -612,16 +614,19 @@ def plot_anti_bar(antisense_peaks, ax):
                                                     d.antisense_gname))\
         .assign(is_hb = lambda d: [is_hb(row) for i, row in d.iterrows()])\
     
-    if tblout:
+    if tblout is not None:
         anti_plot = anti_plot.merge(tblout,
                 on = 'peakname', how = 'left')
     else:
         anti_plot = anti_plot.assign(rfam = None)
     
-    anti_plot = anti_plot.assign(rfam = lambda d: d.rfam.fillna('Other unannotated sncRNA'))\
+    anti_plot = anti_plot.assign(rfam = lambda d: d.rfam.fillna('Unannotated sncRNA'))\
             .assign(rfam = lambda d: np.where(d.is_hb=="HB", 'Hemaglobin', d.rfam))\
             .assign(rfam = lambda d: np.where(d.rfam=="HBM", 'Hemaglobin', d.rfam))\
-            .assign(rfam = lambda d: np.where(d.rfam=="FHbp_thermometer", 'Other unannotated sncRNA', d.rfam))\
+            .assign(rfam = lambda d: np.where(d.rfam=="FHbp_thermometer", 'Unannotated sncRNA', d.rfam))\
+            .assign(rfam = lambda d: np.where((d.chrom == 'chr13') & (d.start > 57262600) & (d.end < 57262700),
+                                                'rRNA',
+                                                d.rfam ))\
             .sort_values('log10p', ascending=False)
 
 
@@ -648,7 +653,7 @@ def plot_anti_bar(antisense_peaks, ax):
     plot_ce.encoder = Rfam_labs.copy()
     plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
     plot_ce.show_legend(ax, frameon=False, fontsize=15,
-                        bbox_to_anchor=(-0.1,0))
+                        bbox_to_anchor=(1.2,-0.3))
 
 
 

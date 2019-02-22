@@ -18,6 +18,7 @@ import os
 from plotting_utils import label_sample, rename_sample, \
                         label_ce, rna_type_ce, \
                         figure_path
+from functools import lru_cache
 
 label_order = ['Untreated','NaOH', 'WGS-sim', 'DNase I', 'DNase I + Exo I',"DNase I - 3'P"]
 
@@ -116,6 +117,7 @@ def recat_rRNA(gname, gtype):
     else:
         return gtype
 
+@lru_cache(maxsize=128, typed=False)
 def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type'):
     count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather'
     dedup_df = pd.read_feather(count_file)
@@ -177,6 +179,9 @@ def plot_small_count_bar(ax):
         .assign(gene_type = lambda d: np.where(d.grouped_type.str.contains('rRNA'), 
                                             d.gene_id.map(rename_rRNA),
                                             d.gene_type))\
+        .assign(gene_type = lambda d: np.where(d.gene_type.str.contains('Y-RNA'), 
+                                            'Y RNA',
+                                            d.gene_type))\
         .assign(gene_id = lambda d: np.where(d.gene_type=="Mt_tRNA",d.gene_name, d.gene_id))\
         .assign(gene_type = lambda d: np.where((d.gene_type=="tRNA") & (d.gene_id.str.contains('^MT')),
                                                 'Mt_tRNA',
@@ -197,12 +202,10 @@ def plot_small_count_bar(ax):
         .pipe(pd.pivot_table, index=['treatment'], columns = 'gene_type', values = 'value')\
         .reindex(label_order)
 
-    small_RNA_color= ['#f58231','#e6194b', '#3cb44b', '#ffe119', '#1f78b4', '#6a3d9a', 
-                        #(5.8S, 5S, 7SK, 7SL, Mt-tRNA, nucleo-tRNA)
+    #(7sk,7sl,Y-RNA, miscRNA,piRNA,snRNA,vaultRNA)
+    small_RNA_color= ['#f58231','#e6194b', '#3cb44b', '#ffe119', '#ba0ace', '#6a3d9a', 
                         '#03A8FB', '#F8BF6C', '#CAF5CB', '#fabebe', 
-                        #(Y-RNA, miRNA, miscRNA, piRNA)
-                        '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3', 
-                        #(snRNA, snoRNA, vaultRNA)
+                        '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#F958FC', 
                         '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000']
     small_df\
         .plot.bar(stacked=True,

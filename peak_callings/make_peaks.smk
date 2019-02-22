@@ -13,13 +13,13 @@ COV_PATH = MERGED_BED_PATH + '/coverage'
 STRANDED_BED_PATH = MERGED_BED_PATH + '/stranded'
 MACS2_PATH = MERGED_BED_PATH + '/MACS2'
 PEAK_READ_COUNT_PATH =MACS2_PATH + '/EV_count'
-EV_COUNT_FILE = PEAK_READ_COUNT_PATH + '/{TREATMENT}.tsv'
+EV_COUNT_FILE = PEAK_READ_COUNT_PATH + '/{TREATMENT}.{FILTER}.ev_count.tsv'
 GENOME_BAM = PROJECT_PATH + '/merged_bam/{TREATMENT}.bam'
 SPLICED_TABLE = PROJECT_PATH + '/merged_bam/{TREATMENT}.spliced.tsv.gz'
 SPLICED_EXON_TABLE = PROJECT_PATH + '/merged_bam/{TREATMENT}.spliced_exon.bed.gz'
 ANNOTATED_PEAK_PATH = MACS2_PATH + '/annotated' 
 ANNOTATED_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.tsv'
-CONFIDENT_PEAK = PEAK_READ_COUNT_PATH + '/{TREATMENT}.{FILTER}.tsv'
+CONFIDENT_PEAK = MACS2_PATH + '/{TREATMENT}.{FILTER}.confident.tsv'
 ANNOTATION_TABLE = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz' 
 BED_TEMPLATE = BED_PATH + '/{SAMPLENAME}.bed.gz'
 BAM_TEMPLATE = PROJECT_PATH + '/{SAMPLENAME}/Combined/primary.bam'
@@ -43,15 +43,15 @@ THREADS = 24
 # set up treatments
 TREATMENT = ['unfragmented','fragmented','polyA',
             'alkaline', 'all','exonuclease',
-            'EV','RNP','RNP-EV',
-            'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
+            'EV','RNP','EV-RNP',
+            'MNase_EV','MNase_RNP','MNase_EV-RNP']
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|Exo|[DE][DE]', 'Frag', 'L[12]', 
                 'N[aA][0-9]+', 'All','Exo|[DE][DE]',
-                'MPF4','MPF10','MPCEV',
-                'PPF4','PPF10','PPCEV']
+                '^MPF4','^MPF10','^MPCEV',
+                '^PPF4','^PPF10','^PPCEV']
 
 STRANDS = ['fwd', 'rvs']
-TESTED_TREATMENT = ['unfragmented','all','MNase_EV','MNase_RNP','MNase_EV-RNP','EV','RNP','RNP-EV']
+TESTED_TREATMENT = ['unfragmented','all','MNase_EV','MNase_RNP','MNase_EV-RNP','EV','RNP','EV-RNP']
 EV_LIBS = list(filter(lambda x: re.search('EV|RNP', x), TESTED_TREATMENT ))
 regex_dict = {t:tr for t, tr in zip(TREATMENT, TREATMENT_REGEX)}
 def get_bed(wildcards):
@@ -88,18 +88,18 @@ rule all:
         expand(STRANDED_COV_FILE_TEMPLATE, STRAND = STRANDS, TREATMENT = TESTED_TREATMENT),
         UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline'),
         expand(ANNOTATED_PEAK, 
-                TREATMENT = ['unfragmented','EV','RNP','RNP-EV','MNase_EV',
+                TREATMENT = ['unfragmented','EV','RNP','EV-RNP','MNase_EV',
                                             'MNase_RNP','MNase_EV-RNP'], 
                 FILTER = FILTERS),
         expand(FOLD_FILE, TREATMENT = ['unfragmented'], FILTER = ['filtered']),
         expand(PEAK_FA, TREATMENT = ['unfragmented'], RNA_TYPE = ['Long_RNA','RBP']),
         expand(INTRON_TAB, TREATMENT = TESTED_TREATMENT),
-        expand(EV_COUNT_FILE, TREATMENT = EV_LIBS),
+        expand(EV_COUNT_FILE, TREATMENT = EV_LIBS, FILTER=FILTERS),
 
 rule EV_counting:
     input:
         PEAK_FILE = CONFIDENT_PEAK.format(TREATMENT = 'unfragmented',
-                                        FILTER = 'filtered'),
+                                        FILTER = '{FILTER}'),
         BED = MERGED_BED_TEMPLATE
     
     output:

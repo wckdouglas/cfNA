@@ -170,6 +170,7 @@ def plot_salmonTE(exp_df, treatment, ax):
     
     xjust = 1
     ys = 0
+    texts = []
     for i, row in plot_df\
                 .query('pcolor=="red"') \
                 .nlargest(5, 'log2FoldChange')\
@@ -186,8 +187,10 @@ def plot_salmonTE(exp_df, treatment, ax):
             ys = 0.1
             xs = 0
             xjust = 1
-        ax.text(row['log2FoldChange'] * (1+xs), row['log_padj'] * (1 + ys), 
+        text = ax.text(row['log2FoldChange'], 
+                       row['log_padj'] , 
                 row['name'], color = 'red', fontsize=15)
+        texts.append(text)
     ax.set_xlabel(r'$log_2$ Fold change ($\frac{%s}{NaOH}$)' %treatment)
     ax.set_ylabel(r'$log_2$(p-value)')
     if treatment == "DNase":
@@ -195,4 +198,5 @@ def plot_salmonTE(exp_df, treatment, ax):
                    plot_df.log2FoldChange.max() * 1.4)
     ax.vlines(x = 0, ymin=0,ymax = 300, color = 'gray', alpha=0.5, linestyles=':')
     ax.set_ylim(0, plot_df.log_padj.max() * 1.1)
+    return texts
        

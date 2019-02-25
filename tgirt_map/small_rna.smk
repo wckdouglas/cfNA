@@ -37,9 +37,11 @@ FQ1_TEMPLATE = OUT_BAM_TEMPLATE.replace('.bam','_R1.fq.gz')
 FQ2_TEMPLATE = FQ1_TEMPLATE.replace('_R1.fq.gz','_R2.fq.gz')
 THREADS=12
 RNA_TYPES = ['rRNA_mt','smallRNA']
-TREATMENTS = ['unfragmented','phosphatase','fragmented','HEK293','alkaline_hydrolysis']
+TREATMENTS = ['unfragmented','phosphatase','fragmented','HEK293','alkaline_hydrolysis',
+            'MNase_EV','MNase_RNP','MNase_EV-RNP']
 STRANDS = ['fwd','rvs']
-REGEXES = ['[Qq][cC][fF][0-9]+','[pP]hos[0-9]+','[fF]rag[0-9]+','GC','_[Nn][aA][0-9]+_']
+REGEXES = ['[Qq][cC][fF][0-9]+','[pP]hos[0-9]+','[fF]rag[0-9]+','GC','_[Nn][aA][0-9]+_',
+            'PPF4','PPF10','PPCEV']
 
 ## wildcard functions
 REGEX_DICT = {TREATMENT:REGEX for TREATMENT, REGEX in zip(TREATMENTS, REGEXES)}

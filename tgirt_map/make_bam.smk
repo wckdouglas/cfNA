@@ -5,7 +5,7 @@ from collections import Counter
 
 
 wildcard_constraints:
-    TREATMENT = '[a-zA-Z-_0-9]+',
+    TREATMENT = '[a-zA-Z\-_0-9]+',
     STRAND = 'antisense|sense',
     PMSTRAND = '[plusmin]+'
 

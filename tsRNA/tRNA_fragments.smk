@@ -1,7 +1,7 @@
 import glob
 
 wildcard_constraints:
-    TREATMENT = '[A-Za-z0-9]+'
+    TREATMENT = '[A-Za-z0-9\-_]+'
 
 BAM_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/small_rna'
 SUFFIX ='.smallRNA.total.nameSorted.bam'

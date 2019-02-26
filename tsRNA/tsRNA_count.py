@@ -128,7 +128,7 @@ def main():
     project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
     sample_folders = glob.glob(project_path + '/*001')
     sample_folders = filter(lambda x: not re.search('genome-sim|L[0-9E]+',x), sample_folders)
-    sample_folders = filter(lambda x: re.search('[qQ][cC][fF]|GC|EV|PF', x), sample_folders)
+    sample_folders = filter(lambda x: re.search('[qQ][cC][fF]|GC|MP|PP', x), sample_folders)
     
     force = '-f' in sys.argv
     count_func = partial(count_ts, force)

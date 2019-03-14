@@ -77,12 +77,12 @@ def make_fq(SAMPLENAME):
     for _in, _out in zip([in_FQ1, in_FQ2], 
                          [out_FQ1, out_FQ2]):
         command = 'cp {in_f} {out_f}'.format(in_f = _in, out_f = _out)
-#        print(command)
-#        os.system(command)
+        print(command)
+        os.system(command)
 
     return '{} {}'.format(out_FQ1, out_FQ2)
 
 
-#FQs = [make_fq(SAMPLENAME) for SAMPLENAME in SAMPLENAMES]
-#TE_quant(FQs)
+FQs = [make_fq(SAMPLENAME) for SAMPLENAME in SAMPLENAMES]
+TE_quant(FQs)
 do_test()

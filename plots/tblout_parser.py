@@ -3,6 +3,8 @@
 import pandas as pd
 import numpy as np
 from functools import partial
+import re
+import io
 
 
 def parse_line(field_starts, field_ends, line, header = False):
@@ -59,6 +61,27 @@ def read_tbl_old(tbl_file, truncate=None):
         
                 
 
+def read_tbl(tbl_file):
+    lines = []
+    header = ['target name',
+            'accession',
+            'query name',
+            'accession strand',
+            'mdl',
+            'mdl from',   
+            'mdl to',
+            'seq from',
+            'seq to',
+            'strand',
+            'trunc',
+            'pass', 'gc','bias', 
+            'score','E-value','inc', 'description of target']
+    with open(tbl_file) as infile:
+        for line in infile:
+            if not line.startswith('#'):
+                line = line.strip('#').strip()
+                lines.append(re.sub('\s+','\t', line))
+    return pd.read_table(io.StringIO('\n'.join(lines)), names = header)
 
 
                 

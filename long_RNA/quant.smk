@@ -41,11 +41,11 @@ RNA_TYPES = ['all','protein']
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo', '[fF]rag[0-9]+','[pP]hos',
                     '^MPF4','^MPF10','^MPCEV',
                     '^PPF4','^PPF10','^PPCEV',
-                    'L[1234]']
+                    'L[1234]','HS[0-9]+']
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'EV','RNP','RNP-EV',
                 'MNase_EV','MNase_RNP','MNase_RNP-EV',
-                'polyA']
+                'polyA','high_salt']
 
 TREATMENTS_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
 #print(TREATMENTS_regex_dict)

@@ -189,9 +189,9 @@ def plot_peak_strand(peaks, ax):
 
 def change_annotation(lab):
     if 'RBP' in lab:
-        return lab.replace('RBP','Long RNA (RBP)')
+        return lab.replace('RBP','Long RNA (RBP-binding sites)')
     elif 'Long RNA' in lab:
-        return lab.replace('Long RNA', 'Long RNA (narrow peak)')
+        return lab.replace('Long RNA', 'Long RNA (other narrow peaks)')
     else:
         return lab
 

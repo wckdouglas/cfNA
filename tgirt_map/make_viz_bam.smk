@@ -6,7 +6,7 @@ sncRNA_bam = out_path + '/{TREATMENT}_sncRNA.bam'
 out_bam = out_path + '/{TREATMENT}_viz.bam'
 TREATMENTS = ['unfragmented','polyA',
             'EV','RNP','RNP-EV',
-            'MNase_EV','MNase_RNP','MNase_EV-RNP']
+            'MNase_EV','MNase_RNP','MNase_EV-RNP','high_salt']
 
 
 rule all:

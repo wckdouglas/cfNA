@@ -186,6 +186,9 @@ def plot_small_count_bar(ax):
         .assign(gene_type = lambda d: np.where((d.gene_type=="tRNA") & (d.gene_id.str.contains('^MT')),
                                                 'Mt_tRNA',
                                                 d.gene_type))\
+        .assign(gene_type = lambda d: np.where(d.gene_type=="vaultRNA",
+                                                'vault RNA',
+                                                d.gene_type))\
         .assign(gene_type = lambda d: d.gene_type.str.replace('^tRNA','Nucleo-tRNA'))\
         .pipe(lambda d: d[~d.gene_type.str.contains('^ENSG')])\
         .pipe(lambda d: d[~d.gene_id.str.contains('tRNA')])\

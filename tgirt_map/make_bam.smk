@@ -49,7 +49,9 @@ SAMPLE_NAME_SORT_BAM = SAMPLE_FOLDER + '/Combined/primary.mark_duplicated.name_s
 SAMPLE_FILTERED_STRAND_BAM_TEMPLATE = PICARD_FOLDER + '/protein.{STRAND}.bam'
 SAMPLE_FILTERED_PMSTRAND_BAM_TEMPLATE = PICARD_FOLDER + '/protein.{PMSTRAND}_{STRAND}.bam'
 SAMPLE_PMSTRAND_BAM_TEMPLATE = PICARD_FOLDER + '/protein.{PMSTRAND}.bam'
-SAMPLE_METRIC_TEMPLATE = PICARD_FOLDER + '/protein.{STRAND}.RNA_Metrics'
+SAMPLE_STRAND_METRIC_TEMPLATE = PICARD_FOLDER + '/protein.{STRAND}.RNA_Metrics'
+SAMPLE_PROTEIN_BAM = PICARD_FOLDER + '/protein.bam'
+SAMPLE_METRIC_TEMPLATE = PICARD_FOLDER + '/protein.RNA_Metrics'
 
 
 # for combining samples
@@ -169,9 +171,11 @@ rule all:
         expand(STRANDED_METRICS_TEMPLATE, 
                 TREATMENT = TREATMENTS,
                 STRAND = ['sense', 'antisense']),
-        expand(SAMPLE_METRIC_TEMPLATE,
+        expand(SAMPLE_STRAND_METRIC_TEMPLATE,
             SAMPLE = SAMPLE_NAMES,
             STRAND = ['sense', 'antisense']),
+        expand(SAMPLE_METRIC_TEMPLATE,
+            SAMPLE = SAMPLE_NAMES),
         expand(COMBINED_METRICS_TEMPLATE,
                 TREATMENT = TREATMENTS),
         expand(PAIRED_DEDUP_BAM + '.bai',
@@ -435,7 +439,7 @@ rule sort_bam_sample:
 
 rule RNAseqPICARD_sample:
     input:
-        BAM = SAMPLE_FILTERED_STRAND_BAM_TEMPLATE 
+        BAM = SAMPLE_PROTEIN_BAM
     
     params:
         REFFLAT = REFFLAT
@@ -445,6 +449,41 @@ rule RNAseqPICARD_sample:
 
     log:
         SAMPLE_METRIC_TEMPLATE.replace('.RNA_Metrics','.log')
+    
+    shell:
+        run_RNASeqMetrics
+
+
+rule make_combined_protein_bam:
+    input:
+        BAMS = expand(SAMPLE_FILTERED_STRAND_BAM_TEMPLATE\
+                    .replace('{SAMPLE}','{{SAMPLE}}'),
+                STRAND = ['sense','antisense'])
+    log:
+        SAMPLE_PROTEIN_BAM.replace('.bam', '.log')
+    params:
+        THREADS = THREADS,
+        TMPDIR = SAMPLE_PROTEIN_BAM + '.tmp'
+    output:
+        BAM = SAMPLE_PROTEIN_BAM 
+
+    shell:
+        run_StrandCombination
+        
+        
+
+rule RNAseqPICARD_sample_strand:
+    input:
+        BAM = SAMPLE_FILTERED_STRAND_BAM_TEMPLATE 
+    
+    params:
+        REFFLAT = REFFLAT
+    
+    output:
+        METRIC = SAMPLE_STRAND_METRIC_TEMPLATE
+
+    log:
+        SAMPLE_STRAND_METRIC_TEMPLATE.replace('.RNA_Metrics','.log')
     
     shell:
         run_RNASeqMetrics

@@ -20,6 +20,7 @@ from plotting_utils import label_sample, rename_sample, \
                         figure_path
 from functools import lru_cache
 
+small_RNA_ce = color_encoder()
 label_order = ['Untreated','NaOH', 'WGS-sim', 'DNase I', 'DNase I + Exo I',"DNase I - 3'P"]
 
 
@@ -118,7 +119,7 @@ def recat_rRNA(gname, gtype):
         return gtype
 
 @lru_cache(maxsize=128, typed=False)
-def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type'):
+def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type', col_regex='type|Qcf|QCF|sim'):
     count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather'
     dedup_df = pd.read_feather(count_file)
 
@@ -127,7 +128,7 @@ def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type'):
     countplot_df = dedup_df \
         .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-'),'Mt', d[rna_group_type]))\
         .assign(grouped_type = lambda d: np.where(d.gene_name.str.contains('^MT-T'),'Mt-tRNA', d[rna_group_type]))\
-        .filter(regex = 'type|Qcf|QCF|sim')\
+        .filter(regex = col_regex)\
         .assign(grouped_type = lambda d: np.where(d[rna_group_type] == "No features", 'Unannotated', d[rna_group_type]))\
         .assign(grouped_type = lambda d: np.where(d[rna_group_type] == "rDNA", 'rRNA', d[rna_group_type]))\
         .assign(grouped_type = lambda d: np.where(d[rna_group_type].str.contains('snoRNA|Y-RNA'), 'Other sncRNA', d[rna_group_type]))\
@@ -164,7 +165,7 @@ def rename_rRNA(x):
     else:
         return x
 
-def plot_small_count_bar(ax):
+def plot_small_count_bar(ax, prep_regex = 'DNase|WGS-sim|NaOH|Untreated', label_order = label_order):
     #.pipe(lambda d: d[d.grouped_type.str.contains('sncRNA|snoRNA|tRNA|miRNA|rRNA|rDNA')])\
     count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
     small_df = pd.read_feather(count_file) \
@@ -201,7 +202,7 @@ def plot_small_count_bar(ax):
             'gene_id':'count'})\
         .assign(value = lambda d: d.groupby('treatment').read_count.transform(lambda x: 100*x/x.sum()))\
         .assign(gene_type = lambda d: d.gene_type.str.replace('Mt_','MT-').str.replace('_',' '))\
-        .pipe(lambda d: d[d.treatment.str.contains('DNase|WGS-sim|NaOH|Untreated')])\
+        .pipe(lambda d: d[d.treatment.str.contains(prep_regex)])\
         .pipe(pd.pivot_table, index=['treatment'], columns = 'gene_type', values = 'value')\
         .reindex(label_order)
 
@@ -210,6 +211,7 @@ def plot_small_count_bar(ax):
                         '#03A8FB', '#F8BF6C', '#CAF5CB', '#fabebe', 
                         '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#F958FC', 
                         '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000']
+    small_RNA_ce.encoder = {t:c for t, c in zip(small_df.columns, small_RNA_color)}
     small_df\
         .plot.bar(stacked=True,
                 ax = ax, 

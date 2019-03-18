@@ -44,14 +44,14 @@ THREADS = 24
 TREATMENT = ['unfragmented','fragmented','polyA',
             'alkaline', 'all','exonuclease',
             'EV','RNP','EV-RNP',
-            'MNase_EV','MNase_RNP','MNase_EV-RNP']
+            'MNase_EV','MNase_RNP','MNase_EV-RNP','high_salt']
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|Exo|[DE][DE]', 'Frag', 'L[12]', 
                 'N[aA][0-9]+', 'All','Exo|[DE][DE]',
                 '^MPF4','^MPF10','^MPCEV',
-                '^PPF4','^PPF10','^PPCEV']
+                '^PPF4','^PPF10','^PPCEV','[Hh][sS][0-9]+']
 
 STRANDS = ['fwd', 'rvs']
-TESTED_TREATMENT = ['unfragmented','all','MNase_EV','MNase_RNP','MNase_EV-RNP','EV','RNP','EV-RNP']
+TESTED_TREATMENT = ['unfragmented','all','MNase_EV','MNase_RNP','MNase_EV-RNP','EV','RNP','EV-RNP','high_salt']
 EV_LIBS = list(filter(lambda x: re.search('EV|RNP', x), TESTED_TREATMENT ))
 regex_dict = {t:tr for t, tr in zip(TREATMENT, TREATMENT_REGEX)}
 def get_bed(wildcards):

@@ -114,7 +114,7 @@ rule kallisto_quant:
         FQ2 = FQ2_template,
 
     params:
-        LT = lambda wildcards, output: '' if re.search('L[12]', wildcards.SAMPLE) else '--fr-stranded',
+        LT = lambda wildcards: '' if re.search('L[12]', wildcards.SAMPLE) or wildcards.RNA_TYPE == 'all' else '--fr-stranded',
         THREADS = num_threads,
         GENE_MAP_PROTEIN = GENE_MAP_PROTEIN,
         INDEX = KALLISTO_REF,

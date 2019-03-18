@@ -582,6 +582,7 @@ chr11,5289575,5526882,HBE1
 chr16,222875,223709,HBA2
 chr16,226679,227521,HBA1
 chr16,203891,216767,HBM
+chrX,12993227,12995346,TMSB4X
 chr16,230452,231180,HBQ1'''
 HB_genes = pd.read_csv(io.StringIO(HB_genes),
                       names = ['chrom','start', 'end', 'HB'])
@@ -602,6 +603,7 @@ def is_hb(row, return_name = False):
 def anti_tblout():
     tblout = read_tbl(peak_path + '/unfragmented.others.tblout') \
             .query('strand == "+"')\
+            .pipe(lambda d: d[d['E-value']< 0.01])\
             .groupby('query name', as_index=False)\
             .apply(lambda d: d[d.score == d.score.max()])\
             .filter(regex='name') \
@@ -640,13 +642,15 @@ def plot_anti_bar(antisense_peaks, ax, bbox = (1.2,-0.3)):
             .assign(rfam = lambda d: np.where((d.chrom == 'chr13') & (d.start > 57262600) & (d.end < 57262700),
                                                 'rRNA',
                                                 d.rfam ))\
-            .sort_values('log10p', ascending=False)
+            .sort_values('log10p', ascending=False)\
+            .pipe(lambda d: d[d.antisense_gname.str.contains('^HB|TMSB4X')])
 
 
     anti_plot\
         .plot\
         .bar('antisense_gname', 'log10p', 
-            color = anti_plot.antisense_gtype.map(ce.encoder),
+            color = 'steelblue',
+#            color = anti_plot.antisense_gtype.map(ce.encoder),
             ax = ax)
     ax.legend().set_visible(False)
     ax.set_xlabel(' ')
@@ -657,16 +661,16 @@ def plot_anti_bar(antisense_peaks, ax, bbox = (1.2,-0.3)):
                     ha = 'right', va = 'center')
     
 
-    used_rfam = []
-    for xt, rfam in zip(ax.get_xticklabels(), anti_plot.rfam):
-        xt.set_color(rfam_ce.encoder[rfam])
-        used_rfam.append(rfam)
+    #used_rfam = []
+    #for xt, rfam in zip(ax.get_xticklabels(), anti_plot.rfam):
+    #    xt.set_color(rfam_ce.encoder[rfam])
+    #    used_rfam.append(rfam)
     
-    plot_ce = color_encoder()
-    plot_ce.encoder = Rfam_labs.copy()
-    plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
-    plot_ce.show_legend(ax, frameon=False, fontsize=15,
-                        bbox_to_anchor=bbox)
+    #plot_ce = color_encoder()
+    #plot_ce.encoder = Rfam_labs.copy()
+    #plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
+    #plot_ce.show_legend(ax, frameon=False, fontsize=15,
+    #                    bbox_to_anchor=bbox)
 
 
 

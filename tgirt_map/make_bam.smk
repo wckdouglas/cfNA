@@ -224,9 +224,9 @@ rule chrM_filter_bam:
         'samtools view -h {input.BAM} '
         "| awk '$1~/^@/ || $2~/^147$|^99$|^83$|^163$/'"\
         '| python ~/ngs_qc_plot/exogenous_filter.py '\
-        '-i - -o - -x {params.INDEX} --filtered_bam {output.chrM_BAM} --nm 0.1 '\
+        '-i - -o - -x {params.INDEX} --filtered_bam {output.chrM_BAM} --nm 0.2 '\
         '| python ~/ngs_qc_plot/exogenous_filter.py '\
-        '-i - -o - -x {params.ECOLI} --filtered_bam {output.ECOLI_BAM} --nm 0.1 '\
+        '-i - -o - -x {params.ECOLI} --filtered_bam {output.ECOLI_BAM} --nm 0.2 '\
         '| sambamba sort -t {threads} -o {output.BAM} /dev/stdin'
 
 

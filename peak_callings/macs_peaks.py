@@ -131,7 +131,7 @@ def process_broad(broad_peak, bed_path):
                 coverage[(frag_start-peak_start):(frag_end-peak_start)] += 1
                 sample_count.add(frag_name.split(':')[0])
             pileup = coverage.max()
-            sample_count = len(sample_count)
+            sample_count = min(len(sample_count),pileup)
             peak_fields.append(pileup)
             peak_fields.append(sample_count)
             rows.append(peak_fields)

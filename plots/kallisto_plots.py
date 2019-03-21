@@ -18,6 +18,37 @@ def genes_annot():
                  names = ['gname','gtype', 'Name'])\
         .assign(Name = lambda d: d.Name.str.split('.', expand=True).iloc[:,0])
 
+
+def get_tpm_df():
+    kallisto_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/kallisto_protein_result'
+    sample_folders = glob.glob(kallisto_path + '/*')
+    sample_folders.sort()
+    sample_folders = filter(lambda x: re.search('MP|PP|[Qq][cC][fF]', x), sample_folders)
+    kallisto_tpm = list(map(lambda x: x + '/abundance.tsv', sample_folders))
+    tpm_dfs = map(read_kallisto, kallisto_tpm)
+    tpm_dfs = map(lambda d: d.drop(['eff_length'], axis=1), tpm_dfs)
+    tpm_df = reduce(lambda x,y: x.merge(y, how = 'outer', on = ['gname','gid']), tpm_dfs) \
+        .pipe(pd.melt, id_vars = ['gname','gid'], var_name ='samplename', value_name = 'TPM') \
+        .assign(prep = lambda d: d.samplename.map(label_sample)) \
+        .groupby(['gname','gid','prep'], as_index=False)\
+        .agg({'TPM': 'mean'}) \
+        .assign(TPM = lambda d: d.groupby('prep')['TPM'].transform(lambda x: x/x.sum() * 1e6))\
+        .pipe(pd.pivot_table, columns = 'prep', values='TPM', index=['gid','gname'], fill_value = 0)\
+        .reset_index()
+    return tpm_df
+
+
+
+def make_gene_df(tpm_df):
+    gene_df = tpm_df \
+        .assign(gene_label = lambda d: d.gname.map(label_gene))\
+        .assign(top = lambda d: np.where(d.gname.isin(TOP_RNA), 'is_top','not_top'))\
+        .assign(gene_label = lambda d: np.where(d.top=='is_top', "5' TOP", d.gene_label))\
+        .assign(gene_label = lambda d: d.gene_label.astype(pd.api.types\
+                                    .CategoricalDtype(gene_cats)))\
+        .assign(color = lambda d: d.gene_label.map(gene_encoder.encoder))
+    return gene_df
+
 def published():
     gene_expr = '/stor/work/Lambowitz/cdw2854/cfNA/platelets/tissues/rna_tissue.tsv'
     expr_df = pd.read_table(gene_expr) \
@@ -30,6 +61,7 @@ def TOP_df():
     excel = 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2441802/bin/gkn248_nar-02753-r-2007-File009.xls'
     return pd.read_excel(excel)
 
+@lru_cache()
 def TOP_genes():
     tdf = TOP_df()
     tg = []
@@ -37,6 +69,7 @@ def TOP_genes():
         tg.extend(r.split(','))
     return tg
 
+@lru_cache()
 def TOP_gene_df():
     mg = mygene.MyGeneInfo()
     top_genes = TOP_genes()
@@ -85,6 +118,7 @@ gene_encoder = color_encoder()
 gene_encoder.encoder = {g:col for g, col in zip(gene_cats, 
                         ['grey', 'skyblue','darkblue','#0ba518','#d82915','#edbc61'])}
 
+@lru_cache()
 def get_top_rna():
     top_df = TOP_gene_df()\
         .pipe(lambda d: d[~pd.isnull(d.symbol)])
@@ -131,3 +165,85 @@ def plot_heatmap(tpm_df, ax, var = 'Poly(A)-selected', selected = 'L[12]|Poly\(A
             if gene_label != "Other":
                 yt.set_color(color)
     
+def coloring_gene_dot(gt_df, gt, xn, yn, ax):
+        
+    texts = []
+    if gt == 'Blood':
+        for i, row in gt_df.pipe(lambda d: d[d.gname.str.contains('^HB[A-Z]$|^HB[A-Z][0-9]+$|^S100A[89]')]).iterrows():
+            yoffset = 0
+            xoffset = 0
+            if row['gname'] in ['HBZ']:
+                yoffset = 0.1
+                xoffset = -0.2
+            elif row['gname'] in ['HBG2']:
+                yoffset = 0.1
+                xoffset = -0.2
+            elif row['gname'] in ['HBG1']:
+                yoffset = 0.1
+                xoffset = 0.2
+            elif row['gname'] in ['HBD','HBQ1']:
+                yoffset = 0.2
+            elif row['gname'] in ['HBM']:
+                yoffset = -0.2
+            elif row['gname'] in ['HBE1']:
+                yoffset = -0.3
+            if row[xn] > 0:
+                text = ax.text(np.log10(row[xn]+1) + xoffset, 
+                            np.log10(row[yn]+1)+yoffset, 
+                           row['gname'], fontsize=13, 
+                            color = gene_encoder.encoder['Blood'],
+                            weight = 'bold')
+                texts.append(text)
+    #adjust_text(texts)
+    
+    lgd = gene_encoder.show_legend(ax, loc='upper left', 
+                               frameon=False, fontsize=18)
+    lgd.set_title(title = '', prop={'size':18})
+
+
+def plot_scatter_kallisto(gene_df, xn, yn, ax, 
+                        marginal_ax = (None, None),
+                        gene_label=False):
+    
+    ax_xmarginal, ax_ymarginal = marginal_ax
+    for (gt, col), gt_df in gene_df.groupby(['gene_label','color']):
+        xv = np.log10(gt_df[xn]+1)
+        yv = np.log10(gt_df[yn]+1)
+        
+        alpha = 0.5 if gt == 'Others' else 1
+        size = 20 if gt == 'Others' else 20
+        ax.scatter(xv, 
+                yv, 
+                s = size,
+                color = col, 
+                alpha = alpha)
+        if ax_xmarginal and ax_ymarginal:
+            sns.kdeplot(xv, ax = ax_xmarginal, color = col, cut = 0)
+            sns.kdeplot(yv, ax = ax_ymarginal, color = col, vertical=True, cut=0)
+
+        if gene_label:
+            coloring_gene_dot(gt_df, gt, xn, yn, ax)
+
+
+
+    r, _ = spearmanr(np.log10(gene_df[xn]+1), np.log10(gene_df[yn]+1))
+    ax.text(5,1, "Spearman's\n" + r"$\rho$ = %.2f" %(r), fontsize=18)
+    #p.ax_marg_y.set_visible(False)
+    #p.ax_marg_x.set_visible(False)
+
+    lmax = 8
+    lmin = -0.5
+
+    if ax_xmarginal and ax_ymarginal:
+        ax_ymarginal.set_ylim(lmin,lmax)
+        ax_xmarginal.set_xlim(lmin, lmax)
+        ax_xmarginal.legend().set_visible(False)
+        ax_xmarginal.legend().set_visible(False)
+        ax_xmarginal.set_xlabel('')
+        ax_ymarginal.set_ylabel('')
+
+    ax.set_xlim(lmin, lmax)
+    ax.set_ylim(lmin, lmax)
+    ax.set_xticks(np.arange(0,lmax,1))
+    ax.set_yticks(np.arange(0,lmax,1))
+    ax.plot([0,7],[0,7], color='red')

@@ -40,7 +40,7 @@ plt.rc('ytick', labelsize = 15)
 rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['Arial']
 
-def label_sample(x, salt = False):
+def label_sample(x, salt = False, new_label=False):
     if 'HS' in x:
         return 'High salt (450mM)'
     elif re.search('^[fF]rag|_[fF]rag',x):
@@ -49,6 +49,8 @@ def label_sample(x, salt = False):
         return 'WGS-sim'
     elif re.search('N[aA]|[Aa]lk', x):
         #return 'Alkaline hydrolysis'
+        if new_label:
+            return "DNA (NaOH)"
         return 'NaOH'
     elif re.search('_L[0-9E]+',x):
         return 'Poly(A)-selected'
@@ -57,6 +59,8 @@ def label_sample(x, salt = False):
     elif re.search('[aA]ll|[Uu]nt', x):
         return 'Untreated'
     elif re.search('[pP]hos|3\'P', x):
+        if new_label:
+            return "RNA (DNase I - 3'P)"
         return "DNase I - 3'P"
     elif re.search('MPF4', x):
         return 'EV'
@@ -75,6 +79,8 @@ def label_sample(x, salt = False):
     elif re.search('[Qq][cC][Ff][0-9]+|[uU]nf', x):
         if salt:
             return 'Low salt (200mM)'
+        elif new_label:
+            return "RNA (DNase I)"
         else:
             return 'DNase I'
 

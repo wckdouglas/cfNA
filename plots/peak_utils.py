@@ -19,6 +19,8 @@ import mappy
 from tblout_parser import read_tbl
 from bwapy import BwaAligner
 import io
+from transcriptome_filter import peak_analyzer
+
 
 
 pileup_cutoff = 4
@@ -148,6 +150,7 @@ def load_peaks_old(filename):
         .assign(merged_type = lambda d: d.picked_type_sense.map(merge_type)) \
         .assign(FDR = lambda d: p_adjust(d.pvalue) ) \
         .assign(is_sense = lambda d: list(map(label_sense, d.picked_RNA_sense, d.picked_RNA_anti))) \
+        .assign(sample_count = lambda d: d.filter(['pileup','sample_count']).min(axis=1))\
         .fillna('.')
     return peaks
 
@@ -642,8 +645,10 @@ def plot_anti_bar(antisense_peaks, ax, bbox = (1.2,-0.3)):
             .assign(rfam = lambda d: np.where((d.chrom == 'chr13') & (d.start > 57262600) & (d.end < 57262700),
                                                 'rRNA',
                                                 d.rfam ))\
-            .sort_values('log10p', ascending=False)\
-            .pipe(lambda d: d[d.antisense_gname.str.contains('^HB|TMSB4X')])
+            .sort_values('log10p', ascending=False)
+    
+    if 'HBQ1' in  anti_plot.antisense_gname.tolist():
+        anti_plot = anti_plot.pipe(lambda d: d[d.antisense_gname.str.contains('^HB|TMSB4X')])
 
 
     anti_plot\
@@ -703,3 +708,9 @@ class ecoli_mapper():
 
 
 
+PEAK_ANALYZER = peak_analyzer('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam',
+                                                           '/stor/work/Lambowitz/ref/hg19_ref/genes/transcriptome.minimap2_idx')
+
+def transcriptome_map(chrom, start, end, strand):
+    mapped, num_pairs, transcript = PEAK_ANALYZER.filter_alignments(chrom, int(start), int(end), strand)
+    return mapped/num_pairs

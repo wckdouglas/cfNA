@@ -19,6 +19,11 @@ from plotting_utils import label_sample, rename_sample, \
                         label_ce, rna_type_ce, \
                         figure_path
 from functools import lru_cache
+plt.rc('font', **{'family':'sans-serif',
+                                    'sans-serif':'Arial'})
+plt.rc('axes', labelsize=15)
+plt.rc('xtick', labelsize=15)
+plt.rc('ytick', labelsize=15)
 
 small_RNA_ce = color_encoder()
 label_order = ['Untreated','NaOH', 'WGS-sim', 'DNase I', 'DNase I + Exo I',"DNase I - 3'P"]
@@ -101,8 +106,8 @@ def plot_insert(ax, samples=['DNase I']):
              fontsize = 15, 
              frameon=False, 
              bbox_to_anchor = (0.65,0.8))
-    ax.set_xlabel('Read span (nt)')
-    ax.set_ylabel('Read pairs (%)')
+    ax.set_xlabel('Read span (nt)', fontsize=15)
+    ax.set_ylabel('Read pairs (%)', fontsize=15)
     
     
     for i, label in enumerate(ax.get_xticklabels()):

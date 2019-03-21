@@ -8,7 +8,7 @@ seqs = []
 for line in sys.stdin:
     if not line.startswith('>'):
         seq = line.strip()
-        if len(seq.replace('-','')) > 60:
+        if len(seq.replace('-','')):
             seqs.append(list(seq))
 
 

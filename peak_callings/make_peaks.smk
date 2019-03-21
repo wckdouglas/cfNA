@@ -29,9 +29,9 @@ STRANDED_BED_TEMPLATE = STRANDED_BED_PATH + '/{TREATMENT}.{FILTER}.{STRAND}.bed.
 MACS2_PEAK_TEMPLATE = MACS2_PATH + '/{TREATMENT}.{FILTER}.{STRAND}_peaks.narrowPeak' 
 STRANDED_COV_FILE_TEMPLATE = COV_PATH + '/{TREATMENT}.{STRAND}.bigWig'
 UNSTRANDED_COV_FILE_TEMPLATE = COV_PATH + '/{TREATMENT}.bigWig'
-PEAK_FA = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.fa'
-CMSCAN_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.cmscan'
-CMTBLOUT_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{RNA_TYPE}.tblout'
+PEAK_FA = ANNOTATED_PEAK_PATH + '/{TREATMENT}.fa'
+CMSCAN_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.cmscan'
+CMTBLOUT_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.tblout'
 INTRON_TAB = ANNOTATED_PEAK_PATH + '/{TREATMENT}.intron.bed'
 FOLD_FILE = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.fold.fa'
 GENOME = os.environ['REF'] + '/hg19_ref/genome/hg19_genome.fa'
@@ -83,8 +83,8 @@ wildcard_constraints:
 # Run commands
 rule all:
     input:
-        expand(CMTBLOUT_PEAK, TREATMENT = ['unfragmented'], RNA_TYPE = RNA_TYPES), 
-        expand(CMSCAN_PEAK, TREATMENT = ['unfragmented'], RNA_TYPE = RNA_TYPES), 
+        expand(CMTBLOUT_PEAK, TREATMENT = ['unfragmented']), 
+        expand(CMSCAN_PEAK, TREATMENT = ['unfragmented']), 
         expand(STRANDED_COV_FILE_TEMPLATE, STRAND = STRANDS, TREATMENT = TESTED_TREATMENT),
         UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline'),
         expand(ANNOTATED_PEAK, 
@@ -92,9 +92,9 @@ rule all:
                                             'MNase_RNP','MNase_EV-RNP'], 
                 FILTER = FILTERS),
         expand(FOLD_FILE, TREATMENT = ['unfragmented'], FILTER = ['filtered']),
-        expand(PEAK_FA, TREATMENT = ['unfragmented'], RNA_TYPE = ['Long_RNA','RBP']),
         expand(INTRON_TAB, TREATMENT = TESTED_TREATMENT),
         expand(EV_COUNT_FILE, TREATMENT = EV_LIBS, FILTER=FILTERS),
+        SPLICED_TABLE = SPLICED_EXON_TABLE.format(TREATMENT = 'unfragmented')
 
 rule EV_counting:
     input:
@@ -330,7 +330,6 @@ rule PEAK_TO_FA:
         ANNOTATED_PEAK = ANNOTATED_PEAK.replace('{FILTER}','filtered')
 
     params:
-        FILTER_TERM = lambda w: peak_filter(w),
         GENOME = GENOME
 
     output:
@@ -338,7 +337,6 @@ rule PEAK_TO_FA:
 
     shell:
         'cat {input.ANNOTATED_PEAK} '\
-        "| csvtk filter2 -t -f '{params.FILTER_TERM}' "\
         '| csvtk cut -t -f chrom,start,end,peakname,score,strand '\
         '| sed 1d '\
         "| awk '{{printf \"%s\\t%s\\t%s\\t%s_%s:%s-%s\\t%s\\t%s\\n\", $1,$2-20,$3+20,$4,$1,$2,$3,$5,$6}}'"\
@@ -348,7 +346,7 @@ rule PEAK_TO_FA:
 
 rule SCAN_FA:
     input:
-        FA = PEAK_FA.replace('{RNA_TYPE}','{RNA_TYPE, [a-zA-Z_]+}')
+        FA = PEAK_FA
 
     params:
         SCAN_REF = os.environ['REF'] + '/Rfam/Rfam.cm',
@@ -397,7 +395,7 @@ rule spliced_exon:
         SPLICED_EXON_TABLE
 
     shell:
-        'bedtools intersect -a {params.EXON_ANNOTATION} -b {input} -s '\
+        'bedtools intersect -a {params.EXON_ANNOTATION} -b {input} -wa '\
         '| sort -k1,1 -k2,2n -k3,3n -T {params.TMP_DIR} '\
         '| bgzip '\
         '> {output}'\

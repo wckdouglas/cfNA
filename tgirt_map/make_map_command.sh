@@ -1,5 +1,5 @@
 #!/bin/bash
-PROJECT_PATH=$SCRATCH/cfNA
+#PROJECT_PATH=$SCRATCH/cfNA
 PROJECT_PATH=$WORK/cdw2854/cfNA
 
 
@@ -10,25 +10,39 @@ REF_PATH=$REF/hg19_ref
 GENE_PATH=$REF_PATH/genes
 GENOME_PATH=$REF_PATH/genome
 LOG_PATH=$RESULT_PATH/log
-THREADS=12
+THREADS=6
 
 
 mkdir -p $LOG_PATH
+
+ANALYSIS=No
+ANALYSIS=ECOLI
+ANALYSIS=PNAS
+if [[ $ANALYSIS == "PNAS" ]]; then
+    DATA_PATH=/stor/work/Lambowitz/cdw2854/cfNA/data/exosome
+elif [[ $ANALYSIS == "ECOLI" ]]; then
+    DATA_PATH=/stor/work/Lambowitz/Data/NGS/JA19062
+fi
+
 
 for FQ1 in $DATA_PATH/*_R1_001.fastq.gz
 do
 	FQ2=${FQ1/_R1_/_R2_}
 	SAMPLENAME=$(basename ${FQ1%_R1_001.fastq.gz})
     polyA=''
-	if echo $SAMPLENAME | grep -q '450\|200\|^[INOQS]'
+	if echo $SAMPLENAME | egrep -q '450|200|^[INOQS]'
 	then
 		TTN="--TTN"
 		UMI="--umi 6 --count_all"
 
 #		UMI="--umi 6 "
-    elif echo $SAMPLENAME | grep -q '[PT]EV[0-9]+'
+    elif echo $SAMPLENAME | egrep -q '[PT]EV[0-9]+|^DC|^PC|^[0-9]+hr|F3'
     then
         TTN="--TTN"
+        UMI=" "
+    elif echo $SAMPLENAME | egrep -q '^EVD|^GC'
+    then
+        TTN=" "
         UMI=" "
     fi
 

@@ -6,12 +6,12 @@ project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup'
 coors = ['chr22:24,349,641-24,349,711', 'chr10:71,355,032-71,355,103',
         'chr1:181,392,082-181,392,121', 'chr10:101817588-101817660',
         'chr9:5095156-5095227',
-#        'chr4:156,379,949-156,380,020',
+        'chr4:156,379,949-156,380,020',
         'chr2:202,077,805-202,077,873']
 names = ['chr22_unkonwn', 'chr10_unknown',
         'CACNA1E', 'CPN1',
-#        'chr4_unkown',
         'JAK2',
+        'chr4_unkown',
         'CASP10']
 
 

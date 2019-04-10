@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 
 
 MITO_INDEX= os.environ['REF'] + '/hg19/genome/chrM.fa'
@@ -20,7 +21,7 @@ SPLICED_EXON_TABLE = PROJECT_PATH + '/merged_bam/{TREATMENT}.spliced_exon.bed.gz
 ANNOTATED_PEAK_PATH = MACS2_PATH + '/annotated' 
 ANNOTATED_PEAK = ANNOTATED_PEAK_PATH + '/{TREATMENT}.{FILTER}.tsv'
 CONFIDENT_PEAK = MACS2_PATH + '/{TREATMENT}.{FILTER}.confident.tsv'
-ANNOTATION_TABLE = os.environ['REF'] + '/hg19/new_genes/all_annotation.bed.gz' 
+ANNOTATION_TABLE = os.environ['REF'] + '/hg19_ref/genes/all_annotation.bed.gz' 
 BED_TEMPLATE = BED_PATH + '/{SAMPLENAME}.bed.gz'
 BAM_TEMPLATE = PROJECT_PATH + '/{SAMPLENAME}/Combined/primary.bam'
 FILTER_BAM_TEMPLATE = PROJECT_PATH + '/{SAMPLENAME}/Combined/primary.chrM_filtered.bam'
@@ -43,7 +44,7 @@ THREADS = 24
 # set up treatments
 TREATMENT = ['unfragmented','fragmented','polyA',
             'alkaline', 'all','exonuclease',
-            'EV','RNP','EV-RNP',
+            'EV','RNP','EV-RNP', 
             'MNase_EV','MNase_RNP','MNase_EV-RNP','high_salt']
 TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|Exo|[DE][DE]', 'Frag', 'L[12]', 
                 'N[aA][0-9]+', 'All','Exo|[DE][DE]',
@@ -51,7 +52,7 @@ TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|Exo|[DE][DE]', 'Frag', 'L[12]',
                 '^PPF4','^PPF10','^PPCEV','[Hh][sS][0-9]+']
 
 STRANDS = ['fwd', 'rvs']
-TESTED_TREATMENT = ['unfragmented','all','MNase_EV','MNase_RNP','MNase_EV-RNP','EV','RNP','EV-RNP','high_salt']
+TESTED_TREATMENT = ['unfragmented']#,'MNase_EV','MNase_RNP','MNase_EV-RNP','EV','RNP','EV-RNP','high_salt']
 EV_LIBS = list(filter(lambda x: re.search('EV|RNP', x), TESTED_TREATMENT ))
 regex_dict = {t:tr for t, tr in zip(TREATMENT, TREATMENT_REGEX)}
 def get_bed(wildcards):
@@ -75,7 +76,7 @@ for T in TREATMENT:
 wildcard_constraints:
     RNA_TYPE = '[a-zA-Z_]+',
     FILTER = 'filtered|unfiltered',
-    SAMPLENAME = 'Q.*|[MP]P.*',
+    SAMPLENAME = 'Q.*|[MP]P.*|PD[0-9]+_.*',
     TREATMENT = '[-_A-Za-z]+',
     STRAND = 'rvs|fwd',
 
@@ -86,10 +87,9 @@ rule all:
         expand(CMTBLOUT_PEAK, TREATMENT = ['unfragmented']), 
         expand(CMSCAN_PEAK, TREATMENT = ['unfragmented']), 
         expand(STRANDED_COV_FILE_TEMPLATE, STRAND = STRANDS, TREATMENT = TESTED_TREATMENT),
-        UNSTRANDED_COV_FILE_TEMPLATE.format(TREATMENT = 'alkaline'),
+        expand(UNSTRANDED_COV_FILE_TEMPLATE, TREATMENT = ['alkaline']),
         expand(ANNOTATED_PEAK, 
-                TREATMENT = ['unfragmented','EV','RNP','EV-RNP','MNase_EV',
-                                            'MNase_RNP','MNase_EV-RNP'], 
+                TREATMENT = ['unfragmented'], 
                 FILTER = FILTERS),
         expand(FOLD_FILE, TREATMENT = ['unfragmented'], FILTER = ['filtered']),
         expand(INTRON_TAB, TREATMENT = TESTED_TREATMENT),
@@ -273,11 +273,9 @@ rule make_bed:
     shell:
         'mkdir -p {params.TMP_FOLDER}; ' \
         'cat {input.BAM} ' \
-	    '| bam_to_bed.py --in_bam - --add_cigar '\
-        '| awk \'$7!~"N"\' ' \
+	    '| bam_to_bed.py --in_bam - --add_cigar -m 10 -M 1000000 '\
 	    '| sort -k1,1 -k2,2n -k3,3n -k6,6 --temporary-directory={params.TMP_FOLDER} '\
-	    '| bedtools intersect -v -a - '\
-        ' -b {params.WHITELIST} '\
+	    '| bedtools intersect -v -a -  -b {params.WHITELIST} '\
         "| deduplicate_bed.py --infile - --outfile - --threshold 1 -d '_' --ct 6 " \
         "| poisson_umi_adjustment.py -i - -o - --umi 6 --prefix {params.SAMPLENAME} " \
         "| sort -k1,1 -k2,2n -k3,3n --temporary-directory={params.TMP_FOLDER} "\
@@ -337,6 +335,7 @@ rule PEAK_TO_FA:
 
     shell:
         'cat {input.ANNOTATED_PEAK} '\
+        "| csvtk filter2 -t -f '$sample_count >= 5 && $pileup > 4'" \
         '| csvtk cut -t -f chrom,start,end,peakname,score,strand '\
         '| sed 1d '\
         "| awk '{{printf \"%s\\t%s\\t%s\\t%s_%s:%s-%s\\t%s\\t%s\\n\", $1,$2-20,$3+20,$4,$1,$2,$3,$5,$6}}'"\
@@ -368,7 +367,7 @@ rule peak_anntation:
                 .replace('{TREATMENT}','{{TREATMENT}}')\
                 .replace('{FILTER}','{{FILTER}}'), 
             STRAND = STRANDS),
-        SPLICED_TABLE = SPLICED_TABLE.format(TREATMENT = 'unfragmented')
+        SPLICED_TABLE = SPLICED_EXON_TABLE
     
     params:
         ANNOTATION_TABLE = ANNOTATION_TABLE,

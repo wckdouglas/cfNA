@@ -19,12 +19,14 @@ def genes_annot():
         .assign(Name = lambda d: d.Name.str.split('.', expand=True).iloc[:,0])
 
 
-def get_tpm_df():
+def get_tpm_df(return_files = False):
     kallisto_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/kallisto_protein_result'
     sample_folders = glob.glob(kallisto_path + '/*')
     sample_folders.sort()
     sample_folders = filter(lambda x: re.search('MP|PP|[Qq][cC][fF]', x), sample_folders)
     kallisto_tpm = list(map(lambda x: x + '/abundance.tsv', sample_folders))
+    if return_files:
+        return kallisto_tpm
     tpm_dfs = map(read_kallisto, kallisto_tpm)
     tpm_dfs = map(lambda d: d.drop(['eff_length'], axis=1), tpm_dfs)
     tpm_df = reduce(lambda x,y: x.merge(y, how = 'outer', on = ['gname','gid']), tpm_dfs) \
@@ -61,7 +63,7 @@ def TOP_df():
     excel = 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2441802/bin/gkn248_nar-02753-r-2007-File009.xls'
     return pd.read_excel(excel)
 
-@lru_cache()
+@lru_cache(maxsize=1000000)
 def TOP_genes():
     tdf = TOP_df()
     tg = []
@@ -77,7 +79,7 @@ def TOP_gene_df():
         .pipe(lambda d: d[~pd.isnull(d.symbol)])
     
     
-@lru_cache()
+@lru_cache(maxsize=1000000)
 def tid_to_gid():
     gtf = '/stor/work/Lambowitz/ref/hg19_ref/genes/genes.gtf'
     tdf = []
@@ -166,35 +168,41 @@ def plot_heatmap(tpm_df, ax, var = 'Poly(A)-selected', selected = 'L[12]|Poly\(A
                 yt.set_color(color)
     
 def coloring_gene_dot(gt_df, gt, xn, yn, ax):
+
+    offsets = {'HBZ': (-0.2, -0.4),
+                'HBG2': (-0.2, 0.1),
+                'HBG1': (0.5, 0.2),
+                'HBD': (0.5, 0.2),
+                'HBQ1': (0.3, 0.3),
+                'HBM': (0.2,-0.6),
+                'HBE1': (0, -0.3),
+                'HBA2': (0.5, 0.1),
+                'HBB': (0.3, -0.3),
+                'HBA1': (-0.5, 0.3),
+                'S100A9': (0.3, 0),
+                'S100A8': (0.3, -0.2),
+                'HBD': (0.5,-0.4),
+                'HBM': (0.4, - 0.2),
+                'HBG2': (1.2, -1),
+                'HBE1': (0,-0.1)}
         
-    texts = []
     if gt == 'Blood':
         for i, row in gt_df.pipe(lambda d: d[d.gname.str.contains('^HB[A-Z]$|^HB[A-Z][0-9]+$|^S100A[89]')]).iterrows():
-            yoffset = 0
-            xoffset = 0
-            if row['gname'] in ['HBZ']:
-                yoffset = 0.1
-                xoffset = -0.2
-            elif row['gname'] in ['HBG2']:
-                yoffset = 0.1
-                xoffset = -0.2
-            elif row['gname'] in ['HBG1']:
-                yoffset = 0.1
-                xoffset = 0.2
-            elif row['gname'] in ['HBD','HBQ1']:
-                yoffset = 0.2
-            elif row['gname'] in ['HBM']:
-                yoffset = -0.2
-            elif row['gname'] in ['HBE1']:
-                yoffset = -0.3
+            if row['gname'] in offsets.keys():
+                xoffset, yoffset = offsets[row['gname']]
+            else:
+                xoffset, yoffset = 0,0
             if row[xn] > 0:
-                text = ax.text(np.log10(row[xn]+1) + xoffset, 
-                            np.log10(row[yn]+1)+yoffset, 
-                           row['gname'], fontsize=13, 
+                x = np.log10(row[xn]+1)
+                y = np.log10(row[yn]+1)
+                ax.annotate(s = row['gname'],
+                            xy = (x,y), 
+                            xytext = (x+xoffset, y+yoffset),
+                            fontsize=13, 
                             color = gene_encoder.encoder['Blood'],
+                            arrowprops = {'arrowstyle':'-', 
+                                        'color':'red'},
                             weight = 'bold')
-                texts.append(text)
-    #adjust_text(texts)
     
     lgd = gene_encoder.show_legend(ax, loc='upper left', 
                                frameon=False, fontsize=18)

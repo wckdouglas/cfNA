@@ -36,7 +36,9 @@ class concensus():
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT)
         res =  ps.communicate()[0]
-        return res.decode().split('\n')[-2]
+        seq =  res.decode().split('\n')[-2]
+        seq = '' if 'ValueError' in seq else seq
+        return seq
 
 
     

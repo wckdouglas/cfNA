@@ -9,7 +9,7 @@ curl 'https://www.encodeproject.org/metadata/type=Experiment&assay_title=eCLIP&l
 	| awk '{print $(NF-3)}' \
 	> encode_files.txt
 
-OUT_FILE=$REF/hg19/genome/RBP.bed
+OUT_FILE=$REF/hg19_ref/genes/RBP.bed
 rm $OUT_FILE
 touch $OUT_FILE
 for FILE_URL in $(cat encode_files.txt| grep -v meta )

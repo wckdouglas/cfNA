@@ -20,6 +20,12 @@ from tblout_parser import read_tbl
 from bwapy import BwaAligner
 import io
 from transcriptome_filter import peak_analyzer
+import matplotlib.pyplot as plt
+plt.rc('axes', labelsize=20)
+plt.rc('xtick', labelsize = 20)
+plt.rc('ytick', labelsize = 20)
+plt.rc('font', **{'family':'sans-serif',
+                  'sans-serif':'Arial'})
 
 
 
@@ -129,34 +135,10 @@ def label_sense(picked_type_sense, picked_type_anti):
         label = 'Unannotated'
     return label
 
-def load_peaks_old(filename):
-    peak_df = pd.read_table(filename) 
-    p = Pool(24)
-    peaks = pd.DataFrame(p.map(peak_assignment, peak_df.iterrows()))
-    p.close()
-    p.join()
-    peaks = peaks \
-        .assign(pvalue = lambda d: np.power(10, -d.log10p))\
-        .assign(picked_type_sense = lambda d: np.where((d.picked_RNA_sense.str.contains('HY')) & \
-                                                        (d.picked_type_sense == 'scRNA'), 
-                                             'misc RNA',
-                                             d.picked_type_sense))\
-        .assign(picked_type_sense = lambda d: np.where(d.picked_RNA_sense.str.contains('srpRNA'), 
-                                             'misc RNA',
-                                             d.picked_type_sense))\
-        .assign(picked_type_sense = lambda d: np.where(d.picked_RNA_sense == "BC200", 
-                                                       'misc RNA', 
-                                                       d.picked_type_sense))\
-        .assign(merged_type = lambda d: d.picked_type_sense.map(merge_type)) \
-        .assign(FDR = lambda d: p_adjust(d.pvalue) ) \
-        .assign(is_sense = lambda d: list(map(label_sense, d.picked_RNA_sense, d.picked_RNA_anti))) \
-        .assign(sample_count = lambda d: d.filter(['pileup','sample_count']).min(axis=1))\
-        .fillna('.')
-    return peaks
 
 def load_peaks(filename):
     EPSILON = 1e-100
-    peak_df = pd.read_table(filename) 
+    peak_df = pd.read_csv(filename, sep='\t') 
     if 'log10p' in peak_df.columns:
         peak_df['pvalue'] = np.power(10, -peak_df.log10p)
 
@@ -174,27 +156,39 @@ def load_peaks(filename):
 
 
 def plot_peak_strand(peaks, ax):
-    peaks\
+    pie_df = peaks\
         .query('pileup>=%i & sample_count >= %i' %(pileup_cutoff, sample_cutoff))\
         .groupby('is_sense')\
         .agg({'sense_gtype':'count'})\
         .reset_index() \
         .assign(index = lambda d: d['is_sense'] + '\n(' + d.sense_gtype.astype(str)+')')\
         .set_index('index')\
-        .sort_values('sense_gtype', ascending=True)\
-        .plot.pie(y='sense_gtype', 
+        .sort_values('sense_gtype', ascending=True)
+    
+    
+    wedges, texts = ax.pie(pie_df.sense_gtype, 
                 explode = [0,0.05, 0.2], 
-                startangle = 180, ax = ax,
+                startangle = 180, 
                 colors = ['#2a7a1c','#40649e','#f7b707'])
     ax.set_ylabel('')
     ax.legend().set_visible(False)
 
+    yoffset = [-4,1,1]
+    for i, p in enumerate(wedges):
+        ang = (p.theta2 - p.theta1)/2. + p.theta1
+        y = np.sin(np.deg2rad(ang))
+        x = np.cos(np.deg2rad(ang))
+        horizontalalignment = {-1: "right", 1: "left"}[int(np.sign(x))]
+        ax.annotate(pie_df.index[i], xy=(x, y), xytext=(1.35*np.sign(x), 1.4*y*yoffset[i]),
+                     horizontalalignment=horizontalalignment, fontsize=20,
+                     arrowprops={'arrowstyle':'-'})
+
 
 def change_annotation(lab):
     if 'RBP' in lab:
-        return lab.replace('RBP','Long RNA (RBP-binding sites)')
+        return lab.replace('RBP','Long RNA\n(RBP-binding sites)')
     elif 'Long RNA' in lab:
-        return lab.replace('Long RNA', 'Long RNA (other narrow peaks)')
+        return lab.replace('Long RNA', 'Long RNA\n(Other narrow peaks)')
     else:
         return lab
 
@@ -213,7 +207,7 @@ def plot_peak_pie(peaks, ax, ce, gtype='sense_gtype'):
         .assign(explode = lambda d: np.where(d.explode < 0.95,0, 
                                          np.where(d.explode < 0.99, 0.2,
                                                   np.where(d.explode < 0.994, 0.4, 0.8))))\
-        .sort_values('pvalue', ascending=False)
+        .sort_values('pvalue', ascending=False) 
     
     rna_types = list(map(lambda x: x.split('(')[0].strip(), peak_pie.rtype))
     colors = pd.Series(rna_types).map(ce.encoder)
@@ -221,13 +215,15 @@ def plot_peak_pie(peaks, ax, ce, gtype='sense_gtype'):
               y = 'fraction', 
               ax = ax,
               explode = peak_pie.explode,
+              labeldistance=1.15, 
               colors = colors)
     
     index = peak_pie.index
     ax.legend(bbox_to_anchor = (1.5,0.7), 
               labels = list(map(lambda x: x.split(' ')[0], index)), 
               ncol=2, 
-              fontsize=12)
+              fontsize=20)
+    
     
     ax.set_ylabel('')
     ax.legend().set_visible(False)
@@ -334,6 +330,8 @@ Rfam_labs = {'RnaseP':'black',
             'Hemoglobin':'red',
             'tRNA-like RNA': '#ad1b34',
             'rRNA':'#030544',
+            'miRNA-like':"#0072B2",
+            'Pseudogene':'#f4162b',
             'Excised structured intron RNA':'#f78d02'}
 rfam_ce = color_encoder()
 rfam_ce.encoder = Rfam_labs
@@ -356,7 +354,7 @@ def group_annotation(x):
     return lab
 
 def get_peak_rfam_annotation(peaks):
-    cmscan_df = read_tbl(peak_path + '/unfragmented.Long_RNA.tblout') \
+    cmscan_df = read_tbl(peak_path + '/unfragmented.tblout') \
         .assign(peakname = lambda d: d['query name'].str.split('_chr', expand=True).iloc[:,0])\
         .merge(peaks.filter(['sense_gname','peakname']), on = 'peakname', how = 'right')\
         .assign(score = lambda d: d.score.fillna(0))\
@@ -382,14 +380,17 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
         .groupby('sense_gname', as_index=False)\
         .apply(pick_lp) \
         .nlargest(top_n, y_val)
-    rfam_labs = get_peak_rfam_annotation(lp)
+    rfam_labs =  defaultdict(lambda: 'Others') #get_peak_rfam_annotation(lp)
+    rfam_labs['CPN1'] = 'tRNA-like RNA'
     rfam_labs['CASKIN2'] = 'Excised structured intron RNA'
+    rfam_labs['DAPK1'] = 'miRNA-like'
+    rfam_labs['RP11-51O6.1'] = 'Pseudogene'
+
     assert(y_val in ['log10p','pileup'])
     name_conversion = {'RP11-958N24.2': 'PKD1P4-NPIPA8',
-                'RP11-1212A22.1':'NPIPA8',
+                'RP11-1212A22.1':'PKD1P4-NPIPA8',
                 'RP11-958N24.2':'PKD1P4-NPIPA8',
                 'RP11-958N24.1':'PKD1P3-NPIPA1',
-                'RP11-958N24.1':'NPIPA1',
                 'RP11-163G10.3':'TMSB4X',
                 'AC019188.1':'TMSB4XP8',
                 'AP001340.2':'RPL13AP7',
@@ -405,9 +406,9 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
     ax.legend().set_visible(False)
     ax.set_xlabel('')
     if y_val == 'log10p':
-        ax.set_ylabel('-$log_{10}$ p-value')
+        ax.set_ylabel('-$log_{10}$ p-value', fontsize=20)
     else:
-        ax.set_ylabel('Coverage')
+        ax.set_ylabel('Coverage', fontsize=20)
     ax.set_xticklabels(ax.get_xticklabels(), rotation=70, rotation_mode='anchor', ha = 'right')
     
     used_rfam = []
@@ -432,8 +433,8 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
     plot_ce = color_encoder()
     plot_ce.encoder = Rfam_labs.copy()
     plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
-    plot_ce.show_legend(ax,bbox_to_anchor = (0.1,0.7), 
-                        fontsize=15, frameon=False)
+    plot_ce.show_legend(ax,bbox_to_anchor = (0.2,0.5), 
+                        fontsize=20, frameon=False)
 
 
 def plot_peak_number(peaks,ax, ce):
@@ -468,7 +469,7 @@ def plot_peak_coverage(peaks,ax, log=True):
         xcut = np.log10(xcut)
 
     sns.distplot(xs, hist=False, ax = ax)
-    ax.vlines(ymin=0, ymax=  10, x = np.log10(pileup_cutoff), color = 'red')
+    ax.vlines(ymin=0, ymax=  2.5, x = np.log10(pileup_cutoff), color = 'red')
     ax.set_ylabel('Peaks (%)')
     ax.set_xlabel('Coverage (number of fragments)')
 
@@ -532,7 +533,7 @@ def plot_peak_size(peak_df, ax):
     for strand, strand_df in peak_df\
             .assign(psize = lambda d: d.end - d.start)\
             .groupby('sense_gtype'):
-        sns.distplot(strand_df.psize, hist=False, label = strand, ax = ax)
+        sns.distplot(strand_df.psize, hist=False, label = strand, ax = ax, color = ce.encoder[strand])
     ax.set_xlabel('Peak size')
     ax.set_ylabel('Density')
     
@@ -604,7 +605,7 @@ def is_hb(row, return_name = False):
 
 
 def anti_tblout():
-    tblout = read_tbl(peak_path + '/unfragmented.others.tblout') \
+    tblout = read_tbl(peak_path + '/unfragmented.tblout') \
             .query('strand == "+"')\
             .pipe(lambda d: d[d['E-value']< 0.01])\
             .groupby('query name', as_index=False)\
@@ -617,7 +618,10 @@ def anti_tblout():
 
 def rename_hb(row):
     if row['hb'] == 'HB':
-        gn = is_hb(row, return_name=True)
+        gn = is_hb(row, return_name=True) +\
+            '\n(' + row['chrom'] + \
+            ':' + str(row['start']) + \
+            '-' + str(row['end']) + ')'
     else:
         gn = row['antisense_gname']
     return gn
@@ -647,7 +651,7 @@ def plot_anti_bar(antisense_peaks, ax, bbox = (1.2,-0.3)):
                                                 d.rfam ))\
             .sort_values('log10p', ascending=False)
     
-    if 'HBQ1' in  anti_plot.antisense_gname.tolist():
+    if any('HBQ1' in x for x in anti_plot.antisense_gname.tolist()):
         anti_plot = anti_plot.pipe(lambda d: d[d.antisense_gname.str.contains('^HB|TMSB4X')])
 
 
@@ -714,3 +718,25 @@ PEAK_ANALYZER = peak_analyzer('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merge
 def transcriptome_map(chrom, start, end, strand):
     mapped, num_pairs, transcript = PEAK_ANALYZER.filter_alignments(chrom, int(start), int(end), strand)
     return mapped/num_pairs
+
+
+
+
+class mRNAFilter():
+    '''
+    if the peak is on exon?
+    is the peak also called in transcriptome?
+    '''
+    def __init__(self):
+        ref_path = '/stor/work/Lambowitz/ref/hg19_ref/genes'
+        exons = ref_path + '/gencode.exon.bed.gz'
+        self.exons = pysam.Tabixfile(exons)
+        transcriptom_peaks = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/transcriptome/macs2/unfragmented.fwd_peaks_genomics.narrowPeak.gz'
+        self.transcriptome_peaks = pysam.Tabixfile(transcriptom_peaks)
+
+    def search(self, chrom, start, end, attribute = 'exon'):
+        if attribute == 'exon':
+            it = self.exons
+        elif attribute == 'transcriptome':
+            it = self.transcriptome_peaks
+        return 'yes' if any(it.fetch(chrom, start, end)) else 'no'

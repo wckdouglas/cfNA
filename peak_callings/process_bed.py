@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 
 import pysam
@@ -48,7 +47,7 @@ class exon:
         except ValueError:
             pass
             
-        self.coverage_score = len(coverage_track[coverage_track >= cutoff])/self.exon_size
+        self.coverage_score = len(coverage_track[coverage_track >= 2])/self.exon_size
         self.avg_coverage = coverage_track.mean()
     
 
@@ -63,6 +62,13 @@ class exon:
                         coverage = self.avg_coverage,
                         info = self.extra)
 
+def test_exon():
+    exon_records = open('/stor/work/Lambowitz/ref/hg19_ref/genes/exons_all.bed_temp','r')
+    tabix = pysam.Tabixfile('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/unfragmented.bed.gz')
+    for in_exon_count, exon_record in enumerate(exon_records):
+        ex = exon(exon_record)
+        ex.calculate_coverage(tabix, cutoff = 3)
+        records.append(str(ex).split('\t'))
 
 
 def make_exons(tab_file, cov_exon, exons):
@@ -73,7 +79,7 @@ def make_exons(tab_file, cov_exon, exons):
         for in_exon_count, exon_record in enumerate(exon_records):
             ex = exon(exon_record)
             ex.calculate_coverage(tabix, cutoff = 3)
-            if (ex.coverage_score > 0.8 and ex.avg_coverage > 3) or (ex.exon_count < 2):
+            if (ex.coverage_score > 0.8 and ex.avg_coverage > 2) or (ex.exon_count < 2):
                 print(str(ex), file = out_exon)
                 out_exon_count += 1
     print('Read %i exons, written %i exons' %(in_exon_count, out_exon_count), 
@@ -102,7 +108,8 @@ def write_stranded(bed_iterable, out_prefix):
 
     print('Output %i fragments' %fragment_count)
     for out in [negative_out, positive_out]:
-        os.system('bgzip -f {out}; tabix -f -p bed {out}.gz'.format(out = out))
+        os.system('bgzip -f {out}'.format(out = out))
+        os.system('tabix -f -p bed {out}.gz'.format(out = out))
     return 0
 
 
@@ -122,9 +129,9 @@ def filter_bed(tab_file, out_prefix, cov_exon, spliced_exons):
         .intersect(b = bed_filters , v=True)\
         .saveas()
    
-    _filtered = _filtered \
-        .intersect(b = [cov_exon,spliced_exons], v=True, s=True) \
-        .saveas()
+    #_filtered = _filtered \
+    #    .intersect(b = [cov_exon,spliced_exons], v=True, s=True) \
+    #    .saveas()
     
     write_stranded(BedTool(tab_file), out_prefix + '.unfiltered')
     write_stranded(_filtered, out_prefix + '.filtered')
@@ -146,20 +153,6 @@ def main():
     make_exons(tab_file, cov_exon, exons)
     filter_bed(tab_file, out_prefix, cov_exon, spliced_exons)
 
-def main1():
-    PROJECT_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bed'
-    tab_files = glob.glob(PROJECT_PATH + '/*.bed.gz')
-    tab_files = filter(lambda x: re.search('all|unfragmented', os.path.basename(x)), tab_files)
-    tab_files = filter(lambda x: 'no_' not in os.path.basename(x), tab_files)
-
-    processor = partial(bed_processor, exons)
-    p = Pool(24)
-    p.map(processor, tab_files)
-    p.close()
-    p.join()
-
-    set_tempdir(PROJECT_PATH + '/stranded')
-    cleanup()
 
 if __name__ == '__main__':
     main()

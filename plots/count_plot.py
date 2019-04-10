@@ -1,9 +1,10 @@
-import pandas as pd
+
 from matplotlib import rcParams
-import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches 
 import seaborn as sns
+import pandas as pd
+import numpy as np
 from tgirt_map.table_tools import change_gene_type
 from collections import defaultdict
 from sequencing_tools.viz_tools import okabeito_palette, \
@@ -20,10 +21,7 @@ from plotting_utils import label_sample, rename_sample, \
                         figure_path
 from functools import lru_cache
 plt.rc('font', **{'family':'sans-serif',
-                                    'sans-serif':'Arial'})
-plt.rc('axes', labelsize=15)
-plt.rc('xtick', labelsize=15)
-plt.rc('ytick', labelsize=15)
+                    'sans-serif':'Arial'})
 
 small_RNA_ce = color_encoder()
 label_order = ['Untreated','NaOH', 'WGS-sim', 'DNase I', 'DNase I + Exo I',"DNase I - 3'P"]
@@ -53,7 +51,7 @@ def plot_strand(ax):
     ax.set_ylabel('Protein-coding reads (%)')
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[::-1], labels[::-1], 
-              bbox_to_anchor = (.9,1), fontsize = 15,
+              bbox_to_anchor = (.9,1), fontsize = 20,
              frameon=False)
     
     
@@ -72,7 +70,7 @@ def plot_coding_bases(ax):
     ax.legend(title = '', bbox_to_anchor = (1,1))
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[::-1], labels[::-1], bbox_to_anchor = (0.9,1), 
-              fontsize = 15, frameon=False)
+              fontsize = 20, frameon=False)
 
 
 def plot_insert(ax, samples=['DNase I']):
@@ -103,11 +101,11 @@ def plot_insert(ax, samples=['DNase I']):
                  color = label_ce.encoder[lab])
         
     ax.legend(title= ' ', 
-             fontsize = 15, 
+             fontsize = 20, 
              frameon=False, 
              bbox_to_anchor = (0.65,0.8))
-    ax.set_xlabel('Read span (nt)', fontsize=15)
-    ax.set_ylabel('Read pairs (%)', fontsize=15)
+    ax.set_xlabel('Read span (nt)')
+    ax.set_ylabel('Read pairs (%)')
     
     
     for i, label in enumerate(ax.get_xticklabels()):
@@ -230,7 +228,7 @@ def plot_small_count_bar(ax, prep_regex = 'DNase|WGS-sim|NaOH|Untreated', label_
     ax.legend()
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[::-1], labels[::-1], 
-              bbox_to_anchor = (0.9,1), fontsize = 15,
+              bbox_to_anchor = (0.9,1), fontsize = 20,
              frameon=False)
     ax.set_xlabel('')
     ax.set_ylabel('Small RNA read pairs (%)')
@@ -283,7 +281,7 @@ def plot_small_count_pie(ax):
        startangle = 40,
         wedgeprops=dict(width=0.5), colors = simpsons_palette())
     ax.legend(small_df.index, bbox_to_anchor=(1.2,0.9),
-            frameon=False, fontsize=15)
+            frameon=False, fontsize=20)
 
 
 def plot_count(ax, feature_only=True, dedup=True):
@@ -305,7 +303,7 @@ def plot_count(ax, feature_only=True, dedup=True):
     ax.legend()
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[::-1], labels[::-1], 
-              bbox_to_anchor = (0.9,1), fontsize = 15,
+              bbox_to_anchor = (0.9,1), fontsize = 18,
              frameon=False)
     ax.set_xlabel('')
     ax.set_ylabel('Read pairs (%)')

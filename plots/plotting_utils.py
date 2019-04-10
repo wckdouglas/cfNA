@@ -47,7 +47,7 @@ def label_sample(x, salt = False, new_label=False):
         return 'Fragmented'
     elif re.search('[-_]sim',x):
         return 'WGS-sim'
-    elif re.search('N[aA]|[Aa]lk', x):
+    elif re.search('N[aA][0-9]+|[Aa]lk', x):
         #return 'Alkaline hydrolysis'
         if new_label:
             return "DNA (NaOH)"

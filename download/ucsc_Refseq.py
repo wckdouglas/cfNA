@@ -69,5 +69,5 @@ def main(refseq_bed):
 
 
 if __name__ == '__main__':
-    main('/stor/work/Lambowitz/ref/hg19/genome/hg19_refseq.bed')
+    main('/stor/work/Lambowitz/ref/hg19_ref/genes/hg19_refseq.bed')
 

@@ -29,7 +29,7 @@ plt.rc('font', **{'family':'sans-serif',
 
 
 
-pileup_cutoff = 4
+pileup_cutoff = 5
 sample_cutoff = 5
 project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 peak_path = project_path + '/bed_files/merged_bed/MACS2/annotated'
@@ -733,6 +733,8 @@ class mRNAFilter():
         self.exons = pysam.Tabixfile(exons)
         transcriptom_peaks = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/transcriptome/macs2/unfragmented.fwd_peaks_genomics.narrowPeak.gz'
         self.transcriptome_peaks = pysam.Tabixfile(transcriptom_peaks)
+        self.bam = pysam.Samfile('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam')
+        self.bed = pysam.Tabixfile('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/unfragmented.bed.gz')
 
     def search(self, chrom, start, end, attribute = 'exon'):
         if attribute == 'exon':
@@ -740,3 +742,27 @@ class mRNAFilter():
         elif attribute == 'transcriptome':
             it = self.transcriptome_peaks
         return 'yes' if any(it.fetch(chrom, start, end)) else 'no'
+
+
+    def spliced(self, chrom, start, end):
+        spliced = 0
+        for read_count, read in enumerate(self.bam.fetch(chrom, start, end)):
+            if 'N' in read.cigarstring:
+                spliced += 1
+        return spliced/(read_count+1)
+
+
+    def fragment_test(self, chrom, start, end, strand):
+        frag_count = 0
+        fulllength = 0
+        for frag in self.bed.fetch(chrom, start, end):
+            fields = frag.split('\t')
+            frag_strand = fields[5]
+            if frag_strand == strand:
+                frag_count += 1
+                if start -5 < int(fields[1]) < start + 5 and end -5 < int(fields[2]) < end + 5:
+                    fulllength += 1
+        
+        if frag_count == 0:
+            return 0
+        return fulllength

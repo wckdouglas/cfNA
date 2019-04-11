@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 
 import os
@@ -37,7 +36,11 @@ class mRNAFilter():
             it = self.exons
         elif attribute == 'transcriptome':
             it = self.transcriptome_peaks
-        return 'yes' if any(it.fetch(chrom, start, end)) else 'no'
+        return 'yes' if any(True for frag in it.fetch(chrom, start, end) if  self.__overlap_test__(start, end, frag)) else 'no'
+
+    def __overlap_test__(self, start, end, fragment):
+        fields = fragment.split('\t')
+        return int(fields[1]) < start and int(fields[2]) > end
 
 
 class WPS:
@@ -109,6 +112,21 @@ class PeakAnalyzer:
             fold, energy = RNA.fold(seq)
         return energy if return_energy else fold
 
+    def full_length(self, chrom, start, end, strand):
+        frag_count = 0
+        fulllength = 0
+        for frag in self.sample_bed.fetch(chrom, start, end):
+            fields = frag.split('\t')
+            frag_strand = fields[5]
+            if frag_strand == strand:
+                frag_count += 1
+                if start -5 < int(fields[1]) < start + 5 and end -5 < int(fields[2]) < end + 5:
+                    fulllength += 1
+
+        if frag_count == 0:
+            return 0
+        return fulllength
+
 
     def mirtron_filter(self, peak_tab, remove_intron=True):
         final_columns = peak_tab.columns 
@@ -126,8 +144,14 @@ class PeakAnalyzer:
         intersected = BedTool()\
             .from_dataframe(peak_tab.filter(needed_columns))\
             .intersect('/stor/work/Lambowitz/ref/hg19_ref/genes/introns.bed.gz', 
-                    f= 0.95,F=0.95, wao = True)\
-            .to_dataframe(names = needed_columns) \
+                    f= 0.5,F=0.9, wao = True)\
+            .to_dataframe(names = needed_columns)  \
+            .pipe(lambda d: pd.concat([d.query('intron_chrom == "."'),
+                                        d\
+                                            .query('intron_chrom != "."')\
+                                            .assign(fulllength = lambda d: list(map(self.full_length, d.intron_chrom, d.intron_start, d.intron_end, d.strand)))\
+                                            .assign(intron_chrom = lambda d: np.where(d.fulllength < 1, '.',d.intron_chrom))\
+                                            .drop('fulllength', axis=1)]))
 
         if remove_intron:
             return intersected \
@@ -165,6 +189,7 @@ class PeakAnalyzer:
     def add_genename(self, chrom, start, end, strand):
         gene_name = ''
         max_overlap = 0
+        start, end = int(start), int(end)
         for gene in self.gene_bed_tab.fetch(chrom, start, end):
             fields = gene.strip().split('\t')
             name = fields[3]
@@ -196,7 +221,7 @@ class PeakAnalyzer:
         for i, row in peak_df.iterrows():
             is_long_RNA = row['sense_gtype'] == 'Long RNA'
             is_intron = row['is_intron'] != '.'
-            is_antisense_peak = row['sense_gtype'] == "." and row['antisense_gtype'] != 'RBP' and row['antisense_gtype'] != "RBP"
+            is_antisense_peak = row['sense_gtype'] == "." and row['antisense_gtype'] != 'RBP' 
             is_unannotated = row['sense_gtype'] == '.' and row['antisense_gtype'] == "."
             if is_long_RNA or is_intron or is_antisense_peak or is_unannotated:
                 rows.append(row)
@@ -267,20 +292,20 @@ def main(remove_intron=True):
     peak_analyze = PeakAnalyzer()
     concensus_analyzer = concensus_module()
 
-    out_columns = ['peak_name','is_sense','gname', 'strand','pileup','sample_count', 'seq', 'energy',
-                 'concensus_seq', 'concensus_fold', 'concensus_energy', 'concensus_folding_pval',
+    out_columns = ['peak_name','is_sense','gname','sense_gtype', 'strand','pileup','sample_count', 'seq', 'energy',
+                 'concensus_seq', 'concensus_fold', 'concensus_energy', #'concensus_folding_pval',
                  'force_cloverleaf','is_exon','is_transcriptome_peak'] 
     if not remove_intron:
         out_columns.append('is_intron')
 
     p = Pool(24)
-    fold_p = partial(get_folding_pvalue, 2000)
+    fold_p = partial(get_folding_pvalue, 2001)
     peak_df = pd.read_csv(ANNOT_PEAK_FILE, sep='\t') \
-        .query('sample_count >= 5 & pileup >= 4') \
+        .query('sample_count >= 5 & pileup >= 5') \
         .fillna('.')\
         .pipe(peak_analyze.filter_mRNA)\
-        .pipe(peak_analyze.filter_gene) \
         .pipe(peak_analyze.mirtron_filter, remove_intron=remove_intron) \
+        .pipe(peak_analyze.filter_gene)\
         .pipe(peak_analyze.uncharacterized_peak)\
         .assign(concensus_seq = lambda d: list(map(concensus_analyzer.find_concensus, d.chrom, d.start, d.end, d.strand)))\
         .assign(seq = lambda d: list(map(peak_analyze.fetch_seq, d.chrom, d.start, d.end, d.strand)))\
@@ -292,7 +317,6 @@ def main(remove_intron=True):
         .assign(fold = lambda d: d.fold.map(peak_analyze.abstract_structure)) \
         .assign(concensus_fold = lambda d: d.concensus_fold.map(peak_analyze.abstract_structure)) \
         .assign(force_cloverleaf = lambda d: d.concensus_seq.map(peak_analyze.cloverleaf)) \
-        .assign(concensus_folding_pval = lambda d: p.map(fold_p, d.concensus_seq)) \
         .assign(peak_name = lambda d: d.chrom +':'+ d.start.astype(str) +'-'+ d.end.astype(str)) \
         .assign(gname = lambda d: np.where(d.sense_gname != ".", 
                                         d.sense_gname,
@@ -303,6 +327,7 @@ def main(remove_intron=True):
         .pipe(lambda d: d[~d.peak_name.isin(['chrX:44654061-44654153', 
                                             'chr11:74457163-74457239',
                                             'chr16:31173304-31173386'])])
+        #.assign(concensus_folding_pval = lambda d: p.map(fold_p, d.concensus_seq)) \
     p.close()
     p.join()
     out_table = WORK_DIR + '/supp_tab.tsv'

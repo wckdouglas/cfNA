@@ -113,13 +113,19 @@ class PeakClassification():
         print('Intersected genes ', file= sys.stderr)
         return inbed
 
+    def __reindex__(d):
+        d.index = d.index.drop_level(-1) 
+        return d
+
 
     def resolve_annotation(self, inbed):
         '''
         select for greatest overlapped annotation
+        ## speeded up with dask
+        remeber to set one column as index --> "start", avoid shuffle
         '''
         #df = dd.from_pandas(inbed, npartitions=16, sort=True)\
-        group_cols = ['chrom','start','end',
+        group_cols = ['chrom','end',
                         'peakname','score','is_sense', 
                         'fc','log10p',
                         'log10q','pileup','sample_count']
@@ -134,7 +140,8 @@ class PeakClassification():
                                                         'gtype':'f8',
                                                         'strand':'f8',
                                                         'gstrand':'f8'})\
-            .compute(scheduler='multiprocessing')\
+            .compute(scheduler='processes')\
+            .pipe(self.__reindex__)\
             .reset_index() \
             .drop_duplicates() \
             .sort_values('log10q', ascending=False)  \

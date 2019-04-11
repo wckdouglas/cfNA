@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import sys
 import pymysql
 import pandas as pd
 from urllib.request import Request, urlopen
@@ -69,5 +69,6 @@ def main(refseq_bed):
 
 
 if __name__ == '__main__':
-    main('/stor/work/Lambowitz/ref/hg19_ref/genes/hg19_refseq.bed')
+    #main('/stor/work/Lambowitz/ref/hg19_ref/genes/hg19_refseq.bed')
+    main(sys.argv[1])
 

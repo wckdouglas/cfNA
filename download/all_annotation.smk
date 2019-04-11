@@ -70,7 +70,7 @@ rule all_annotation:
         ' {input.RMSK} {input.REFSEQ} {input.piRNA} {input.DASHR} '\
         '| sort -k1,1 -k2,2n -k3,3n ' \
         '| bgzip '\
-        '> $GENE_PATH/all_annotation.bed.gz'
+        '> {output}'
 
 
 rule refseq_small:

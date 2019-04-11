@@ -106,6 +106,7 @@ class PeakClassification():
             .assign(gtype = lambda d: np.where(d.gname.isin(["BC200",'7SK','7SL','VTRNA2-1']), 
                                                 'misc_RNA', 
                                                 d.gtype)) \
+            .assign(gtype = lambda d: np.where(d.gtype.str.contains("misc_RNA"), 'Long RNA', d.gtype))\
             .assign(gtype_rank = lambda d: d.gtype.map(self.rank_type))   \
             .drop(['gscore','peak_summit','gchrom','gstart', 'gend'], axis=1) \
             .fillna(0)
@@ -113,8 +114,8 @@ class PeakClassification():
         print('Intersected genes ', file= sys.stderr)
         return inbed
 
-    def __reindex__(d):
-        d.index = d.index.drop_level(-1) 
+    def __reindex__(self, d):
+        d.index = d.index.droplevel(-1) 
         return d
 
 
@@ -125,10 +126,11 @@ class PeakClassification():
         remeber to set one column as index --> "start", avoid shuffle
         '''
         #df = dd.from_pandas(inbed, npartitions=16, sort=True)\
-        group_cols = ['chrom','end',
+        group_cols = ['chrom','start','end',
                         'peakname','score','is_sense', 
                         'fc','log10p',
                         'log10q','pileup','sample_count']
+        out_cols = np.append(group_cols, ['gname','gtype','strand','gstrand'])
         df = inbed \
             .assign(is_sense = lambda d: np.where((d.strand == d.gstrand) | (d.gtype.str.contains(self.repeats_regex)), 
                                                 'sense', 
@@ -146,14 +148,13 @@ class PeakClassification():
             .drop_duplicates() \
             .sort_values('log10q', ascending=False)  \
             .assign(gtype = lambda d: d.gtype.map(self.__merge_type__)) \
-            .drop('level_11', axis=1)  
-    #        .pipe(retype_junctions, exon_table)
+            .filter(out_cols)
         
         sense_df = self.__strand_df__(df, strand = 'sense')
         antisense_df = self.__strand_df__(df, strand = 'antisense')
 
         print('Resolved genes ', file= sys.stderr)
-        return sense_df.merge(antisense_df, how = 'outer').fillna('.') 
+        return sense_df.merge(antisense_df, how = 'outer').fillna('.')
 
     def __strand_df__(self, df, strand = 'sense'):
         '''

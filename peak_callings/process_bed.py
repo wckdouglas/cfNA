@@ -15,60 +15,7 @@ from functools import partial
 import re
 REF_PATH = os.environ['REF']
 
-class exon:
-    def __init__(self, bed_line):
-        self.fields = bed_line.strip().split('\t')
-        self.chrom = self.fields[0]
-        self.start = int(self.fields[1])
-        self.end = int(self.fields[2])
-        self.exon_count = int(self.fields[4])
-        self.strand = self.fields[5]
-        self.exon_name = self.fields[3]
-        self.exon_size = self.end - self.start
-        self.coverage_score = 0
-        self.avg_coverage = 0
-        self.extra = ','.join(self.fields[6:])
 
-    def calculate_coverage(self, tabix_file, cutoff = 3):
-        coverage_track = np.zeros(self.exon_size)
-        try: 
-            for fragment in tabix_file.fetch(self.chrom, self.start, self.end):
-                f = fragment.strip().split('\t')
-                f_start, f_end, f_strand = itemgetter(1,2,5)(f)
-
-                if f_strand == self.strand:
-                    adjusted_start = int(f_start) - self.start
-                    adjusted_end = int(f_end) - self.start
-
-                    adjusted_start = 0 if adjusted_start < 0 else adjusted_start
-                    adjusted_end = self.exon_size - 1 if adjusted_end > self.exon_size - 1 else adjusted_end
-
-                    coverage_track[adjusted_start:adjusted_end] += 1
-        except ValueError:
-            pass
-            
-        self.coverage_score = len(coverage_track[coverage_track >= 2])/self.exon_size
-        self.avg_coverage = coverage_track.mean()
-    
-
-    def __str__(self):
-        template = '{chrom}\t{start}\t{end}\t{exon}\t{score}\t{strand}\t{coverage}\t{info}'
-        return template.format(chrom = self.chrom,
-                        start = self.start,
-                        end = self.end,
-                        exon = self.exon_name,
-                        score = self.coverage_score,
-                        strand = self.strand,
-                        coverage = self.avg_coverage,
-                        info = self.extra)
-
-def test_exon():
-    exon_records = open('/stor/work/Lambowitz/ref/hg19_ref/genes/exons_all.bed_temp','r')
-    tabix = pysam.Tabixfile('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/unfragmented.bed.gz')
-    for in_exon_count, exon_record in enumerate(exon_records):
-        ex = exon(exon_record)
-        ex.calculate_coverage(tabix, cutoff = 3)
-        records.append(str(ex).split('\t'))
 
 
 def make_exons(tab_file, cov_exon, exons):

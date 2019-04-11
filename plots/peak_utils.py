@@ -469,7 +469,7 @@ def plot_peak_coverage(peaks,ax, log=True):
         xcut = np.log10(xcut)
 
     sns.distplot(xs, hist=False, ax = ax)
-    ax.vlines(ymin=0, ymax=  2.5, x = np.log10(pileup_cutoff), color = 'red')
+    ax.vlines(ymin=0, ymax=  8, x = np.log10(pileup_cutoff), color = 'red')
     ax.set_ylabel('Peaks (%)')
     ax.set_xlabel('Coverage (number of fragments)')
 

@@ -143,7 +143,7 @@ class PeakAnalyzer:
         
         intersected = BedTool()\
             .from_dataframe(peak_tab.filter(needed_columns))\
-            .intersect('/stor/work/Lambowitz/ref/hg19_ref/genes/introns.bed.gz', 
+            .intersect('/stor/work/Lambowitz/ref/hg19_ref/genes/introns.gencode.bed.gz', 
                     f= 0.5,F=0.9, wao = True)\
             .to_dataframe(names = needed_columns)  \
             .pipe(lambda d: pd.concat([d.query('intron_chrom == "."'),
@@ -303,7 +303,6 @@ def main(remove_intron=True):
     peak_df = pd.read_csv(ANNOT_PEAK_FILE, sep='\t') \
         .query('sample_count >= 5 & pileup >= 5') \
         .fillna('.')\
-        .pipe(peak_analyze.filter_mRNA)\
         .pipe(peak_analyze.mirtron_filter, remove_intron=remove_intron) \
         .pipe(peak_analyze.filter_gene)\
         .pipe(peak_analyze.uncharacterized_peak)\
@@ -328,6 +327,7 @@ def main(remove_intron=True):
                                             'chr11:74457163-74457239',
                                             'chr16:31173304-31173386'])])
         #.assign(concensus_folding_pval = lambda d: p.map(fold_p, d.concensus_seq)) \
+        #.pipe(peak_analyze.filter_mRNA)\
     p.close()
     p.join()
     out_table = WORK_DIR + '/supp_tab.tsv'

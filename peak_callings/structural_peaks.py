@@ -1,5 +1,7 @@
+
 #!/usr/bin/env python
 
+import sys
 import os
 import re
 import pysam
@@ -15,8 +17,135 @@ from operator import itemgetter
 from sequencing_tools.stats_tools import p_adjust
 from sequencing_tools.fastq_tools import reverse_complement
 from concensus_seq import concensus
+from exon_coverage import ExonFilter
 import pyBigWig as pbw
+from tblout_parser import read_tbl
+from sequencing_tools.bam_tools import get_strand
+import pyximport
+pyximport.install()
+from junction_function import get_junction
+
+
 set_tempdir('/stor/scratch/Lambowitz/cdw2854')
+
+
+class GenicIntersect():
+    def __init__(self):
+        self.exons = '/stor/work/Lambowitz/ref/hg19_ref/genes/exons.gencode.bed.gz'
+        self.introns = '/stor/work/Lambowitz/ref/hg19_ref/genes/introns.gencode.bed.gz'
+        self.tabix = pysam.Tabixfile(self.introns)
+        bam = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam'
+        self.bam = pysam.Samfile(bam)
+        self.pseudogene = '/stor/work/Lambowitz/ref/hg19_ref/genes/small_pseudogenes.bed.gz'
+        
+    def compute_psi(self, chrom, peak_start, peak_end, strand):
+        aln_count = 0
+        spliced_count = 0
+        peak_start, peak_end = int(peak_start), int(peak_end)
+        peak_size = peak_end - peak_start
+        overlapped_threshold = peak_size * 0.1
+        for aln in self.bam.fetch(chrom, peak_start, peak_end):
+            if (aln.is_read1 and get_strand(aln) == strand)  or \
+                    (aln.is_read2 and get_strand(aln) != strand):
+                aln_count += 1
+                if 'S' in aln.cigarstring and \
+                        self.__test_splice__(aln, peak_start, peak_end, overlapped_threshold):
+                    spliced_count+=1
+                    
+        psi = spliced_count/aln_count if aln_count!=0 else 0
+        return psi
+    
+    def __test_splice__(self, spliced_aln, peak_start, peak_end, th):
+        introns = get_junction(spliced_aln)
+        coordinates = (intron.split(':')[1].split('_')[0].split('-') for intron in introns)
+        overlapped = ( min(peak_end, int(coor[1])) - max(peak_start, int(coor[0])) for coor in coordinates)
+        return any(overlap > th  for overlap in overlapped)
+        
+    
+    def intersect(self, bed):
+        needed_columns = ['chrom','start','end','peakname', 'pileup','strand']
+        self.columns = needed_columns + list(set(bed.columns.tolist()) - set(needed_columns))
+        out_columns = self.columns + ['filenum','gchrom','gstart','gend',
+                                'gname','gscore','gstrand','gtype','overlap']
+        self.inbed = bed\
+            .filter(self.columns)
+        b_files = [self.exons, self.introns, self.pseudogene] 
+        return self.inbed \
+            .pipe(BedTool().from_dataframe)\
+            .intersect(b = b_files,
+                      wao = True, s=True, f=0.2)\
+            .to_dataframe(names = out_columns)
+            
+    def check_intron(self, pchrom, ps, pe, gs, ge):
+        rt = 'Exon'
+        for intron in self.tabix.fetch(pchrom, ps, pe):
+            fields = intron.strip().split('\t')
+            istart, iend = int(fields[1]), int(fields[2]) 
+            right_continous_exon_intron = (istart - 3) < ge < (istart +3) 
+            left_continous_exon_intron = (iend - 3) < gs < (iend + 3)
+            right_not_peak_included = iend > pe
+            left_not_peak_included = istart < ps
+            overlapped = min(pe, iend) - max(ps, istart)
+            if (right_continous_exon_intron and right_not_peak_included) \
+                    or (left_continous_exon_intron and  left_not_peak_included):
+                if overlapped > 10:
+                    rt = 'Exon-intron'
+        return rt               
+
+
+    def categorize(self, row):
+        gt = row['gtype']
+        if row['gtype'] == 'intron':
+            if row['overlap_score'] > 0.8:
+                gt = 'Full-length intron'
+            elif row['psi'] < 0.1:
+                gt = 'Within intron'
+            elif row['psi'] > 0.2:
+                gt =self.check_intron(row['chrom'],
+                        row['start'], row['end'],
+                        row['gstart'], row['gend'])    
+        elif 'pseudo' in row['gtype']:
+            gt = 'Pseudogene'
+        elif row['gtype'] == 'exon':
+            gt =self.check_intron(row['chrom'],
+                        row['start'], row['end'],
+                        row['gstart'], row['gend'])
+
+        return gt
+
+
+    def resolve_genic(self, df):
+        gbed = df \
+            .assign(peak_size = lambda d: d.end - d.start)\
+            .assign(gsize = lambda d: d.gend - d.gstart)\
+            .set_index('peakname')\
+            .pipe(dd.from_pandas, npartitions=24)\
+            .groupby(self.columns)\
+            .apply(select_annotation, meta = {'gstart':'f8',
+                                            'gend':'f8',
+                                            'overlap_score':'f8',
+                                            'gtype':'f8',
+                                            'goverlap':'f8',
+                                            'peak_overlap':'f8'})\
+            .compute(scheduler='processes')
+        gbed.index = gbed.index.droplevel(-1)
+        gbed = gbed.reset_index()\
+            .assign(gtype = lambda d: [self.categorize(row) for i, row in d.iterrows()])   \
+            .assign(gtype = lambda d: np.where((d.gtype=='Exon-intron') & (d.peak_overlap.astype(float) > 0.6),
+                                            'Exon',
+                                            d.gtype))
+        return gbed
+
+
+ 
+def select_annotation(df):
+    return df \
+        .assign(peak_overlap = lambda d: d.overlap / (d.peak_size))\
+        .assign(goverlap = lambda d: d.overlap / (d.gsize))\
+        .assign(overlap_score = lambda d:  d.peak_overlap * d.goverlap )\
+        .nlargest(1,'overlap_score')  \
+        .filter(['gstart','gend','overlap_score','gtype','goverlap','peak_overlap']) 
+
 
 
 class mRNAFilter():
@@ -82,12 +211,14 @@ class PeakAnalyzer:
             RNAshapes = '/stor/work/Lambowitz/cdw2854/src/miniconda3/bin/RNAshapes',
             gene_bed = '/stor/work/Lambowitz/ref/hg19_ref/genes/genes.bed.gz',
             sample_bed = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/unfragmented.bed.gz',
+            tblout = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/MACS2/annotated/unfragmented.tblout',
             phyloP = '/stor/work/Lambowitz/ref/hg19_ref/phyloP/hg19.100way.phastCons.bw'):
         self.fa = pysam.Fastafile(genome)
         self.gene_bed = gene_bed
         self.RNAshapes = RNAshapes
         self.sample_bed = pysam.Tabixfile(sample_bed)
         self.phyloP = pbw.open(phyloP)
+        self.tblout = tblout
         self.mRNA_filter = mRNAFilter()
         self.gene_bed_columns = ['chrom','start','end', 'gene_name',
                                 'gene_score','strand','gene_type','gene_id']
@@ -96,6 +227,17 @@ class PeakAnalyzer:
     def fetch_seq(self, chrom, start, end, strand):
         seq = self.fa.fetch(chrom, int(start), int(end))
         return seq if strand == "+" else reverse_complement(seq)
+
+    
+    def add_rfam(self, peak_df):
+        tbl = read_tbl(self.tblout)\
+            .pipe(lambda d: d[d['E-value'] < 0.01])\
+            .filter(regex='name')\
+            .assign(peak_name = lambda d: d['query name'].str.extract('_(chr[0-9XY]+:[0-9]+\-[0-9]+)\(')) \
+            .drop(['query name'],axis=1)\
+            .rename(columns = {'target name':'rfam'})
+        return peak_df.merge(tbl, on = 'peak_name', how = 'left') \
+                .fillna('.')
 
     
     def abstract_structure(self, structure):
@@ -115,6 +257,7 @@ class PeakAnalyzer:
     def full_length(self, chrom, start, end, strand):
         frag_count = 0
         fulllength = 0
+        start, end = int(start), int(end)
         for frag in self.sample_bed.fetch(chrom, start, end):
             fields = frag.split('\t')
             frag_strand = fields[5]
@@ -139,6 +282,7 @@ class PeakAnalyzer:
                                 'intron_name',
                                 'intron_score',
                                 'intron_strand',
+                                'intron',
                                 'overlapped'])
         
         intersected = BedTool()\
@@ -219,8 +363,8 @@ class PeakAnalyzer:
     def uncharacterized_peak(self, peak_df, remove_intron=True):
         rows = []
         for i, row in peak_df.iterrows():
-            is_long_RNA = row['sense_gtype'] == 'Long RNA'
-            is_intron = row['is_intron'] != '.'
+            is_long_RNA = row['sense_gtype'] == 'Long RNA' 
+            is_intron = row['is_intron'] != '.' or row['rfam']!='.'
             is_antisense_peak = row['sense_gtype'] == "." and row['antisense_gtype'] != 'RBP' 
             is_unannotated = row['sense_gtype'] == '.' and row['antisense_gtype'] == "."
             if is_long_RNA or is_intron or is_antisense_peak or is_unannotated:
@@ -291,10 +435,12 @@ def main(remove_intron=True):
     ANNOT_PEAK_FILE = WORK_DIR + '/unfragmented.filtered.tsv'
     peak_analyze = PeakAnalyzer()
     concensus_analyzer = concensus_module()
+    exon_filter = ExonFilter()
+    gi = GenicIntersect()
 
     out_columns = ['peak_name','is_sense','gname','sense_gtype', 'strand','pileup','sample_count', 'seq', 'energy',
                  'concensus_seq', 'concensus_fold', 'concensus_energy', #'concensus_folding_pval',
-                 'force_cloverleaf','is_exon','is_transcriptome_peak'] 
+                 'force_cloverleaf','is_exon','is_transcriptome_peak','rfam', 'gtype'] 
     if not remove_intron:
         out_columns.append('is_intron')
 
@@ -303,9 +449,15 @@ def main(remove_intron=True):
     peak_df = pd.read_csv(ANNOT_PEAK_FILE, sep='\t') \
         .query('sample_count >= 5 & pileup >= 5') \
         .fillna('.')\
+        .assign(peak_name = lambda d: d.chrom +':'+ d.start.astype(str) +'-'+ d.end.astype(str)) \
+        .pipe(peak_analyze.add_rfam)\
         .pipe(peak_analyze.mirtron_filter, remove_intron=remove_intron) \
         .pipe(peak_analyze.filter_gene)\
+        .pipe(exon_filter.filter, f = 0.1)\
         .pipe(peak_analyze.uncharacterized_peak)\
+        .assign(psi = lambda d: list(map(gi.compute_psi, d.chrom ,d.start, d.end, d.strand)) )\
+        .pipe(gi.intersect) \
+        .pipe(gi.resolve_genic) \
         .assign(concensus_seq = lambda d: list(map(concensus_analyzer.find_concensus, d.chrom, d.start, d.end, d.strand)))\
         .assign(seq = lambda d: list(map(peak_analyze.fetch_seq, d.chrom, d.start, d.end, d.strand)))\
         .assign(concensus_seq = lambda d: np.where(d.is_intron==".",d.concensus_seq,d.seq)) \
@@ -316,7 +468,6 @@ def main(remove_intron=True):
         .assign(fold = lambda d: d.fold.map(peak_analyze.abstract_structure)) \
         .assign(concensus_fold = lambda d: d.concensus_fold.map(peak_analyze.abstract_structure)) \
         .assign(force_cloverleaf = lambda d: d.concensus_seq.map(peak_analyze.cloverleaf)) \
-        .assign(peak_name = lambda d: d.chrom +':'+ d.start.astype(str) +'-'+ d.end.astype(str)) \
         .assign(gname = lambda d: np.where(d.sense_gname != ".", 
                                         d.sense_gname,
                                         d.antisense_gname)) \

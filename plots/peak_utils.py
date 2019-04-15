@@ -1,4 +1,5 @@
 import pandas as pd
+import sys
 import numpy as np
 from sequencing_tools.viz_tools import okabeito_palette, color_encoder, simpsons_palette
 from sequencing_tools.stats_tools import p_adjust
@@ -20,7 +21,14 @@ from tblout_parser import read_tbl
 from bwapy import BwaAligner
 import io
 from transcriptome_filter import peak_analyzer
+import pyximport 
+pyximport.install()
+from junction_func import get_junction 
 import matplotlib.pyplot as plt
+sys.path.insert(0,'/stor/home/cdw2854/cfNA/peak_callings')
+from structural_peaks import PeakAnalyzer, mRNAFilter, GenicIntersect
+from exon_coverage import ExonFilter
+import dask.dataframe as dd
 plt.rc('axes', labelsize=20)
 plt.rc('xtick', labelsize = 20)
 plt.rc('ytick', labelsize = 20)
@@ -33,6 +41,29 @@ pileup_cutoff = 5
 sample_cutoff = 5
 project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 peak_path = project_path + '/bed_files/merged_bed/MACS2/annotated'
+name_conversion = {'RP11-958N24.2': 'PKD1P4-NPIPA8',
+                'RP11-1212A22.4':'PKD1P5',
+                'RP11-1186N24.5':'PKD1P6',
+                'RP11-185O17.3':'RPS2P55',
+                'RP11-365K22.1':'RPL13AP25',
+                'RP11-111F5.5':'FGF7P6',
+                'RP11-1212A22.1':'PKD1P4',
+                'RP11-958N24.1':'PKD1P3',
+                'RP11-163G10.3':'TMSB4X',
+                'AC019188.1':'TMSB4XP8',
+                'AP001340.2':'RPL13AP7',
+                'RP11-1212A22.4':'PKD1P5'}
+peak_type_ce = color_encoder()
+peak_type_ce.encoder = {'mRNA':'purple',
+                 'Pseudogene':'darkblue',
+                 'Exon': 'purple',
+                 'Intron':'#fca237',
+                 'Exon-intron':'red',
+                 'Within intron':'#fca237', 
+                 'miRNA':'darkgreen',
+                 'tRNA-like RNA': '#a7f79e',
+                 'Full-length intron':'#cc6f00'}
+
 
 def only_choice(row):
     # cases where only 1 potential RNA is found
@@ -387,14 +418,6 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
     rfam_labs['RP11-51O6.1'] = 'Pseudogene'
 
     assert(y_val in ['log10p','pileup'])
-    name_conversion = {'RP11-958N24.2': 'PKD1P4-NPIPA8',
-                'RP11-1212A22.1':'PKD1P4-NPIPA8',
-                'RP11-958N24.2':'PKD1P4-NPIPA8',
-                'RP11-958N24.1':'PKD1P3-NPIPA1',
-                'RP11-163G10.3':'TMSB4X',
-                'AC019188.1':'TMSB4XP8',
-                'AP001340.2':'RPL13AP7',
-                'RP11-1212A22.4':'PKD1P5'}
     rev_name_conversion = {v:k for k,v in name_conversion.items()}
 
     lp = lp.assign(picked_RNA_sense = lambda d: d.sense_gname\
@@ -427,14 +450,6 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
             gn = rev_name_conversion[gn]
         rfam = rfam_labs[gn]
         used_rfam.append(rfam)
-        color = rfam_ce.encoder[rfam]
-        xt.set_color(color)
-
-    plot_ce = color_encoder()
-    plot_ce.encoder = Rfam_labs.copy()
-    plot_ce.encoder = {k:v for k,v in plot_ce.encoder.items() if k in used_rfam}
-    plot_ce.show_legend(ax,bbox_to_anchor = (0.2,0.5), 
-                        fontsize=20, frameon=False)
 
 
 def plot_peak_number(peaks,ax, ce):
@@ -766,3 +781,27 @@ class mRNAFilter():
         if frag_count == 0:
             return 0
         return fulllength
+
+
+
+def long_rna_df():
+    gi = GenicIntersect()
+    peak_file = peak_path + '/unfragmented.filtered.tsv'
+    bed = load_peaks(peak_file) \
+        .query('sample_count >= %i & pileup >= %i' %(sample_cutoff, pileup_cutoff))\
+        .query('sense_gtype == "Long RNA"') \
+        .assign(psi = lambda d: list(map(gi.compute_psi, d.chrom, d.start, d.end, d.strand))) 
+    columns = bed.columns.tolist()
+    gbed = bed\
+        .pipe(gi.intersect)\
+        .pipe(gi.resolve_genic(bed))
+    return gbed
+
+def exonic_filtered_df(peak_df):
+    exon_filter = ExonFilter()
+    needed_columns = ['chrom','start','end','peakname','score','strand']
+    needed_columns.extend(list(set(peak_df.columns.tolist()) - set(needed_columns)))
+    exon_filtered_peaks = peak_df\
+        .filter(needed_columns)
+    exon_filtered_peaks = exon_filter.filter(exon_filtered_peaks, f = 0.1)
+    return exon_filtered_peaks

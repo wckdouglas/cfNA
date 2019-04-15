@@ -6,10 +6,9 @@ import os
 from operator import itemgetter
 import sys
 from pybedtools import BedTool, set_tempdir
-from pybedtools.featurefuncs import less_than
-from pybedtools.helpers import cleanup
-from sequencing_tools.io_tools import xopen
+import pyBigWig as pbw
 import glob
+from sequencing_tools.io_tools import xopen
 from multiprocessing import Pool
 from functools import partial
 import re
@@ -62,52 +61,72 @@ class exon:
                         coverage = self.avg_coverage,
                         info = self.extra)
     
+
+
+
+
 class ExonFilter():
     def __init__(self,
-            tab_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/unfragmented.bed.gz',
+            bws = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/coverage/unfragmented.{strand}.bigWig',
             exon_file = '/stor/work/Lambowitz/ref/hg19_ref/genes/exons.gencode.bed.gz',
-            cutoff=2):
+            cutoff=2, 
+            force=False):
         records = []
         self.high_cov_exons = '/stor/scratch/Lambowitz/cdw2854/high_cov_exon.bed'
         self.exon_file = exon_file
-        self.tab_file = tab_file
-        if not os.path.isfile(self.high_cov_exons):
+        self.bws = {strand:pbw.open(bws.format(strand=strand_label)) for strand, strand_label in zip(['-','+'],['rvs','fwd'])}
+        if not os.path.isfile(self.high_cov_exons) or force:
             self.initiate(cutoff=cutoff)
 
 
-    def __groupby__(self, frag):
-        return frag.chrom, frag.start, frag.end, frag.name, frag.strand
-
-    def initiate(self, cutoff=2):
-        cdef: 
-            str chrom, start
-        coverages = BedTool(self.exon_file)\
-            .coverage(self.tab_file, s=True, d=True, stream=True)
-        with open(self.high_cov_exons, 'w') as outbed:
-            for (chrom,start,end,name,strand), positions in groupby(coverages, self.__groupby__):
-                coverage_track = np.array([position.fields[-1] for position in positions], dtype='int')
-                self.uniform_coverage_score = len(coverage_track[coverage_track >= cutoff])/(end-start)
-                self.avg_coverage = coverage_track.mean()
-                if self.avg_coverage > cutoff and self.uniform_coverage_score > 0.8:
-                    outline = '{chrom}\t{start}\t{end}\t{name}\t0\t{strand}'\
+    def initiate(self, cutoff=1):
+        with xopen(self.exon_file) as exon_lines, \
+                open(self.high_cov_exons, 'w') as outbed:
+            for exon_line in exon_lines:
+                fields = exon_line.split('\t')
+                chrom, start, end, name, strand = itemgetter(0,1,2,3,5)(fields)
+                if chrom.startswith('chr'):
+                    try:
+                        bw = self.bws[strand]
+                        coverage_track = bw.values(chrom, int(start), int(end),numpy=True)
+                    except RuntimeError:
+                        print(chrom, start, end)
+                        sys.exit()
+                    uniform_coverage_score = len(coverage_track[coverage_track >= cutoff])/len(coverage_track)
+                    avg_coverage = coverage_track.mean()
+                    if avg_coverage > cutoff and uniform_coverage_score > 0.8:
+                        outline = '{chrom}\t{start}\t{end}\t{name}\t{uniform_score}\t{strand}\t{avg_score}'\
                             .format(chrom = chrom,
                                     start = start, 
                                     end = end,
                                     name = name,
-                                    strand = strand)
-                    print(outline, file = outbed)
+                                    strand = strand,
+                                    uniform_score = uniform_coverage_score,
+                                    avg_score = avg_coverage)
+                        print(outline, file = outbed)
+                    
+
+
     
-    def filter(self, bed_df):
+    def filter(self, bed_df, f=0.2):
         in_count = bed_df.shape[0]
         columns = bed_df.columns
         out_df = BedTool()\
             .from_dataframe(bed_df)\
-            .intersect(b = self.high_cov_exons, v=True, f=0.6, s=True)\
+            .intersect(b = self.high_cov_exons, v=True, f=f, s=True)\
             .to_dataframe(names = columns)
         out_count = out_df.shape[0]
         print('Filtered out %i peaks' %(in_count - out_count))
+        return out_df
 
         
+def main():
+    exon_filter = ExonFilter(force=True, cutoff=1)
+
+
+if __name__ == '__main__':
+    main()
+
 
         
 

@@ -40,7 +40,7 @@ def main():
     project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
     out_path = project_path + '/non_template_added'
     out_table = out_path + '/clip_table.feather'
-    sample_folders = glob.glob(project_path + '/Q*001')
+    sample_folders = glob.glob(project_path + '/*001')
     sample_folders = filter(lambda x: not re.search('L[0-9E]+|genome-sim',x), sample_folders)
     p = Pool(24)
     rows = p.map(count_softclipped, sample_folders)

@@ -3,6 +3,7 @@
 import pandas as pd
 import numpy as np
 import sys
+import re
 
 seqs = []
 for line in sys.stdin:
@@ -27,7 +28,9 @@ for pos in range(cols):
     #    cb = str(b[bcount == np.sort(bcount)[-2]][0])
 
     concensus_seq += cb
-print(concensus_seq.replace('-',''))
+cs = concensus_seq.replace('-','')
+#cs = re.sub('CC$|ACA$|GCA$|CTA$|AAC$','CCA', cs)
+print(cs)
 
 
 

@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 
 import sys
@@ -24,6 +23,7 @@ from sequencing_tools.bam_tools import get_strand
 import pyximport
 pyximport.install()
 from junction_function import get_junction
+import dask.dataframe as dd
 
 
 set_tempdir('/stor/scratch/Lambowitz/cdw2854')
@@ -73,7 +73,7 @@ class GenicIntersect():
         return self.inbed \
             .pipe(BedTool().from_dataframe)\
             .intersect(b = b_files,
-                      wao = True, s=True, f=0.2)\
+                      wao = True,  f=0.2)\
             .to_dataframe(names = out_columns)
             
     def check_intron(self, pchrom, ps, pe, gs, ge):
@@ -143,6 +143,7 @@ def select_annotation(df):
         .assign(peak_overlap = lambda d: d.overlap / (d.peak_size))\
         .assign(goverlap = lambda d: d.overlap / (d.gsize))\
         .assign(overlap_score = lambda d:  d.peak_overlap * d.goverlap )\
+        .fillna(0.000001) \
         .nlargest(1,'overlap_score')  \
         .filter(['gstart','gend','overlap_score','gtype','goverlap','peak_overlap']) 
 
@@ -232,11 +233,14 @@ class PeakAnalyzer:
     def add_rfam(self, peak_df):
         tbl = read_tbl(self.tblout)\
             .pipe(lambda d: d[d['E-value'] < 0.01])\
+            .groupby('query name', as_index=False)\
+            .apply(lambda d: d.nsmallest(1,'E-value'))\
             .filter(regex='name')\
             .assign(peak_name = lambda d: d['query name'].str.extract('_(chr[0-9XY]+:[0-9]+\-[0-9]+)\(')) \
             .drop(['query name'],axis=1)\
             .rename(columns = {'target name':'rfam'})
-        return peak_df.merge(tbl, on = 'peak_name', how = 'left') \
+        return peak_df\
+                .merge(tbl, on = 'peak_name', how = 'left') \
                 .fillna('.')
 
     
@@ -288,14 +292,14 @@ class PeakAnalyzer:
         intersected = BedTool()\
             .from_dataframe(peak_tab.filter(needed_columns))\
             .intersect('/stor/work/Lambowitz/ref/hg19_ref/genes/introns.gencode.bed.gz', 
-                    f= 0.5,F=0.9, wao = True)\
+                    f= 0.5,F=0.9, wao = True, s=True)\
             .to_dataframe(names = needed_columns)  \
             .pipe(lambda d: pd.concat([d.query('intron_chrom == "."'),
                                         d\
                                             .query('intron_chrom != "."')\
                                             .assign(fulllength = lambda d: list(map(self.full_length, d.intron_chrom, d.intron_start, d.intron_end, d.strand)))\
                                             .assign(intron_chrom = lambda d: np.where(d.fulllength < 1, '.',d.intron_chrom))\
-                                            .drop('fulllength', axis=1)]))
+                                            .drop('fulllength', axis=1)]))  
 
         if remove_intron:
             return intersected \
@@ -363,11 +367,12 @@ class PeakAnalyzer:
     def uncharacterized_peak(self, peak_df, remove_intron=True):
         rows = []
         for i, row in peak_df.iterrows():
-            is_long_RNA = row['sense_gtype'] == 'Long RNA' 
-            is_intron = row['is_intron'] != '.' or row['rfam']!='.'
-            is_antisense_peak = row['sense_gtype'] == "." and row['antisense_gtype'] != 'RBP' 
+            is_intron = re.search('[iI]ntron', row['gtype'])
+            is_sense = row['sense_gtype'] != '.'
+            not_rbp = row['sense_gtype'] != 'RBP'
+            is_antisense = row['sense_gtype'] == 'Antisense'
             is_unannotated = row['sense_gtype'] == '.' and row['antisense_gtype'] == "."
-            if is_long_RNA or is_intron or is_antisense_peak or is_unannotated:
+            if (is_sense and is_intron and not_rbp) or is_antisense or is_unannotated :
                 rows.append(row)
         return pd.DataFrame(rows)
 
@@ -444,7 +449,6 @@ def main(remove_intron=True):
     if not remove_intron:
         out_columns.append('is_intron')
 
-    p = Pool(24)
     fold_p = partial(get_folding_pvalue, 2001)
     peak_df = pd.read_csv(ANNOT_PEAK_FILE, sep='\t') \
         .query('sample_count >= 5 & pileup >= 5') \
@@ -452,12 +456,14 @@ def main(remove_intron=True):
         .assign(peak_name = lambda d: d.chrom +':'+ d.start.astype(str) +'-'+ d.end.astype(str)) \
         .pipe(peak_analyze.add_rfam)\
         .pipe(peak_analyze.mirtron_filter, remove_intron=remove_intron) \
-        .pipe(peak_analyze.filter_gene)\
-        .pipe(exon_filter.filter, f = 0.1)\
-        .pipe(peak_analyze.uncharacterized_peak)\
+        .assign(sense_gtype = lambda d: np.where((d.sense_gtype=="RBP") & (d.is_intron =="full-length intron"),
+                                                    'full-length intron (RBP)',
+                                                    d.sense_gtype))\
+        .query('sense_gtype != "RBP" & sense_gtype != "Repeats"')\
         .assign(psi = lambda d: list(map(gi.compute_psi, d.chrom ,d.start, d.end, d.strand)) )\
         .pipe(gi.intersect) \
         .pipe(gi.resolve_genic) \
+        .query('gtype != "Exon" & gtype != "Pseudogene"') \
         .assign(concensus_seq = lambda d: list(map(concensus_analyzer.find_concensus, d.chrom, d.start, d.end, d.strand)))\
         .assign(seq = lambda d: list(map(peak_analyze.fetch_seq, d.chrom, d.start, d.end, d.strand)))\
         .assign(concensus_seq = lambda d: np.where(d.is_intron==".",d.concensus_seq,d.seq)) \
@@ -479,8 +485,7 @@ def main(remove_intron=True):
                                             'chr16:31173304-31173386'])])
         #.assign(concensus_folding_pval = lambda d: p.map(fold_p, d.concensus_seq)) \
         #.pipe(peak_analyze.filter_mRNA)\
-    p.close()
-    p.join()
+        #.pipe(peak_analyze.filter_gene)\
     out_table = WORK_DIR + '/supp_tab.tsv'
     if not remove_intron:
         out_table = WORK_DIR + '/supp_tab_intron.tsv'

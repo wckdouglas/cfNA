@@ -58,11 +58,14 @@ peak_type_ce.encoder = {'mRNA':'purple',
                  'Pseudogene':'darkblue',
                  'Exon': 'purple',
                  'Intron':'#fca237',
-                 'Exon-intron':'red',
-                 'Within intron':'#fca237', 
+                 'Exon-intron':'#7bb73e',
+                 'Within intron':'#f9b109', 
                  'miRNA':'darkgreen',
-                 'tRNA-like RNA': '#a7f79e',
-                 'Full-length intron':'#cc6f00'}
+                 'rRNA':'#15879b',
+                 'Mismapped':'#bcbb76',
+                 'Others':'black',
+                 'tRNA-like RNA': 'red',
+                 'Full-length intron':'#725001'}
 
 
 def only_choice(row):

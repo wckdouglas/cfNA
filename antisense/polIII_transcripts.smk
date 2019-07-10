@@ -34,7 +34,7 @@ Pol III transcripts:
 - Identification of RNA polymerase III-transcribed genes in eukaryotic genomes
 tRNAs, 5S rRNA, U6 snRNA, SRP (7SL) RNA, RNase P and RNase MRP RNAs, vault RNAs, Y RNAs, 7SK RNA
 '''
-Pol_III_TRANSCRIPTS = ['TR[A-Z]-','5S_rRNA','RNU6','7SL','RMRP','RPPH1','Y-RNA','vaultRNA','7SK']
+Pol_III_TRANSCRIPTS = ['TR[A-Z]-','5S_rRNA','RNU[1-6]','7SL','RMRP','RPPH1','Y-RNA','vaultRNA','7SK']
 Pol_III_TRANSCRIPTS_REGEX = '|'.join(Pol_III_TRANSCRIPTS)
 
 

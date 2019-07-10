@@ -12,8 +12,13 @@ from scipy.stats import beta
 from scipy.special import betaln
 from functools import partial
 from sequencing_tools.fastq_tools import reverse_complement
+from sequencing_tools.viz_tools import color_encoder
 from collections import defaultdict
 
+telo = 'TAACCC|CCCGAA|CCCCAA|CCCTAG|TTAGGC|TTAGGG'
+telo += '|' + reverse_complement(telo)
+centro = 'GAATG'
+centro += '|' + reverse_complement(centro)
 
 
 def fix_simple_repeats(p_df):
@@ -200,3 +205,36 @@ def plot_salmonTE(exp_df, treatment, ax):
     ax.set_ylim(0, plot_df.log_padj.max() * 1.1)
     return texts
        
+
+def get_pymc_df():
+    bf_label = ['Bayes factor > 3', 'Not significant']
+    df = pd.read_feather('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/simple_repeats.feather') \
+        .sort_values('bayes_factor', ascending=False) \
+        .query('delta > 0')\
+        .assign(log_bf = lambda d: d.bayes_factor.transform(np.log)) \
+        .assign(col = lambda d: np.where(d.log_bf > 3, bf_label[0], bf_label[1])) \
+        .assign(is_telo = lambda d: np.where(d.gene_name.str.contains(telo),
+                                             'Telomere',
+                                             np.where(d.gene_name.str.contains(centro), 
+                                                      'Centromere', 'Tandem repeats'))) 
+    return df
+
+
+def plot_pymc_bar(ax):
+    ce = color_encoder()
+    bar_df = get_pymc_df()\
+        .query('bayes_factor > 3')\
+        .nlargest(15,'delta')\
+        .assign(color = lambda d: ce.fit_transform(d['is_telo']))\
+        .assign(delta = lambda d: d.delta*100)
+    bar_df.plot\
+        .bar('gene_name','delta',color = bar_df.color.tolist(), ax = ax)
+    ce.show_legend(ax, frameon=False, fontsize=20, bbox_to_anchor=(0.5,0.7))
+    xts = []
+    for xt in ax.get_xticklabels():
+        xtext = xt.get_text().split(':')[1]
+        xts.append((xtext))
+    ax.set_xticklabels(xts, rotation=70, 
+                       rotation_mode='anchor', ha = 'right')
+    ax.set_xlabel('')
+    ax.set_ylabel('$\Delta$ % Plus strand')

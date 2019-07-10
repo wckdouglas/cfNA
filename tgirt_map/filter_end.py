@@ -26,7 +26,7 @@ class filter_process:
         self.inbam = inbam
         self.tsRNA_type = tsRNA_type
         self.small_RNA = 45
-        self.buffer = 3
+        self.buffer = 5
         self.ref_length = {ref:ref_len for ref_len, ref in zip(self.inbam.lengths,self.inbam.references)}
 
     def __five_prime_alignments(self):
@@ -95,7 +95,7 @@ def main():
         with pysam.Samfile(args.outbam, 'wb', template = bam) as out:
             fp = filter_process(bam, args.type)
             for aln1, aln2 in fp.filter_alignments():
-                if aln1.reference_name.startswith('TR'):
+#                if aln1.reference_name.startswith('TR|MT-'):
                     out.write(aln1)
                     out.write(aln2)
                         

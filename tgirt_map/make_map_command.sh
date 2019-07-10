@@ -16,8 +16,8 @@ THREADS=6
 mkdir -p $LOG_PATH
 
 ANALYSIS=No
-ANALYSIS=ECOLI
-ANALYSIS=PNAS
+#ANALYSIS=ECOLI
+#ANALYSIS=PNAS
 if [[ $ANALYSIS == "PNAS" ]]; then
     DATA_PATH=/stor/work/Lambowitz/cdw2854/cfNA/data/exosome
 elif [[ $ANALYSIS == "ECOLI" ]]; then
@@ -71,8 +71,4 @@ do
         --rerun \
 		2\>\&1 \
 		\| tee $RESULT_PATH/log/${SAMPLENAME}.log
-done |  egrep -v  '[PT]TeI|GsI|SRR|[TG]0|200|450|[NO][QN]' #| egrep 'IGG|200|OQ|NN|NQ|QCF|S96|ON'
-#		--skip_trim  --skip_hisat --skip_premap --skip_bowtie --skip_post_process_bam --skip_remap \
-#		--repeats_index $REF_PATH/rmsk \
-#		--repeats_index $REF_PATH/repeat_mask/all_rmsk_From_bed \
-#		--repeats_index $REF_PATH/hs36.combined.fa \
+done

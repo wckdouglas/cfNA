@@ -18,6 +18,8 @@ SAMPLENAMES = map(os.path.basename, SAMPLE_FOLDERS)
 SAMPLENAMES = filter(lambda x: re.search(SAMPLENAME_REGEX,x ), SAMPLENAMES)
 SAMPLENAMES = list(SAMPLENAMES)
 SMALL_RNA_INDEX = os.environ['REF'] + '/hg19_ref/genes/smallRNA'
+TRANSCRIPTOME_INDEX = os.environ['REF'] + '/hg19_ref/genes/protein.fa'
+GENOME_INDEX = os.environ['REF'] + '/hg19_ref/genome/hg19_genome.fa'
 
 #SNAKEMAKE VARIABLE
 SUMMARY_TABLE = 'recopy.csv'
@@ -26,18 +28,22 @@ SMALL_RNA_BED = SAMPLE_FOLDER_TEMPLATE + '/aligned.bed'
 ANTISENSE_BED = SAMPLE_FOLDER_TEMPLATE + '/aligned.antisense.bed'
 ANTISENSE_READ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read.txt'
 ANTISENSE_FQ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read.{READ_END}.fq.gz'
+ANTISENSE_FILTER_CONTAM_FQ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read.filtered.{READ_END}.fq.gz'
+TRANSCRIPTOME_FILTERED_FQ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read.filtered.transcriptome.{READ_END}.fq.gz'
+GENOME_FILTERED_FQ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read.filtered.genome.{READ_END}.fq.gz'
+TRANSCRIPTOME_BAM = SAMPLE_FOLDER_TEMPLATE + '/transcriptome.bam'
+GENOME_BAM = SAMPLE_FOLDER_TEMPLATE + '/genome.bam'
 R2_ADAPTER_CONTAM_ANTISENSE_FQ = SAMPLE_FOLDER_TEMPLATE + '/antisense_read_R1_contam.txt'
 ANTISENSE_ANNOTATED_BED = SAMPLE_FOLDER_TEMPLATE + '/r2_annotated_antisense.bed'
 REVERSE_BAM = SAMPLE_FOLDER_TEMPLATE + '/reverse.bam'
-SORTED_REVERSE_BAM = SAMPLE_FOLDER_TEMPLATE + '/reverse.sorted.bam'
 
 COMBINED_BAM_PATH = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/small_rna'
 COMBINED_BAM = COMBINED_BAM_PATH + '/{TREATMENT}.reverse.bam'
 NT_CUTOFF = 3
 THREADS = 3
 
-TREATMENTS = ['unfragmented','phosphatase','fragmented']
-REGEXES = ['[Qq][cC][fF][0-9]+','[pP]hos[0-9]+','[fF]rag[0-9]+']
+TREATMENTS = ['unfragmented','phosphatase','fragmented', 'NaOH']
+REGEXES = ['[Qq][cC][fF][0-9]+','[pP]hos[0-9]+','[fF]rag[0-9]+', '[Nn][aA][0-9]+']
 REGEX_DICT = {TREATMENT:REGEX for TREATMENT, REGEX in zip(TREATMENTS, REGEXES)}
 def select_sample(wildcards):
     REGEX = REGEX_DICT[wildcards.TREATMENT]
@@ -73,8 +79,8 @@ rule combine_bam:
 
 rule map_antisense:
     input:
-        FQ1 = ANTISENSE_FQ.replace('{READ_END}','1'),
-        FQ2 = ANTISENSE_FQ.replace('{READ_END}','2')
+        FQ1 = TRANSCRIPTOME_FILTERED_FQ.replace('{READ_END}','1'),
+        FQ2 = TRANSCRIPTOME_FILTERED_FQ.replace('{READ_END}','2')
     
     threads: THREADS
     params:
@@ -98,6 +104,81 @@ rule map_antisense:
         '| samtools sort -O bam -@ {threads} -T {params.TEMP_DIR} -o {output.BAM} ' 
 
 
+rule filter_genome:
+    input:
+        FQ1 = TRANSCRIPTOME_FILTERED_FQ.replace('{READ_END}','1'),
+        FQ2 = TRANSCRIPTOME_FILTERED_FQ.replace('{READ_END}','2'),
+
+    threads: THREADS
+    params:
+        INDEX = GENOME_INDEX,
+
+    output:
+        FQ1 = GENOME_FILTERED_FQ.replace('{READ_END}','1'),
+        FQ2 = GENOME_FILTERED_FQ.replace('{READ_END}','2'),
+        BAM = GENOME_BAM
+
+
+    shell:
+        'hisat2 -p {threads} --mm --no-mixed --no-discordant '\
+        '-x {params.INDEX} -1 {input.FQ1} -2 {input.FQ2}' \
+        '| samtools view -b@ {threads} '\
+        '| tee {output.BAM}'\
+        '| samtools view -bf4 -@ {threads}'\
+        '| samtools fixmate -@ {threads} - -'\
+        '| samtools fastq -f0x1 -f0x4 -@ {threads} -1 {output.FQ1} -2 {output.FQ2} - '
+
+
+rule filter_transcriptome:
+    input:
+        FQ1 = ANTISENSE_FILTER_CONTAM_FQ.replace('{READ_END}','1'),
+        FQ2 = ANTISENSE_FILTER_CONTAM_FQ.replace('{READ_END}','2')
+
+    threads: THREADS
+    params:
+        INDEX = TRANSCRIPTOME_INDEX,
+        GENOME_INDEX = GENOME_INDEX,
+
+    output:
+        FQ1 = TRANSCRIPTOME_FILTERED_FQ.replace('{READ_END}','1'),
+        FQ2 = TRANSCRIPTOME_FILTERED_FQ.replace('{READ_END}','2'),
+        BAM = TRANSCRIPTOME_BAM
+
+    shell:
+        'bowtie2 -p {threads} --mm --no-mixed --no-discordant --norc '\
+        '-x {params.INDEX} -1 {input.FQ1} -2 {input.FQ2}' \
+        '| samtools view -b@ {threads} '\
+        '| python ~/ngs_qc_plot/exogenous_filter.py '\
+        '-i - -o - --nm 3 -x {params.GENOME_INDEX}'
+        '| tee {output.BAM}'\
+        '| samtools view -bf4 -@ {threads}'\
+        '| samtools fixmate -@ {threads} - -'\
+        '| samtools fastq -f0x1 -f0x4 -@ {threads} -1 {output.FQ1} -2 {output.FQ2} - '
+
+
+rule filter_r1_recopy:
+    input:
+        FQ1 = ANTISENSE_FQ.replace('{READ_END}','1'),
+        FQ2 = ANTISENSE_FQ.replace('{READ_END}','2')
+
+    threads: THREADS
+    params:
+        R2R_ADAPTER = 'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCTT'
+
+    output:
+        FQ1 = ANTISENSE_FILTER_CONTAM_FQ.replace('{READ_END}','1'),
+        FQ2 = ANTISENSE_FILTER_CONTAM_FQ.replace('{READ_END}','2')
+
+    shell:
+        'seqtk mergepe {input.FQ1} {input.FQ2} '\
+        '| cutadapt  -g {params.R2R_ADAPTER} '\
+        '-O 4 --discard-trimmed  '\
+        '--quiet --interleaved - ' \
+        '| cutadapt '\
+        '-a AAGATCGGAAGAGCACACGTCTGAACTCCAGTCAC '\
+        '-A GATCGTCGGACTGTAGAACTCTGAACGTGTAGAT '\
+        ' -O 4 --quiet --interleaved - '\
+        '| deinterleave_fastq.py -i - -1 {output.FQ1}  -2 {output.FQ2}'
 
 rule tag_antisense:
     input:

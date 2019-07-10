@@ -1,4 +1,3 @@
-
 from matplotlib import rcParams
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches 
@@ -9,9 +8,8 @@ from tgirt_map.table_tools import change_gene_type
 from collections import defaultdict
 from sequencing_tools.viz_tools import okabeito_palette, \
                         simpsons_palette, \
-                        RNA_base_from_picard, \
-                        RNA_cov_from_picard, \
                         color_encoder
+from sequencing_tools.io_tools import ReadPicardRNA
 from collections import defaultdict
 import re
 import glob
@@ -56,7 +54,8 @@ def plot_strand(ax):
     
     
 def plot_coding_bases(ax):
-    RNA_base_from_picard(metrics) \
+    RNA_base_from_picard = ReadPicardRNA(attr = 'base')
+    RNA_base_from_picard.read(metrics) \
         .assign(var_count = lambda d: d.var_count*100)\
         .assign(samplename = lambda d: d.samplename.str.split('.',expand=True).iloc[:,0].map(label_sample))\
         .assign(variable = lambda d: d.variable.str.replace('Utr','UTR'))\
@@ -149,7 +148,6 @@ def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type', c
         .groupby([rna_group_type,'treatment'], as_index=False)\
         .agg({'value':'median'}) \
         .query('%s != "%s"' %(rna_group_type, filter_feature))\
-        .pipe(lambda d: d[d.treatment.str.contains('Exo|Na|DN|Untre|sim|3\'P')])\
         .assign(value = lambda d: d.groupby('treatment')['value'].transform(lambda x: 100*x/x.sum()))\
         .pipe(pd.pivot_table, index = 'treatment', 
              columns = rna_group_type,
@@ -233,6 +231,7 @@ def plot_small_count_bar(ax, prep_regex = 'DNase|WGS-sim|NaOH|Untreated', label_
     ax.set_xlabel('')
     ax.set_ylabel('Small RNA read pairs (%)')
     sns.despine()
+    return small_RNA_ce
 
 
  

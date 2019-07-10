@@ -18,6 +18,7 @@ coors = ['chr22:24,349,641-24,349,711', 'chr10:71,355,032-71,355,103',
         'chr2:202,077,805-202,077,873',
         'chr16:20733601-20733674',
         'chr2:125438494-125438563',
+        'chr7:63571928-63571996',
         'chr9:81357660-81357728']
 names = ['chr22_unknown', 'chr10_unknown',
         'CACNA1E', 'CPN1',
@@ -26,6 +27,7 @@ names = ['chr22_unknown', 'chr10_unknown',
         'CASP10',
         'THUMPD1',
         'CNTNAP5',
+        'RP11-165H4.1',
         'chr9_unknown']
 names = [c if n.endswith('unknown') else n for c,n in zip(coors, names)]
 coors = {n:c for c, n, in zip(coors, names)}
@@ -33,7 +35,8 @@ coors = {n:c for c, n, in zip(coors, names)}
 
 rule all:
     input:
-        ALIGNED_FA
+        ALIGNED_FA,
+        expand(SHAPES, NAME = names)
 
 rule multi_aligned:
     input:

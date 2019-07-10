@@ -24,10 +24,138 @@ import pyximport
 pyximport.install()
 from junction_function import get_junction
 import dask.dataframe as dd
+import pyranges as pr
+import io
+from collections import Counter
 
 
 set_tempdir('/stor/scratch/Lambowitz/cdw2854')
 
+class GeneMapper():
+    def __init__(self):
+
+        self.HB_genes = '''chr11,5246694,5250625,HBB,-
+chr11,5253908,5264887,HBD,-
+chr11,5269309,5271089,HBG1,-
+chr11,5274420,5526835,HBG2,-
+chr11,5289575,5526882,HBE1,-
+chr16,202686,204502,HBZ,+
+chr16,203891,216767,HBM,+
+chr14,50037702,50065882,RPS29,-
+chr16,222875,223709,HBA2,+
+chr16,226679,227521,HBA1,+
+chr16,230452,231180,HBQ1,+
+chr17,16294748,16295196,FTLP12,+
+chr17,21747827,21748211,FTLP13,+
+chr19,3870989,3872105,FTLP5,+
+chr19,49468558,49470135,FTL,+
+chr2,85132749,85133799,TMSB10,+
+chr20,44603888,44604714,FTLP,-
+chr20,49457152,49457286,TMSL6,-
+chr4,69048010,69078188,FTLP10,+
+chr7,106809406,106842974,HBP1,+
+chr9,131104432,131105049,TMSB4XP4,+
+chrX,12993227,12995346,TMSB4X,+
+chrX,30648415,30648942,FTLL2,+
+chrX,101768604,101771712,TMSB15A,-
+chrX,103173479,103221285,TMSB15B,+
+chrY,15815447,15817904,TMSB4Y,+'''
+        self.hb_gene_df = pd.read_csv(io.StringIO(self.HB_genes),
+                            names = ['Chromosome','Start', 'End', 'genes','Strands'])
+        self.hb_gene_ranges = pr.PyRanges(self.hb_gene_df)
+        self.gene_df = pd.read_csv('/stor/work/Lambowitz/ref/hg19_ref/genes/protein.bed',
+                                   usecols = [0,1,2,3,5],
+                                   sep='\t',
+                                   names = ['Chromosome','Start','End', 'genes','Strands'])
+        self.gene_ranges = pr.PyRanges(self.gene_df)
+
+    def test_gene(self, chrom, start, end, return_name=False):
+        genes =  self.gene_ranges[chrom, int(start):int(end)]
+        answer = 'Not HB'
+        HB_name = ''
+        if genes:
+            HB_name = genes.genes.values[0]
+            answer = 'HB'
+        
+        return answer if not return_name else HB_name
+
+
+class ArgoTron():
+    '''
+    Argonaute-associated short introns are a novel
+    class of gene regulators
+    Hansen, et al. 2016
+    '''
+    def __init__(self):
+        link = 'https://media.nature.com/original/nature-assets/ncomms/2016/160513'\
+                '/ncomms11538/extref/ncomms11538-s3.xlsx'
+        self.argotron = pr.PyRanges(pd.read_excel(link))
+
+    def search(self, chrom, start, end, strand):
+        hits = self.argotron[chrom,strand, int(start):int(end)]
+        return 'Agotron' if hits else '.'
+
+
+class TrnaLookAlike():
+    '''
+    https://cm.jefferson.edu/data-tools-downloads/trna-lookalikes/
+    '''
+
+    def __init__(self):
+        self.HTML = 'https://cm.jefferson.edu/wordpress/wp-content/uploads/2014/09/tRNA-Lookalikes.txt'
+        self.tRNA = pd.read_csv(self.HTML,sep='\t', skiprows=1)\
+            .rename(columns={'chromosome':'Chromosome',
+                        'FROM_position_inclusive':'Start', 
+                        'TO_position_inclusive':'End',
+                        'strand':'Strand'})\
+            .assign(Chromosome = lambda d:'chr'+ d.Chromosome)
+        self.tRNA_lookalike = pr.PyRanges(self.tRNA) 
+
+    def search(self, chrom, start, end, strand):
+        hits = self.tRNA_lookalike[chrom,strand, int(start):int(end)]
+        return 'tRNA-lookalike' if hits else '.'
+
+
+class GnomadVar():
+    '''
+    Genomad vcf snp
+    '''
+    def __init__(self):
+        gnomad = '/stor/work/Lambowitz/ref/hg19_ref/genomad/genomad_grch37.vcf.bgz'
+        self.gnomad = pysam.Tabixfile(gnomad)
+
+    def search(self, chrom, start, end):
+        try:
+            variants = set()
+            for variant in self.gnomad.fetch(chrom.strip('chr'), start, end):
+                fields = variant.split('\t')
+                chrom,pos = fields[1], fields[2]
+                variants.add(chrom+':'+pos)
+            return len(variants)
+        except ValueError:
+            return 0
+
+
+class NameConversion():
+    def __init__(self):
+        self.encoder = {'RP11-958N24.2': 'PKD1P4-NPIPA8',
+                'RP11-1212A22.4':'PKD1P5',
+                'RP11-1186N24.5':'PKD1P6',
+                'RP11-185O17.3':'RPS2P55',
+                'RP11-365K22.1':'RPL13AP25',
+                'RP11-111F5.5':'FGF7P6',
+                'RP11-1212A22.1':'PKD1P4',
+                'RP11-958N24.1':'PKD1P3',
+                'RP11-163G10.3':'TMSB4X',
+                'AC019188.1':'TMSB4XP8',
+                'AP001340.2':'RPL13AP7',
+                'RP11-1212A22.4':'PKD1P5'}
+
+    def convert(self, x):
+        if x in self.encoder.keys():
+            return self.encoder[x]
+        else:
+            return x
 
 class GenicIntersect():
     def __init__(self):
@@ -398,6 +526,33 @@ class PeakAnalyzer:
         return self.phyloP.values(chrom, int(start), int(end), numpy=True).mean()
 
 
+
+    def __max_percentage__(self, vector):
+        vector = np.array(list(vector))
+        return vector.max()/vector.sum()
+
+
+    def __flush_ends__(self, chrom, start, end, strand):
+        start_positions = Counter()
+        end_positions = Counter()
+        for frag in self.sample_bed.fetch(chrom, start, end):
+            frag_start, frag_end, frag_strand = itemgetter(1,2,5)(frag.rstrip().split('\t'))
+            if frag_strand == strand:
+                start_positions[frag_start] += 1
+                end_positions[frag_end] += 1
+        start_percentage = self.__max_percentage__(start_positions.values())
+        end_percentage = self.__max_percentage__(end_positions.values())
+        return start_percentage, end_percentage
+
+    def add_flush_end(self, df):
+        res = map(self.__flush_ends__, df.chrom, df.start, df.end, df.strand)
+        max_start, max_end = zip(*res)
+        df.loc[:, 'max_start_fraction'] = max_start
+        df.loc[:, 'max_end_fraction'] = max_end
+        return df
+        
+
+
 def label_sense(picked_type_sense, picked_type_anti):
     label = '.'
     if picked_type_sense not in ['.','Unannotated']:
@@ -427,6 +582,13 @@ def get_folding_pvalue(simulation, seq):
     else:
         return 1
 
+def mirtron(peak_path):
+    peak_file = peak_path + '/mirtron_peak.tsv'
+    print('Read %s' %peak_file)
+    return pd.read_csv(peak_file) \
+        .assign(peakname = lambda d: d.peakname + '_mirtron')
+    
+
 
 def concensus_module():
     workdir = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
@@ -435,22 +597,31 @@ def concensus_module():
     bam = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam'
     return concensus(bam, coverage_files = [fwd, rvs])
 
-def main(remove_intron=True):
+def main(remove_intron=False, exon=False):
+    #remove_intron=False
+    #exon=True
     WORK_DIR = os.environ['WORK'] + '/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/MACS2/annotated'
     ANNOT_PEAK_FILE = WORK_DIR + '/unfragmented.filtered.tsv'
     peak_analyze = PeakAnalyzer()
     concensus_analyzer = concensus_module()
     exon_filter = ExonFilter()
     gi = GenicIntersect()
+    name_conversion = NameConversion()
+    gene_mapper = GeneMapper()
+    gnomad = GnomadVar()
+    trna=TrnaLookAlike()
+    argotron = ArgoTron()
 
     out_columns = ['peak_name','is_sense','gname','sense_gtype', 'strand','pileup','sample_count', 'seq', 'energy',
                  'concensus_seq', 'concensus_fold', 'concensus_energy', #'concensus_folding_pval',
-                 'force_cloverleaf','is_exon','is_transcriptome_peak','rfam', 'gtype'] 
+                 'force_cloverleaf','is_exon','is_transcriptome_peak','rfam', 'gtype', 'is_mirtron','protein_gene',
+                 'log10p', 'max_start_fraction', 'max_end_fraction','num_var', 'is_tRNAlookalike', 'is_argotron'] 
     if not remove_intron:
         out_columns.append('is_intron')
 
     fold_p = partial(get_folding_pvalue, 2001)
     peak_df = pd.read_csv(ANNOT_PEAK_FILE, sep='\t') \
+        .pipe(lambda d: pd.concat([d, mirtron(WORK_DIR)])) \
         .query('sample_count >= 5 & pileup >= 5') \
         .fillna('.')\
         .assign(peak_name = lambda d: d.chrom +':'+ d.start.astype(str) +'-'+ d.end.astype(str)) \
@@ -463,7 +634,19 @@ def main(remove_intron=True):
         .assign(psi = lambda d: list(map(gi.compute_psi, d.chrom ,d.start, d.end, d.strand)) )\
         .pipe(gi.intersect) \
         .pipe(gi.resolve_genic) \
-        .query('gtype != "Exon" & gtype != "Pseudogene"') \
+        .assign(is_sense = lambda d: list(map(label_sense, d.sense_gname, d.antisense_gname))) 
+
+    if exon:
+        peak_df = peak_df\
+            .query('is_sense=="Sense"') \
+            .pipe(lambda d: d[d.gtype.isin(['Exon',"Pseudogene"])]) 
+
+    else:
+        peak_df = peak_df\
+            .pipe(lambda d: d[~((d.gtype == "Pseudogene") & (d.is_sense=="sense"))]) \
+            .pipe(lambda d: d[~((d.gtype == "Exon") & (d.is_sense=="Sense"))])
+
+    peak_df = peak_df \
         .assign(concensus_seq = lambda d: list(map(concensus_analyzer.find_concensus, d.chrom, d.start, d.end, d.strand)))\
         .assign(seq = lambda d: list(map(peak_analyze.fetch_seq, d.chrom, d.start, d.end, d.strand)))\
         .assign(concensus_seq = lambda d: np.where(d.is_intron==".",d.concensus_seq,d.seq)) \
@@ -474,25 +657,38 @@ def main(remove_intron=True):
         .assign(fold = lambda d: d.fold.map(peak_analyze.abstract_structure)) \
         .assign(concensus_fold = lambda d: d.concensus_fold.map(peak_analyze.abstract_structure)) \
         .assign(force_cloverleaf = lambda d: d.concensus_seq.map(peak_analyze.cloverleaf)) \
+        .assign(sense_gname = lambda d: d.sense_gname.map(name_conversion.convert)) \
         .assign(gname = lambda d: np.where(d.sense_gname != ".", 
                                         d.sense_gname,
                                         d.antisense_gname)) \
-        .assign(is_sense = lambda d: list(map(label_sense, d.sense_gname, d.antisense_gname))) \
+        .assign(is_mirtron = lambda d: np.where(d.peakname.str.contains('mirtron'), 'mirtron','.'))\
+        .assign(protein_gene = lambda d: [gene_mapper.test_gene(chrom, start, end, return_name=True) \
+                                    for chrom, start, end in zip(d.chrom, d.start, d.end)]) \
+        .pipe(peak_analyze.add_flush_end)\
+        .assign(is_argotron = lambda d: list(map(argotron.search, d.chrom, d.start, d.end, d.strand)))\
+        .assign(is_tRNAlookalike = lambda d: list(map(trna.search, d.chrom, d.start, d.end, d.strand))) \
+        .assign(num_var = lambda d: list(map(gnomad.search, d.chrom, d.start, d.end)))\
         .filter(out_columns)\
         .rename(columns = {'pileup':'fragment_count'}) \
         .pipe(lambda d: d[~d.peak_name.isin(['chrX:44654061-44654153', 
                                             'chr11:74457163-74457239',
-                                            'chr16:31173304-31173386'])])
+                                            'chr16:31173304-31173386'])])  
         #.assign(concensus_folding_pval = lambda d: p.map(fold_p, d.concensus_seq)) \
         #.pipe(peak_analyze.filter_mRNA)\
         #.pipe(peak_analyze.filter_gene)\
     out_table = WORK_DIR + '/supp_tab.tsv'
     if not remove_intron:
         out_table = WORK_DIR + '/supp_tab_intron.tsv'
+        if exon:
+            out_table = out_table.replace('_intron.tsv','_exon.tsv')
+    else:
+        if exon:
+            out_table = out_table.replace('.tsv','_exon.tsv')
     peak_df.to_csv(out_table, index=False, sep='\t')
     print('Written: ', out_table)
         
 
 
 if __name__ == '__main__':
-    main(remove_intron=False)
+    main(remove_intron=False, exon=True)
+    main(remove_intron=False, exon=False)

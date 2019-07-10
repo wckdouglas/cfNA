@@ -14,11 +14,14 @@ class peak_count:
     '''
     def __init__(self, peaks, tabix):
         self.tabix = pysam.Tabixfile(tabix)
-        self.peak_df = pd.read_table(peaks) 
+        self.peak_df = pd.read_csv(peaks, sep='\t') 
 
     def count_reads(self, chrom, start, end, strand):
-        reads = self.tabix.fetch(chrom, start, end)
-        read_count = sum(1 for r in reads if r.strip().split('\t')[5] == strand)
+        try:
+            reads = self.tabix.fetch(chrom, start, end)
+            read_count = sum(1 for r in reads if r.strip().split('\t')[5] == strand)
+        except ValueError:
+            read_count = 0
         return read_count
 
     def peak_counting(self):

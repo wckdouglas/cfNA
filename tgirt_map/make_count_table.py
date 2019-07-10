@@ -62,7 +62,9 @@ def main():
         .assign(count_type = lambda d: list(map(lambda x: x.split('/')[-2], d.count_file))) \
         .assign(strand = lambda d: list(map(lambda x: x.split('.')[-2], d.count_file))) \
         .assign(dedup = lambda d: list(map(lambda x: x.split('.')[-3], d.count_file))) \
-        .assign(samplename = lambda d: list(map(lambda x: x.split('/')[-1].split('.')[0], d.count_file)))
+        .assign(samplename = lambda d: list(map(lambda x: x.split('/')[-1].split('.')[0], 
+                                                d.count_file))) \
+        .pipe(lambda d: d[d.samplename.str.contains('[Qq][cC][fF]|[PM]P|genome')])
     sample_df.to_csv('sample.tsv',sep='\t', index=False)
     print(sample_df.head())
 

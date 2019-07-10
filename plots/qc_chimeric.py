@@ -41,7 +41,8 @@ def main():
     out_path = project_path + '/non_template_added'
     out_table = out_path + '/clip_table.feather'
     sample_folders = glob.glob(project_path + '/*001')
-    sample_folders = filter(lambda x: not re.search('L[0-9E]+|genome-sim',x), sample_folders)
+    sample_folders = filter(lambda x: re.search('[qQ][cC][fF]|[PM]PF[410]+|CEV',x), sample_folders)
+    sample_folders = filter(lambda x: not re.search('L[0-9E]+',x), sample_folders)
     p = Pool(24)
     rows = p.map(count_softclipped, sample_folders)
     p.close()
@@ -52,8 +53,6 @@ def main():
                                 'bases','clipped_bases'])
     df.to_feather(out_table)
     print('Written %s' %out_table)
-    
-
 
 
 

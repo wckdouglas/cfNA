@@ -21,7 +21,7 @@ class exon:
         self.chrom = self.fields[0]
         self.start = int(self.fields[1])
         self.end = int(self.fields[2])
-        self.exon_count = self.fields[4]
+        self.exon_count = int(self.fields[4])
         self.strand = self.fields[5]
         self.exon_name = self.fields[3]
         self.exon_size = self.end - self.start

@@ -13,6 +13,7 @@ import glob
 from multiprocessing import Pool
 from functools import partial
 import re
+from exon_coverage import exon
 REF_PATH = os.environ['REF']
 
 
@@ -26,7 +27,7 @@ def make_exons(tab_file, cov_exon, exons):
         for in_exon_count, exon_record in enumerate(exon_records):
             ex = exon(exon_record)
             ex.calculate_coverage(tabix, cutoff = 3)
-            if (ex.coverage_score > 0.8 and ex.avg_coverage > 2) or (ex.exon_count < 2):
+            if (ex.uniform_coverage_score > 0.8 and ex.avg_coverage > 2) or (ex.exon_count < 2):
                 print(str(ex), file = out_exon)
                 out_exon_count += 1
     print('Read %i exons, written %i exons' %(in_exon_count, out_exon_count), 
@@ -70,6 +71,7 @@ def filter_bed(tab_file, out_prefix, cov_exon, spliced_exons):
         REF_PATH + '/hg19_ref/genes/hg19_refseq.sncRNA.bed',
         REF_PATH + '/hg19_ref/genes/dashr.bed.gz',
         REF_PATH + '/hg19_ref/genes/piRNA.bed.gz',
+        REF_PATH + '/hg19_ref/genes/hg19-blacklist.v2.bed.gz',
         REF_PATH + '/hg19_ref/genes/rRNA_for_bam_filter.bed']
 
     _filtered = BedTool(tab_file) \

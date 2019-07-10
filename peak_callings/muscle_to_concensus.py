@@ -29,7 +29,7 @@ for pos in range(cols):
 
     concensus_seq += cb
 cs = concensus_seq.replace('-','')
-#cs = re.sub('CC$|ACA$|GCA$|CTA$|AAC$','CCA', cs)
+cs = re.sub('ACA$','CCA', cs)
 print(cs)
 
 

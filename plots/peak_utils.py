@@ -26,7 +26,7 @@ pyximport.install()
 from junction_func import get_junction 
 import matplotlib.pyplot as plt
 sys.path.insert(0,'/stor/home/cdw2854/cfNA/peak_callings')
-from structural_peaks import PeakAnalyzer, mRNAFilter, GenicIntersect
+from structural_peaks import PeakAnalyzer, mRNAFilter, GenicIntersect, NameConversion, GeneMapper
 from exon_coverage import ExonFilter
 import dask.dataframe as dd
 plt.rc('axes', labelsize=20)
@@ -41,18 +41,6 @@ pileup_cutoff = 5
 sample_cutoff = 5
 project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
 peak_path = project_path + '/bed_files/merged_bed/MACS2/annotated'
-name_conversion = {'RP11-958N24.2': 'PKD1P4-NPIPA8',
-                'RP11-1212A22.4':'PKD1P5',
-                'RP11-1186N24.5':'PKD1P6',
-                'RP11-185O17.3':'RPS2P55',
-                'RP11-365K22.1':'RPL13AP25',
-                'RP11-111F5.5':'FGF7P6',
-                'RP11-1212A22.1':'PKD1P4',
-                'RP11-958N24.1':'PKD1P3',
-                'RP11-163G10.3':'TMSB4X',
-                'AC019188.1':'TMSB4XP8',
-                'AP001340.2':'RPL13AP7',
-                'RP11-1212A22.4':'PKD1P5'}
 peak_type_ce = color_encoder()
 peak_type_ce.encoder = {'mRNA':'purple',
                  'Pseudogene':'darkblue',
@@ -60,12 +48,14 @@ peak_type_ce.encoder = {'mRNA':'purple',
                  'Intron':'#fca237',
                  'Exon-intron':'#7bb73e',
                  'Within intron':'#f9b109', 
+                 'Stem-loop':'#f9b109', 
                  'miRNA':'darkgreen',
                  'rRNA':'#15879b',
                  'Mismapped':'#bcbb76',
                  'Others':'black',
                  'tRNA-like RNA': 'red',
                  'Full-length intron':'#725001'}
+gene_mapper = GeneMapper()
 
 
 def only_choice(row):
@@ -300,29 +290,30 @@ def assign_rna_name(x):
         return x
 
 def plot_repeats_RNA(peaks, ax, ce, rnatype="Repeats", top_n = 10):
-    peaks\
+    plot_df = peaks\
         .query('sense_gtype == "%s"' %rnatype)\
         .query('pileup >= %i & sample_count >= %i' %(pileup_cutoff, sample_cutoff)) \
         .assign(RNA_name = lambda d: d.sense_gname.map(assign_rna_name)) \
         .groupby('RNA_name', as_index=False)\
         .agg({'chrom':'count'}) \
         .nlargest(top_n, 'chrom')\
-        .plot.bar('RNA_name','chrom', color = ce.encoder[rnatype], ax = ax)
+        .assign(color = lambda d: d.RNA_name.map(repeat_color))
+    sns.barplot(data=plot_df,x='RNA_name',y='chrom', palette = plot_df.color, ax = ax)
     ax.set_xlabel('')
     ax.set_ylabel('Peak count')
     ax.set_xticklabels(ax.get_xticklabels(), rotation=70, rotation_mode='anchor', ha = 'right')
     ax.legend().set_visible(False)
 
 
-def color_rbp(ax):
+def color_rbp(x):
     '''
     example: ','.join(rbp_df.head(15).index)
     http://plasmaproteomedatabase.org/
     '''
-
-    for xt in ax.get_xticklabels():
-        if xt.get_text() not in ['IGF2BP1','LARP4','LIN28B']:
-            xt.set_color('red')
+    color = 'black'
+    if x not in ['IGF2BP1','LARP4','LIN28B']:
+        color = 'red'
+    return color
 
 
 def plot_rbp(peaks, ax, ce, top_n = 10):
@@ -341,13 +332,17 @@ def plot_rbp(peaks, ax, ce, top_n = 10):
         .sort_values(0, ascending=False) 
     rbp_df.to_csv(figure_path + '/rbp_table.tsv', sep='\t')
     
-    rbp_df.head(top_n).plot.bar(ax = ax, color = ce.encoder['RBP'])
+    rbp_df = rbp_df.head(top_n)
+    colors = list(map(color_rbp, rbp_df.index.values))
+    sns.barplot(rbp_df.index, rbp_df[0], palette = colors, ax=ax)
     ax.legend().set_visible(False)
     ax.set_xlabel('')#RNA-binding protein')
     ax.set_ylabel('Number of protected\nRNA binding site')
     ax.set_xticklabels(ax.get_xticklabels(), rotation=70, rotation_mode='anchor', ha = 'right')
     sns.despine()
-    color_rbp(ax)
+    for xt in ax.get_xticklabels():
+        color = color_rbp(xt.get_text())
+        xt.set_color(color)
     return rbp_df
 
 
@@ -407,13 +402,28 @@ def pick_lp(d):
         .pipe(lambda d: d[(d.log10p==d.log10p.max())])
 
 
+def long_rna_type(x):
+    if x in {'AB019441.29','RPS2P55','RPL13AP25'}:
+        rt = 'Pseudogene'
+    elif x in 'DAPK1':
+        rt = 'miRNA'
+    elif re.search('PKD|ARHG|CASK',x):
+        rt = 'Full-length intron'
+    elif re.search('CPN1|CACNA', x):
+        rt = 'tRNA-like RNA'
+    elif re.search('PF4', x):
+        rt = 'Exon-intron'
+    else:
+        rt = 'Within intron'
+    return rt
+
+
     
 def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
     lp = peaks[peaks.sense_gtype.str.contains('Long RNA')] \
         .query('sample_count >= %i' %sample_cutoff)\
         .groupby('sense_gname', as_index=False)\
-        .apply(pick_lp) \
-        .nlargest(top_n, y_val)
+        .apply(pick_lp) 
     rfam_labs =  defaultdict(lambda: 'Others') #get_peak_rfam_annotation(lp)
     rfam_labs['CPN1'] = 'tRNA-like RNA'
     rfam_labs['CASKIN2'] = 'Excised structured intron RNA'
@@ -421,14 +431,22 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
     rfam_labs['RP11-51O6.1'] = 'Pseudogene'
 
     assert(y_val in ['log10p','pileup'])
-    rev_name_conversion = {v:k for k,v in name_conversion.items()}
+    name_conversion = NameConversion()
+    rev_name_conversion = {v:k for k,v in name_conversion.encoder.items()}
 
-    lp = lp.assign(picked_RNA_sense = lambda d: d.sense_gname\
-                .map(lambda x: name_conversion[x] if x in name_conversion.keys() else x))
-    lp.plot.bar('picked_RNA_sense',
-              y_val,
-              color = ce.encoder['Long RNA'],
-             ax = ax)
+    lp = lp\
+        .assign(picked_RNA_sense = lambda d: d.sense_gname.map(name_conversion.convert).str.replace('-NPIPA8','')) \
+        .groupby('picked_RNA_sense')\
+        .apply(lambda d: d.nlargest(1, y_val))\
+        .assign(rt = lambda d: d.picked_RNA_sense.map(long_rna_type))\
+        .nlargest(top_n, y_val) \
+        .sort_values(y_val, ascending=False)
+    colors = lp.rt.map(peak_type_ce.encoder).values
+    sns.barplot(data=lp,
+                x='picked_RNA_sense',
+                y=y_val,
+                palette = colors,
+                ax = ax)
     ax.legend().set_visible(False)
     ax.set_xlabel('')
     if y_val == 'log10p':
@@ -439,20 +457,20 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
     
     used_rfam = []
     for i, xt in enumerate(ax.get_xticklabels()):
-        #if re.search('PKD1|ARHGAP30|NPIPA1|CASK', xt.get_text()): 
-        #    # intron
-        #    color = 'salmon'
-        #elif re.search('B2M|FTH|RPL|RMRP|RPPH1|TMSB4|HBA|HBB|NRGN|PPBP|HIST|ALB|RPS' ,xt.get_text()):
-        #    # full lengtj
-        #    color = 'skyblue'
-        #elif re.search('AC092156.2|CENPP|RP11-3N2.6|AC068137.4|RP11-193H5.8|RP11-1217F2.24|AC073869.8', xt.get_text()):
-        #    color = 'purple'
-        #color = 'black'
         gn = xt.get_text()
         if gn in rev_name_conversion.keys():
             gn = rev_name_conversion[gn]
         rfam = rfam_labs[gn]
         used_rfam.append(rfam)
+
+    used = lp.rt.unique()
+    cc_ce = color_encoder()
+    cc_ce.encoder = {k:v for k,v in peak_type_ce.encoder.items() if k in used}
+    cc_ce.show_legend(ax = ax, frameon=False, fontsize=20)
+
+    for col,xt in  zip(colors,ax.get_xticklabels()):
+        xt.set_color(col)
+
 
 
 def plot_peak_number(peaks,ax, ce):
@@ -596,29 +614,6 @@ ce.encoder = {
 }
 
 
-HB_genes = '''
-chr7,106809406,106842974,HBP1
-chr11,5269309,5271089,HBG1
-chr11,5274420,5526835,HBG2
-chr11,5289575,5526882,HBE1
-chr16,222875,223709,HBA2
-chr16,226679,227521,HBA1
-chr16,203891,216767,HBM
-chrX,12993227,12995346,TMSB4X
-chr16,230452,231180,HBQ1'''
-HB_genes = pd.read_csv(io.StringIO(HB_genes),
-                      names = ['chrom','start', 'end', 'HB'])
-def is_hb(row, return_name = False):
-    answer = 'Not HB'
-    HB_name = ''
-    if row['chrom'] in HB_genes.chrom.tolist():
-        hb_chrom = HB_genes.query('chrom =="%s"' %row['chrom'])
-        if any(max(hb_row['start'], row['start']) <= min(hb_row['end'],row['end']) for i, hb_row in hb_chrom.iterrows()):
-            answer = 'HB'
-            HB_name = [hb_row['HB'] for i, hb_row in hb_chrom.iterrows() if max(hb_row['start'], row['start']) <= min(hb_row['end'],row['end'])]
-            
-    return answer if not return_name else HB_name[0]
-
 
 
 
@@ -636,7 +631,7 @@ def anti_tblout():
 
 def rename_hb(row):
     if row['hb'] == 'HB':
-        gn = is_hb(row, return_name=True) +\
+        gn = gene_mapper.test_gene(row['chrom'], row['start'], row['end'], return_name=True) +\
             '\n(' + row['chrom'] + \
             ':' + str(row['start']) + \
             '-' + str(row['end']) + ')'
@@ -645,13 +640,15 @@ def rename_hb(row):
     return gn
 
 
+
+
 def plot_anti_bar(antisense_peaks, ax, bbox = (1.2,-0.3)):
     tblout = anti_tblout()
-    anti_plot = antisense_peaks.nlargest(15, 'log10p')\
+    anti_plot = antisense_peaks.nlargest(30, 'log10p')\
         .assign(antisense_gname = lambda d: np.where(d.antisense_gname == ".",
                                                     d.chrom + ':' + d.start.astype(str) + '-' + d.end.astype(str),
                                                     d.antisense_gname))\
-        .assign(hb = lambda d: [is_hb(row) for i, row in d.iterrows()])\
+        .assign(hb = lambda d: [gene_mapper.test_gene(chrom, start, end, return_name=False) for chrom,start,end in zip(d.chrom, d.start, d.end)] )
     
     if tblout is not None:
         anti_plot = anti_plot.merge(tblout,
@@ -667,10 +664,14 @@ def plot_anti_bar(antisense_peaks, ax, bbox = (1.2,-0.3)):
             .assign(rfam = lambda d: np.where((d.chrom == 'chr13') & (d.start > 57262600) & (d.end < 57262700),
                                                 'rRNA',
                                                 d.rfam ))\
+            .assign(antisense_gname = lambda d: np.where((d.chrom == 'chrX') & (d.start == 12994906),
+                                                        'TMSB4X\n(' + d.chrom + ':' + d.start.astype(str) + '-' + d.end.astype(str) + ')',
+                                                        d.antisense_gname)) \
             .sort_values('log10p', ascending=False)
     
     if any('HBQ1' in x for x in anti_plot.antisense_gname.tolist()):
         anti_plot = anti_plot.pipe(lambda d: d[d.antisense_gname.str.contains('^HB|TMSB4X')])
+    #    anti_plot = anti_plot.pipe(lambda d: d[~d.antisense_gname.str.contains('TLE|SCHLAP1')])
 
 
     anti_plot\
@@ -797,7 +798,7 @@ def long_rna_df():
     columns = bed.columns.tolist()
     gbed = bed\
         .pipe(gi.intersect)\
-        .pipe(gi.resolve_genic(bed))
+        .pipe(gi.resolve_genic)
     return gbed
 
 def exonic_filtered_df(peak_df):
@@ -808,3 +809,37 @@ def exonic_filtered_df(peak_df):
         .filter(needed_columns)
     exon_filtered_peaks = exon_filter.filter(exon_filtered_peaks, f = 0.1)
     return exon_filtered_peaks
+
+
+def repeat_color(x):
+    color = 'black'
+    if not re.search('\)n$|rich$', x):
+        color=  'red'
+    return color
+
+
+def plot_repeat_peaks(ax):
+    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
+    peak_path = project_path + '/bed_files/merged_bed/MACS2/annotated'
+    #peak_path = project_path + '/CLAM//BED_files/peaks/annotation'
+    peak_tsv = peak_path + '/unfragmented.filtered.tsv'
+    peak_df = load_peaks(peak_tsv)  \
+        .assign(sense_gtype = lambda d: np.where(d.sense_gtype == ".", 'Unannotated', d.sense_gtype))\
+        .assign(antisense_gtype = lambda d: np.where(d.antisense_gtype == ".", 'Unannotated', d.antisense_gtype)) \
+        .sort_values('pileup', ascending=False)  
+    sense_peaks = peak_df.query('is_sense == "Sense"')
+    plot_repeats_RNA(sense_peaks, ax, ce, rnatype='Repeats', top_n = 15)
+    for xt in ax.get_xticklabels():
+        color = repeat_color(xt.get_text())
+        xt.set_color(color)
+
+
+def read_peak_type():
+    return pd.read_csv('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/MACS2/annotated/unfragmented.filtered.tsv',
+                        sep='\t', usecols = [0,1,2,11]) \
+            .assign(coordinate = lambda d: d.chrom + ':' + d.start.astype(str) + '-' + d.end.astype(str)) \
+            .drop(['start','chrom','end'], axis=1) \
+            .rename(columns={'sense_gtype':'gtype'})
+            
+
+        

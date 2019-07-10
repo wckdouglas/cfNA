@@ -7,6 +7,11 @@ import numpy as np
 import seaborn as sns
 from collections import defaultdict
 import pandas as pd
+plt.rc('axes', labelsize=15)
+plt.rc('xtick', labelsize =15)
+plt.rc('ytick', labelsize = 15)
+plt.rc('font', **{'family':'sans-serif',
+                  'sans-serif':'Arial'})
 
 
 class cpm_total():
@@ -34,11 +39,6 @@ class cpm_total():
             
 
 
-plt.rc('axes', labelsize=15)
-plt.rc('xtick', labelsize =15)
-plt.rc('ytick', labelsize = 15)
-rcParams['font.family'] = 'sans-serif'
-rcParams['font.sans-serif'] = ['Arial']
 
 def label_sample(x, salt = False, new_label=False):
     if 'HS' in x:
@@ -127,7 +127,7 @@ RNA_type = ['Antisense', 'Mt', 'Other ncRNA', 'Other sncRNA', 'Protein coding',
             '5/5.8S rRNA', '18/28S rRNA','Mt-tRNA']
 colors = okabeito_palette()
 colors = sns.color_palette("Paired", 10)
-colors.extend(['gray','black','#f2cf5c','#f29c07','#374172'])
+colors.extend(['gray','black','#f2cf5c','#f29c07','#1797cf'])
 rna_type_ce = color_encoder()
 rna_type_ce.fit(RNA_type, colors)
 rna_type_ce.encoder = {rna:col for rna, col in zip(RNA_type, colors)}

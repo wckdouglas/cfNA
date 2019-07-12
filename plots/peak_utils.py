@@ -26,7 +26,7 @@ pyximport.install()
 from junction_func import get_junction 
 import matplotlib.pyplot as plt
 sys.path.insert(0,'/stor/home/cdw2854/cfNA/peak_callings')
-from structural_peaks import PeakAnalyzer, mRNAFilter, GenicIntersect, NameConversion, GeneMapper
+from structural_peaks import PeakAnalyzer, mRNAFilter, GenicIntersect, NameConversion, GeneMapper, TrnaLookAlike
 from exon_coverage import ExonFilter
 import dask.dataframe as dd
 plt.rc('axes', labelsize=20)
@@ -53,8 +53,11 @@ peak_type_ce.encoder = {'mRNA':'purple',
                  'rRNA':'#15879b',
                  'Mismapped':'#bcbb76',
                  'Others':'black',
-                 'tRNA-like RNA': 'red',
-                 'Full-length intron':'#725001'}
+                 'Intergenic':'black',
+                 'tRNA-lookalike': 'red',
+                 'Full-length intron':'#725001',
+                 'RBP':'#91331F',
+                 'Excised full-length intron':'#725001'}
 gene_mapper = GeneMapper()
 
 
@@ -357,7 +360,7 @@ Rfam_labs = {'RnaseP':'black',
             'ToxI':"#56B4E9",
             'KRAS_3UTR':"#E69F00",
             'Hemoglobin':'red',
-            'tRNA-like RNA': '#ad1b34',
+            'tRNA-lookalike': '#ad1b34',
             'rRNA':'#030544',
             'miRNA-like':"#0072B2",
             'Pseudogene':'#f4162b',
@@ -368,7 +371,7 @@ def group_annotation(x):
     lab = 'Unannotated sncRNA'
     if re.search('tRNA', x):
         lab = 'tRNA'
-        lab = 'tRNA-like RNA'
+        lab = 'tRNA-lookalike'
 #    elif re.search('RNaseP',x):
 #        lab = Rfam_labs[0]
 #    elif re.search('[sS][nN][oO]|[sS][nN][rR]|HACA', x):
@@ -410,12 +413,32 @@ def long_rna_type(x):
     elif re.search('PKD|ARHG|CASK',x):
         rt = 'Full-length intron'
     elif re.search('CPN1|CACNA', x):
-        rt = 'tRNA-like RNA'
+        rt = 'tRNA-lookalike'
     elif re.search('PF4', x):
         rt = 'Exon-intron'
     else:
         rt = 'Within intron'
     return rt
+
+
+trna = TrnaLookAlike()
+def trna_lookalike(row):
+    trnalookalike = trna.search(row['chrom'], row['start'], row['end'], row['strand'])
+    if trnalookalike != ".":
+        return 'tRNA-lookalike'
+    else:
+        return row['rt']
+
+
+def cat_long_rna_type(d):
+    gi = GenicIntersect()
+    return d \
+        .assign(rt = lambda d: d.picked_RNA_sense.map(long_rna_type))\
+        .assign(rt = lambda d: [trna_lookalike(row) for i, row in d.iterrows()])\
+        .pipe(gi.fulllength_intron)\
+        .assign(rt = lambda d: np.where(d['fulllength_intron']!='.',
+                                        'Full-length intron',
+                                        d.rt))
 
 
     
@@ -425,7 +448,7 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
         .groupby('sense_gname', as_index=False)\
         .apply(pick_lp) 
     rfam_labs =  defaultdict(lambda: 'Others') #get_peak_rfam_annotation(lp)
-    rfam_labs['CPN1'] = 'tRNA-like RNA'
+    rfam_labs['CPN1'] = 'tRNA-lookalike'
     rfam_labs['CASKIN2'] = 'Excised structured intron RNA'
     rfam_labs['DAPK1'] = 'miRNA-like'
     rfam_labs['RP11-51O6.1'] = 'Pseudogene'
@@ -438,8 +461,8 @@ def plot_long_RNA_peak(peaks, ax, ce, top_n = 10, y_val = 'log10p'):
         .assign(picked_RNA_sense = lambda d: d.sense_gname.map(name_conversion.convert).str.replace('-NPIPA8','')) \
         .groupby('picked_RNA_sense')\
         .apply(lambda d: d.nlargest(1, y_val))\
-        .assign(rt = lambda d: d.picked_RNA_sense.map(long_rna_type))\
         .nlargest(top_n, y_val) \
+        .pipe(cat_long_rna_type)\
         .sort_values(y_val, ascending=False)
     colors = lp.rt.map(peak_type_ce.encoder).values
     sns.barplot(data=lp,

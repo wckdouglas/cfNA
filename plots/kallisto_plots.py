@@ -215,8 +215,8 @@ def plot_scatter_kallisto(gene_df, xn, yn, ax,
     
     ax_xmarginal, ax_ymarginal = marginal_ax
     for (gt, col), gt_df in gene_df.groupby(['gene_label','color']):
-        xv = np.log10(gt_df[xn]+1)
-        yv = np.log10(gt_df[yn]+1)
+        xv = np.log10(gt_df[xn].fillna(0)+1)
+        yv = np.log10(gt_df[yn].fillna(0)+1)
         
         alpha = 0.5 if gt == 'Others' else 1
         size = 20 if gt == 'Others' else 20

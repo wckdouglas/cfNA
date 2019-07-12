@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from functools import lru_cache, partial
 from multiprocessing import Pool, Manager
-from pybedtools import BedTool, set_tempdir
+from pybedtools import BedTool, set_tempdir, set_bedtools_path
 import random
 import RNA
 from operator import itemgetter
@@ -27,8 +27,7 @@ import dask.dataframe as dd
 import pyranges as pr
 import io
 from collections import Counter
-
-
+set_bedtools_path('/stor/work/Lambowitz/cdw2854/src/miniconda3/bin')
 set_tempdir('/stor/scratch/Lambowitz/cdw2854')
 
 class GeneMapper():
@@ -79,6 +78,44 @@ chrY,15815447,15817904,TMSB4Y,+'''
         
         return answer if not return_name else HB_name
 
+class RBP():
+    '''
+    Argonaute-associated short introns are a novel
+    class of gene regulators
+    Hansen, et al. 2016
+    '''
+    def __init__(self):
+        self.RBP = '/stor/work/Lambowitz/ref/hg19_ref/genes/RBP.collapsed.bed.gz'
+        self.RBP = pr.PyRanges(pd.read_csv(self.RBP, sep='\t',
+                                            names = ['Chromosome',
+                                                    'Start',
+                                                    'End','RBP', 
+                                                    'Strand']))
+        
+
+    def search(self, chrom, start, end, strand):
+        hits = self.RBP[chrom,strand, int(start):int(end)]
+        return 'RBP' if hits else '.'
+
+
+class Mirtron():
+    '''
+    http://mirtrondb.cp.utfpr.edu.br/download.php
+    '''
+    def __init__(self):
+        tsv = '/stor/work/Lambowitz/cdw2854/novel_RNA/ref/mirtronDB.tsv'
+        self.mirtron = pd.read_csv(tsv, sep='\t', skiprows=2) \
+            .rename(columns={'chromosome':'Chromosome',
+                            'start':'Start',
+                            'end':'End',
+                            'strand':'Strand'})\
+            .assign(Chromosome = lambda d: 'chr'+d.Chromosome )\
+            .filter(['Chromosome','Start','End','Strand','name'])
+        self.mirtron = pr.PyRanges(self.mirtron)
+    
+    def search(self, chrom, start, end, strand):
+        hits = self.mirtron[chrom, strand, int(start):int(end)]
+        return 'Mirtron' if hits else '.'
 
 class ArgoTron():
     '''
@@ -136,6 +173,13 @@ class GnomadVar():
             return 0
 
 
+class Mirtrons():
+    def __init__(self):
+        mirtron_table = '/stor/work/Lambowitz/cdw2854/novel_RNA/ref/mirtron.tsv'
+        with open(mirtron_table, 'r') as tab:
+            self.mirtrons = set(mir.replace('hsa-mir-','MIR').strip() for mir in tab)
+
+
 class NameConversion():
     def __init__(self):
         self.encoder = {'RP11-958N24.2': 'PKD1P4-NPIPA8',
@@ -161,11 +205,11 @@ class GenicIntersect():
     def __init__(self):
         self.exons = '/stor/work/Lambowitz/ref/hg19_ref/genes/exons.gencode.bed.gz'
         self.introns = '/stor/work/Lambowitz/ref/hg19_ref/genes/introns.gencode.bed.gz'
+        self.pseudogene = '/stor/work/Lambowitz/ref/hg19_ref/genes/small_pseudogenes.bed.gz'
         self.tabix = pysam.Tabixfile(self.introns)
         bam = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam'
         self.bam = pysam.Samfile(bam)
-        self.pseudogene = '/stor/work/Lambowitz/ref/hg19_ref/genes/small_pseudogenes.bed.gz'
-        
+       
     def compute_psi(self, chrom, peak_start, peak_end, strand):
         aln_count = 0
         spliced_count = 0
@@ -189,6 +233,7 @@ class GenicIntersect():
         overlapped = ( min(peak_end, int(coor[1])) - max(peak_start, int(coor[0])) for coor in coordinates)
         return any(overlap > th  for overlap in overlapped)
         
+
     
     def intersect(self, bed):
         needed_columns = ['chrom','start','end','peakname', 'pileup','strand']
@@ -201,8 +246,30 @@ class GenicIntersect():
         return self.inbed \
             .pipe(BedTool().from_dataframe)\
             .intersect(b = b_files,
-                      wao = True,  f=0.2)\
+                      wao = True)\
             .to_dataframe(names = out_columns)
+
+
+    def fulllength_intron(self, bed):
+        needed_columns = ['chrom','start','end','peakname','score', 'strand']
+        cols = needed_columns + list(set(bed.columns.tolist()) - set(needed_columns))
+        bed = bed.filter(cols) 
+        new_cols = np.append(cols, ['intron_chrom',
+                                'intron_start',
+                                'intron_end',
+                                'intron_name',
+                                'intron_score', 
+                                'intron_strand','intron_type','overlapped'])
+        return BedTool.from_dataframe(bed)\
+            .intersect(b = self.introns,
+                    f = 0.9, F=0.9, s = True, wao = True)\
+            .to_dataframe(names = new_cols) \
+            .assign(fulllength_intron = lambda d: np.where(d.intron_name != '.',
+                                                'Excised full-length intron',
+                                                '.')) \
+            .filter(cols + ['fulllength_intron'])\
+            .drop_duplicates()\
+            .reset_index(drop=True)
             
     def check_intron(self, pchrom, ps, pe, gs, ge):
         rt = 'Exon'
@@ -263,6 +330,23 @@ class GenicIntersect():
                                             'Exon',
                                             d.gtype))
         return gbed
+
+
+    def Annotate(self, df):
+        trna=TrnaLookAlike()
+        argotron = ArgoTron()
+        mirtron = Mirtron()
+        rbp = RBP()
+
+        return df\
+            .assign(psi = lambda d: list(map(self.compute_psi, d.chrom ,d.start, d.end, d.strand)) )\
+            .pipe(self.intersect)\
+            .pipe(self.resolve_genic) \
+            .assign(is_tRNA_lookalike = lambda d: list(map(trna.search, d.chrom, d.start, d.end, d.strand))) \
+            .assign(is_agotron = lambda d: list(map(argotron.search, d.chrom, d.start, d.end, d.strand))) \
+            .assign(is_mirtron = lambda d: list(map(mirtron.search, d.chrom, d.start, d.end, d.strand))) \
+            .assign(is_rbp = lambda d: list(map(rbp.search, d.chrom, d.start, d.end, d.strand))) \
+            .pipe(self.fulllength_intron) 
 
 
  
@@ -611,11 +695,12 @@ def main(remove_intron=False, exon=False):
     gnomad = GnomadVar()
     trna=TrnaLookAlike()
     argotron = ArgoTron()
+    rbp = RBP()
 
     out_columns = ['peak_name','is_sense','gname','sense_gtype', 'strand','pileup','sample_count', 'seq', 'energy',
                  'concensus_seq', 'concensus_fold', 'concensus_energy', #'concensus_folding_pval',
-                 'force_cloverleaf','is_exon','is_transcriptome_peak','rfam', 'gtype', 'is_mirtron','protein_gene',
-                 'log10p', 'max_start_fraction', 'max_end_fraction','num_var', 'is_tRNAlookalike', 'is_argotron'] 
+                 'force_cloverleaf','is_exon','is_transcriptome_peak','rfam',  'is_mirtron','protein_gene',
+                 'log10p', 'max_start_fraction', 'max_end_fraction','num_var', 'gtype', 'is_tRNAlookalike', 'is_argotron','is_rbp'] 
     if not remove_intron:
         out_columns.append('is_intron')
 
@@ -667,6 +752,7 @@ def main(remove_intron=False, exon=False):
         .pipe(peak_analyze.add_flush_end)\
         .assign(is_argotron = lambda d: list(map(argotron.search, d.chrom, d.start, d.end, d.strand)))\
         .assign(is_tRNAlookalike = lambda d: list(map(trna.search, d.chrom, d.start, d.end, d.strand))) \
+        .assign(is_rbp = lambda d: list(map(rbp.search, d.chrom, d.start, d.end, d.strand))) \
         .assign(num_var = lambda d: list(map(gnomad.search, d.chrom, d.start, d.end)))\
         .filter(out_columns)\
         .rename(columns = {'pileup':'fragment_count'}) \

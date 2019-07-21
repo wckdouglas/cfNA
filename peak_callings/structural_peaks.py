@@ -103,18 +103,16 @@ class Mirtron():
     http://mirtrondb.cp.utfpr.edu.br/download.php
     '''
     def __init__(self):
-        tsv = '/stor/work/Lambowitz/cdw2854/novel_RNA/ref/mirtronDB.tsv'
-        self.mirtron = pd.read_csv(tsv, sep='\t', skiprows=2) \
-            .rename(columns={'chromosome':'Chromosome',
-                            'start':'Start',
-                            'end':'End',
-                            'strand':'Strand'})\
-            .assign(Chromosome = lambda d: 'chr'+d.Chromosome )\
-            .filter(['Chromosome','Start','End','Strand','name'])
-        self.mirtron = pr.PyRanges(self.mirtron)
+        tsv = '/stor/work/Lambowitz/ref/hg19_ref/genes/mirtron.csv'
+        self.mirtron = pd.read_csv(tsv) \
+            .assign(Chromosome = lambda d: d.Coordinates.str.extract('(chr[0-9XY]+):'))\
+            .assign(Start = lambda d: d.Coordinates.str.extract(':([0-9]+)\-'))\
+            .assign(End = lambda d: d.Coordinates.str.extract('\-([0-9]+)[\+\-]$'))  \
+            .assign(Strand = lambda d: d.Coordinates.str.extract('([\+\-])$'))
+        self.mirtron_searcher = pr.PyRanges(self.mirtron.filter(['Chromosome','Start','End','Strand']))
     
     def search(self, chrom, start, end, strand):
-        hits = self.mirtron[chrom, strand, int(start):int(end)]
+        hits = self.mirtron_searcher[chrom, strand, int(start):int(end)]
         return 'Mirtron' if hits else '.'
 
 class ArgoTron():
@@ -205,6 +203,7 @@ class GenicIntersect():
     def __init__(self):
         self.exons = '/stor/work/Lambowitz/ref/hg19_ref/genes/exons.gencode.bed.gz'
         self.introns = '/stor/work/Lambowitz/ref/hg19_ref/genes/introns.gencode.bed.gz'
+        self.independent_introns = '/stor/work/Lambowitz/ref/hg19/genome/independent_intron.bed'
         self.pseudogene = '/stor/work/Lambowitz/ref/hg19_ref/genes/small_pseudogenes.bed.gz'
         self.tabix = pysam.Tabixfile(self.introns)
         bam = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam'
@@ -416,6 +415,34 @@ class WPS:
             self.WPS_array[baseShifted:end] += wps 
         
 
+class NUMTs():
+    def __init__(self):
+        xls = '/stor/work/Lambowitz/cdw2854/novel_RNA/ref/numts.xls'
+        self.xls = pd.read_excel(xls,
+                sheetname='Table I', 
+                skiprows=1)  \
+            .pipe(lambda d: d[~pd.isnull(d.Location)]) \
+            .assign(Chromosome = lambda d: d.Location.str.extract('(chromosome [0-9XY]+)')) \
+            .assign(Chromosome = lambda d: d.Chromosome.str.replace('chromosome ','chr')) \
+            .assign(Start = lambda d: d['Region in nDNA'].str.extract('^([0-9]+)-').astype(int))\
+            .assign(End = lambda d: d['Region in nDNA'].str.extract('-([0-9]+)$').astype(int)) \
+            .assign(length = lambda d: d['End'] - d['Start'])
+        self.__filter__()
+        self.__pr__()
+    
+    def __filter__(self):
+        self.xls = self.xls \
+            .query('length > 200')
+        self.__pr__()
+        
+    
+    def __pr__(self):
+        self.pyrange = pr.PyRanges(self.xls)
+
+
+    def search(self, chrom, start, end):
+        match = self.pyrange[chrom, start:end]
+        return 'NUMT' if match else 'Not NUMT'
 
 
 class PeakAnalyzer:
@@ -695,6 +722,7 @@ def main(remove_intron=False, exon=False):
     gnomad = GnomadVar()
     trna=TrnaLookAlike()
     argotron = ArgoTron()
+    mirtron_searcher = Mirtron()
     rbp = RBP()
 
     out_columns = ['peak_name','is_sense','gname','sense_gtype', 'strand','pileup','sample_count', 'seq', 'energy',
@@ -752,6 +780,8 @@ def main(remove_intron=False, exon=False):
         .pipe(peak_analyze.add_flush_end)\
         .assign(is_argotron = lambda d: list(map(argotron.search, d.chrom, d.start, d.end, d.strand)))\
         .assign(is_tRNAlookalike = lambda d: list(map(trna.search, d.chrom, d.start, d.end, d.strand))) \
+        .assign(is_mirtron = lambda d: np.where(d.peakname.str.contains('mirtron'), 'mirtron','.'))\
+        .assign(is_mirtron = lambda d: list(map(mirtron_searcher.search, d.chrom, d.start, d.end, d.strand))) \
         .assign(is_rbp = lambda d: list(map(rbp.search, d.chrom, d.start, d.end, d.strand))) \
         .assign(num_var = lambda d: list(map(gnomad.search, d.chrom, d.start, d.end)))\
         .filter(out_columns)\

@@ -211,7 +211,8 @@ def coloring_gene_dot(gt_df, gt, xn, yn, ax):
 
 def plot_scatter_kallisto(gene_df, xn, yn, ax, 
                         marginal_ax = (None, None),
-                        gene_label=False):
+                        gene_label=False,
+                        cor_value = True):
     
     ax_xmarginal, ax_ymarginal = marginal_ax
     for (gt, col), gt_df in gene_df.groupby(['gene_label','color']):
@@ -235,7 +236,8 @@ def plot_scatter_kallisto(gene_df, xn, yn, ax,
 
 
     r, _ = spearmanr(np.log10(gene_df[xn]+1), np.log10(gene_df[yn]+1))
-    ax.text(5,1, "Spearman's\n" + r"$\rho$ = %.2f" %(r), fontsize=18)
+    if cor_value:
+        ax.text(5,1, "Spearman's\n" + r"$\rho$ = %.2f" %(r), fontsize=18)
     #p.ax_marg_y.set_visible(False)
     #p.ax_marg_x.set_visible(False)
 

@@ -235,7 +235,7 @@ def plot_scatter_kallisto(gene_df, xn, yn, ax,
 
 
 
-    r, _ = spearmanr(np.log10(gene_df[xn]+1), np.log10(gene_df[yn]+1))
+    r, _ = pearsonr(np.log10(gene_df[xn]+1), np.log10(gene_df[yn]+1))
     if cor_value:
         ax.text(5,1, "Spearman's\n" + r"$\rho$ = %.2f" %(r), fontsize=18)
     #p.ax_marg_y.set_visible(False)

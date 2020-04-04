@@ -20,7 +20,8 @@ def genes_annot():
 
 
 def get_tpm_df(return_files = False):
-    kallisto_path = work_path + '/cfNA/tgirt_map/kallisto_protein_result'
+    #kallisto_path = work_path + '/cfNA/tgirt_map/kallisto_protein_result'
+    kallisto_path = '/stor/work/Lambowitz/yaojun/cfNA/tgirt_map/kallisto_protein_result'
     sample_folders = glob.glob(kallisto_path + '/*')
     sample_folders.sort()
     sample_folders = filter(lambda x: re.search('MP|PP|[Qq][cC][fF]', x), sample_folders)
@@ -52,7 +53,8 @@ def make_gene_df(tpm_df):
     return gene_df
 
 def published():
-    gene_expr = work_path + '/cfNA/platelets/tissues/rna_tissue.tsv'
+    #gene_expr = work_path + '/cfNA/platelets/tissues/rna_tissue.tsv'
+    gene_expr = '/stor/work/Lambowitz/yaojun/cfNA/platelets/tissues/rna_tissue.tsv'
     expr_df = pd.read_table(gene_expr) \
         .pipe(pd.pivot_table, columns = 'Sample', 
               index = ['Gene','Gene name'], values = 'Value')\
@@ -235,7 +237,7 @@ def plot_scatter_kallisto(gene_df, xn, yn, ax,
 
 
 
-    r, _ = spearmanr(np.log10(gene_df[xn]+1), np.log10(gene_df[yn]+1))
+    r, _ = pearsonr(np.log10(gene_df[xn]+1), np.log10(gene_df[yn]+1))
     if cor_value:
         ax.text(5,1, "Spearman's\n" + r"$\rho$ = %.2f" %(r), fontsize=18)
     #p.ax_marg_y.set_visible(False)

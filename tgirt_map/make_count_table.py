@@ -12,9 +12,9 @@ from multiprocessing import Pool
 
 def read_count_file(file_count, samplename, count_file, count_type, strand, dedup):
     try:
-        count_mat = pd.read_table(count_file, usecols=[3,6,7,8],
+        count_mat = pd.read_csv(count_file, usecols=[3,6,7,8],
                     names=['gene_name','gene_type','gene_id','read_count'],
-                    engine='python')  \
+                    engine='python', sep='\t')  \
             .groupby(['gene_name','gene_type','gene_id'], as_index=False)\
             .sum() \
             .assign(gene_type = lambda d: np.where(d.gene_type == ".", 'No features', d.gene_type))  

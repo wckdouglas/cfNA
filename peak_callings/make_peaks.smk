@@ -6,6 +6,7 @@ import re
 MITO_INDEX= os.environ['REF'] + '/hg19/genome/chrM.fa'
 ECOLI_INDEX= os.environ['REF'] + '/Ecoli/BL21_DE3.fa'
 PROJECT_PATH= os.environ['WORK'] + '/cdw2854/cfNA/tgirt_map'
+PROJECT_PATH = '/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map'
 SAMPLE_NAMES = glob.glob(PROJECT_PATH + '/*001')
 SAMPLE_NAMES = list(map(os.path.basename, SAMPLE_NAMES))
 BED_PATH = PROJECT_PATH + '/bed_files'

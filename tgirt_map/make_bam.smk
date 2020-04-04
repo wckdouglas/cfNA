@@ -59,12 +59,12 @@ TREATMENT_REGEX = ['Q[Cc][Ff][0-9]+|[ED][DE]|Exo|HS', 'Frag','[pP]hos',
                   'L[1234]','All','N[aA][0-9]+',
                   'ED|DE','HS[123]','genome',
                     'MPF4','MPF10','MPCEV','^GC','^EVD[2-4]+',
-                    'PPF4','PPF10','PPCEV', 'PCAU|PCSU|DCU']
+                    'PPF4','PPF10','PPCEV']
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
                 'exonuclease','high_salt','genome-sim',
                 'EV','RNP','EV-RNP','HEK293', 'HEK293_EV',
-                'MNase_EV','MNase_RNP','MNase_EV-RNP','K562'] 
+                'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
 treatment_regex_dict = {t:tr for t, tr in zip(TREATMENTS, TREATMENT_REGEX)}
 def select_sample(wildcards, return_count = False):
     regex = treatment_regex_dict[wildcards.TREATMENT] 
@@ -102,7 +102,7 @@ def get_filter_command(wildcards):
 
 # for deduplication
 def get_dedup_command(wildcards):
-    if not re.search('genome|[pP]olyA|L[0-9E]+|PEV_|^GC|DCU|PCAU|PCSU|EVD', wildcards.SAMPLE):
+    if not re.search('genome|[pP]olyA|L[0-9E]+|PEV_|P[VP]F|^GC|DCU|PCAU|PCSU|EVD', wildcards.SAMPLE):
         UMI_METRIC = SAMPLE_DEDUP_BAM.replace('.bam','.umi_metrics').format(SAMPLE=wildcards.SAMPLE)
         md = 'picard UmiAwareMarkDuplicatesWithMateCigar '\
             ' UMI_METRICS_FILE={UMI_METRIC} '\
@@ -163,7 +163,7 @@ run_NameSort = 'sambamba sort -t {params.THREADS} -n --tmpdir={params.TMPDIR} '\
 TREATMENTS = ['unfragmented','fragmented','phosphatase',
                 'polyA','untreated', 'alkaline_hydrolysis',
                 'exonuclease','high_salt','genome-sim',
-                'EV','RNP','EV-RNP','HEK293','K562', 'HEK293_EV',
+                'EV','RNP','EV-RNP',
                 'MNase_EV','MNase_RNP','MNase_EV-RNP'] 
 EV_TREATMENTS = list(filter(lambda x: re.search('unfragm|RNP|EV|high',x), TREATMENTS))
 rule all:

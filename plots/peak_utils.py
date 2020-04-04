@@ -40,6 +40,7 @@ plt.rc('font', **{'family':'sans-serif',
 pileup_cutoff = 5
 sample_cutoff = 5
 project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
+project_path = '/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map'
 peak_path = project_path + '/bed_files/merged_bed/MACS2/annotated'
 peak_type_ce = color_encoder()
 peak_type_ce.encoder = {'mRNA':'purple',
@@ -754,8 +755,8 @@ class ecoli_mapper():
 
 
 
-PEAK_ANALYZER = peak_analyzer('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam',
-                                                           '/stor/work/Lambowitz/ref/hg19_ref/genes/transcriptome.minimap2_idx')
+PEAK_ANALYZER = peak_analyzer(project_path + '/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam',
+                    '/stor/work/Lambowitz/ref/hg19_ref/genes/transcriptome.minimap2_idx')
 
 def transcriptome_map(chrom, start, end, strand):
     mapped, num_pairs, transcript = PEAK_ANALYZER.filter_alignments(chrom, int(start), int(end), strand)
@@ -773,10 +774,10 @@ class mRNAFilter():
         ref_path = '/stor/work/Lambowitz/ref/hg19_ref/genes'
         exons = ref_path + '/gencode.exon.bed.gz'
         self.exons = pysam.Tabixfile(exons)
-        transcriptom_peaks = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/transcriptome/macs2/unfragmented.fwd_peaks_genomics.narrowPeak.gz'
+        transcriptom_peaks = project_path + '/transcriptome/macs2/unfragmented.fwd_peaks_genomics.narrowPeak.gz'
         self.transcriptome_peaks = pysam.Tabixfile(transcriptom_peaks)
-        self.bam = pysam.Samfile('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam')
-        self.bed = pysam.Tabixfile('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/unfragmented.bed.gz')
+        self.bam = pysam.Samfile(project_path + '/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam')
+        self.bed = pysam.Tabixfile(project_path + '/bed_files/merged_bed/unfragmented.bed.gz')
 
     def search(self, chrom, start, end, attribute = 'exon'):
         if attribute == 'exon':
@@ -842,7 +843,7 @@ def repeat_color(x):
 
 
 def plot_repeat_peaks(ax):
-    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
+#    project_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map'
     peak_path = project_path + '/bed_files/merged_bed/MACS2/annotated'
     #peak_path = project_path + '/CLAM//BED_files/peaks/annotation'
     peak_tsv = peak_path + '/unfragmented.filtered.tsv'
@@ -858,7 +859,7 @@ def plot_repeat_peaks(ax):
 
 
 def read_peak_type():
-    return pd.read_csv('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/MACS2/annotated/unfragmented.filtered.tsv',
+    return pd.read_csv(project_path + '/bed_files/merged_bed/MACS2/annotated/unfragmented.filtered.tsv',
                         sep='\t', usecols = [0,1,2,11]) \
             .assign(coordinate = lambda d: d.chrom + ':' + d.start.astype(str) + '-' + d.end.astype(str)) \
             .drop(['start','chrom','end'], axis=1) \

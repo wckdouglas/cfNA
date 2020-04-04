@@ -13,10 +13,14 @@ plt.rc('ytick', labelsize = 25)
 plt.rc('font', **{'family':'sans-serif',
                   'sans-serif':'Arial'})
 
+work_path = '/stor/work/Lambowitz/yaojun/Work'
+figure_path = work_path + '/cfNA/tgirt_map/figure'
+if not os.path.isdir(figure_path):
+    os.mkdir(figure_path)
 
 class cpm_total():
     def __init__(self, dedup=True):
-        count_df = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
+        count_df = work_path + '/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
         dedup_variable = 'dedup' if dedup else 'all'
         self.count_df = pd.read_feather(count_df)\
                 .query('dedup == "%s" & strand == "sense"' %dedup_variable)\
@@ -135,9 +139,6 @@ rna_type_ce.encoder = {rna:col for rna, col in zip(RNA_type, colors)}
 
 
 
-figure_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/figure'
-if not os.path.isdir(figure_path):
-    os.mkdir(figure_path)
 
 
 def plot_upset(fig, upset_df, ylab = 'Number of full-length intron'):

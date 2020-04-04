@@ -70,8 +70,8 @@ def select_treatment_bed(wildcards):
 rule all:
     input:
         LONG_COUNT_TABLE, COUNT_TABLE,
-        expand(INSERT_SIZE_TABLE,
-            TREATMENT = TREATMENTS),
+        #expand(INSERT_SIZE_TABLE,
+        #    TREATMENT = TREATMENTS),
 
 rule make_table:
     input:
@@ -118,7 +118,8 @@ rule count_bed:
     params:
         STRAND_FILTER = lambda w: strand_selection(w),
         TEMP = COUNT_TEMPLATE + '.TEMP',
-        FIELDS = lambda w: field_selection(w)
+        FIELDS = lambda w: field_selection(w),
+        PROCESS = lambda w: ' ' if w.DEDUP == 'dedup' else '| python selective_count.py '
 
     output:
         TABLE = COUNT_TEMPLATE
@@ -128,7 +129,7 @@ rule count_bed:
         '; zcat {input.INTERSECTED_BED} '\
         '| {params.STRAND_FILTER} '\
         '| {params.FIELDS} ' \
-        '| python selective_count.py '\
+        '{params.PROCESS}' \
         '| cut -f5,6,7,8,9,10,11,12'\
         '| sort --temporary-directory={params.TEMP} '\
         '| uniq -c '\

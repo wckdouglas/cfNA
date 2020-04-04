@@ -130,7 +130,7 @@ class PeakClassification():
                         'peakname','score','is_sense', 
                         'fc','log10p',
                         'log10q','pileup','sample_count']
-        out_cols = np.append(group_cols, ['gname','gtype','strand','gstrand'])
+        out_cols = np.append(group_cols, ['gname','gtype','strand','gstrand','overlapped'])
         df = inbed \
             .assign(is_sense = lambda d: np.where((d.strand == d.gstrand) | (d.gtype.str.contains(self.repeats_regex)), 
                                                 'sense', 
@@ -141,7 +141,8 @@ class PeakClassification():
             .apply(self.__select_annotation__, meta = {'gname':'f8',
                                                         'gtype':'f8',
                                                         'strand':'f8',
-                                                        'gstrand':'f8'})\
+                                                        'gstrand':'f8',
+                                                       'overlapped':'f8'})\
             .compute(scheduler='processes')\
             .pipe(self.__reindex__)\
             .reset_index() \
@@ -164,7 +165,8 @@ class PeakClassification():
         return  df\
             .query(condition) \
             .rename(columns={'gname': strand + '_gname',
-                    'gtype': strand + '_gtype' })  \
+                    'gtype': strand + '_gtype' ,
+                    'overlapped': strand + '_overlapped'})  \
             .drop(['is_sense','gstrand'],axis=1)
 
 
@@ -180,7 +182,7 @@ class PeakClassification():
         
         max_overlapped = max_overlapped \
             .pipe(lambda d: d[d.overlap_score == d.overlap_score.max()]) \
-            .filter(['gname','gtype','gtype_rank','gstrand','strand'])\
+            .filter(['gname','gtype','gtype_rank','gstrand','strand','overlapped'])\
             .drop_duplicates() \
             .pipe(lambda d: d[d.gtype_rank == d.gtype_rank.min()])
 
@@ -191,11 +193,12 @@ class PeakClassification():
             '''
             max_overlapped = max_overlapped \
                 .groupby(['gtype','strand','gstrand'], as_index=False)\
-                .agg({'gname': lambda xs: ','.join(xs)})
+                .agg({'gname': lambda xs: ','.join(xs),
+                      'overlapped': lambda xs: ','.join(map(str, xs))})
         else: # or randomly pick one
             max_overlapped = max_overlapped.nsmallest(1, 'gtype_rank')
         
-        required_columns = ['gname','gtype','strand', 'gstrand']
+        required_columns = ['gname','gtype','strand', 'gstrand', 'overlapped']
         df_dict = {col: max_overlapped[col] for col in required_columns}
         max_overlapped = pd.DataFrame(df_dict)
         return max_overlapped
@@ -258,7 +261,7 @@ def main():
     df = peak_classifier.resolve_annotation(inbed)  
     df.to_csv(out_table, sep='\t', index=False)
     print('Written %s' %out_table)
-    assert bed.shape[0] == df.shape[0], 'Peak lost!!!'
+    assert bed.shape[0] == df.shape[0], '%i peak lost!!!' %(bed.shape[0] - df.shape[0])
 
 
 def make_table(base_name = 'unfragmented'):

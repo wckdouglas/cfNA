@@ -88,8 +88,9 @@ def main():
     if not os.path.isdir(out_path):
         os.mkdir(out_path)
     out_table = out_path + '/non_template_table.feather'
-    sample_folders = glob.glob(project_path + '/Q*001')
-    sample_folders = filter(lambda x: not re.search('L[0-9E]+',x), sample_folders)
+    sample_folders = glob.glob(project_path + '/*001')
+    sample_folders = filter(lambda x: re.search('Q[cC][Ff]|MP|PPF[14]',os.path.basename(x)), sample_folders)
+    sample_folders = filter(lambda x: not re.search('L[E0-9]+',x), sample_folders)
     p = Pool(24)
     rows = p.map(count_softclipped, sample_folders)
     p.close()

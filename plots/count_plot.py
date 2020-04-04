@@ -16,7 +16,7 @@ import glob
 import os
 from plotting_utils import label_sample, rename_sample, \
                         label_ce, rna_type_ce, \
-                        figure_path
+                        figure_path, work_path
 from functools import lru_cache
 plt.rc('font', **{'family':'sans-serif',
                     'sans-serif':'Arial'})
@@ -25,7 +25,7 @@ small_RNA_ce = color_encoder()
 label_order = ['Untreated','NaOH', 'WGS-sim', 'DNase I', 'DNase I + Exo I',"DNase I - 3'P"]
 
 
-metric_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/filtered_bam'
+metric_path = work_path + '/cfNA/tgirt_map/merged_bam/filtered_bam'
 metrics = glob.glob(metric_path + '/*.RNA_Metrics')
 metrics = list(filter(lambda x: 'sense' not in x, metrics))
 def read_metric(metric):
@@ -73,7 +73,7 @@ def plot_coding_bases(ax):
 
 
 def plot_insert(ax, samples=['DNase I']):
-    insert_path = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/fragment_sizes'
+    insert_path = work_path + '/cfNA/tgirt_map/fragment_sizes'
     data_files = glob.glob(insert_path + '/*.feather')
     df = {os.path.basename(data_file):pd.read_feather(data_file) for data_file in data_files}
     df = pd.concat([val.assign(label = key) for key, val in df.items()]) \
@@ -122,7 +122,7 @@ def recat_rRNA(gname, gtype):
 
 @lru_cache(maxsize=128, typed=False)
 def read_count(feature_only=True, dedup=True, rna_group_type = 'grouped_type', col_regex='type|Qcf|QCF|sim'):
-    count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather'
+    count_file = work_path + '/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather'
     dedup_df = pd.read_feather(count_file)
 
     filter_feature = 'Unannotated' if feature_only else ''
@@ -168,7 +168,7 @@ def rename_rRNA(x):
 
 def plot_small_count_bar(ax, prep_regex = 'DNase|WGS-sim|NaOH|Untreated', label_order = label_order):
     #.pipe(lambda d: d[d.grouped_type.str.contains('sncRNA|snoRNA|tRNA|miRNA|rRNA|rDNA')])\
-    count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
+    count_file = work_path + '/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
     small_df = pd.read_feather(count_file) \
         .query("dedup == 'dedup'")\
         .query('gene_type != "No features"')\
@@ -236,7 +236,7 @@ def plot_small_count_bar(ax, prep_regex = 'DNase|WGS-sim|NaOH|Untreated', label_
 
  
 def plot_small_count_pie(ax):
-    count_file = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
+    count_file = work_path + '/cfNA/tgirt_map/Counts/all_counts/all_counts.feather'
     small_df = pd.read_feather(count_file) \
         .query("dedup == 'dedup'")\
         .query('gene_type != "No features"')\
@@ -312,7 +312,7 @@ def plot_count(ax, feature_only=True, dedup=True):
 
 
 def sample_wise_fraction():
-    return pd.read_feather('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather')\
+    return pd.read_feather(work_path + '/cfNA/tgirt_map/Counts/all_counts/spreaded_all_counts.feather')\
         .filter(regex='group|dedup:sense')\
         .groupby('grouped_type', as_index=False)\
         .sum() \

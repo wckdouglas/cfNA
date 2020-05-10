@@ -208,7 +208,7 @@ def plot_salmonTE(exp_df, treatment, ax):
 
 def get_pymc_df():
     bf_label = ['Bayes factor>3', 'Not significant']
-    df = pd.read_feather('/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/Counts/all_counts/simple_repeats.feather') \
+    df = pd.read_feather('/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map/Counts/all_counts/simple_repeats.feather') \
         .sort_values('bayes_factor', ascending=False) \
         .query('delta > 0')\
         .assign(log_bf = lambda d: d.bayes_factor.transform(np.log)) \

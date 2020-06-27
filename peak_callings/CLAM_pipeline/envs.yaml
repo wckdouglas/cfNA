@@ -1,8 +1,0 @@
-name: circ_seq
-channels:
-  - conda-forge
-  - bioconda
-  - r
-  - defaults
-prefix: /stor/work/Lambowitz/cdw2854/src/miniconda3/envs/circ_seq
-

@@ -21,7 +21,7 @@ def genes_annot():
 
 def get_tpm_df(return_files = False):
     #kallisto_path = work_path + '/cfNA/tgirt_map/kallisto_protein_result'
-    kallisto_path = '/stor/work/Lambowitz/yaojun/cfNA/tgirt_map/kallisto_protein_result'
+    kallisto_path = '/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map/kallisto_protein_result'
     sample_folders = glob.glob(kallisto_path + '/*')
     sample_folders.sort()
     sample_folders = filter(lambda x: re.search('MP|PP|[Qq][cC][fF]', x), sample_folders)
@@ -54,7 +54,7 @@ def make_gene_df(tpm_df):
 
 def published():
     #gene_expr = work_path + '/cfNA/platelets/tissues/rna_tissue.tsv'
-    gene_expr = '/stor/work/Lambowitz/yaojun/cfNA/platelets/tissues/rna_tissue.tsv'
+    gene_expr = '/stor/work/Lambowitz/yaojun/Work/cfNA/platelets/tissues/rna_tissue.tsv'
     expr_df = pd.read_table(gene_expr) \
         .pipe(pd.pivot_table, columns = 'Sample', 
               index = ['Gene','Gene name'], values = 'Value')\

@@ -39,7 +39,7 @@ class FoldingTest():
             _seq = ''.join(nucleotides)
             _energy = self._GetFold(_seq)
             self.random_energies[i] = _energy
-        self.p_value = len(self.random_energies[self.random_energies < self.energy])/self.n
+        self.p_value = len(self.random_energies[self.random_energies <= self.energy])/self.n
         return self.p_value 
         
     def _GetFold(self, seq: str):

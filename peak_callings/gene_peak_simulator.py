@@ -104,6 +104,7 @@ def main():
     merged_peak = pd.read_excel('Sup_file_061620.xlsx', sheet_name = 'MACS2 peaks (Genomic)') 
     RBP_count = merged_peak.pipe(lambda d: d[d['Sense strand RBP']!= '.']).shape[0]
     number_of_peaks = merged_peak.shape[0]
+    logger.info('%i peaks with %i RBP binding sites ' %(number_of_peaks, RBP_count))
     peak_sizes = merged_peak['Peak size'].tolist()
     simulator_func = partial(simulator, n_simulation, peak_sizes, number_of_peaks)
 

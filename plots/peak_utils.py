@@ -634,7 +634,8 @@ ce.encoder = {
      '.':'black',
      'piRNA': '#D5E4A2',
      'snRNA': '#8A9197',
-     'snoRNA': '#FED439'
+     'snoRNA': '#FED439',
+     'rRNA': 'orange'
 }
 
 

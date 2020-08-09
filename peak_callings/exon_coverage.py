@@ -13,7 +13,7 @@ from multiprocessing import Pool
 from functools import partial
 import re
 from itertools import groupby
-set_tempdir('/stor/scratch/Lambowitz/cdw2854')
+set_tempdir('/stor/scratch/Lambowitz')
 
 class exon:
     def __init__(self, bed_line):
@@ -67,7 +67,7 @@ class exon:
 
 class ExonFilter():
     def __init__(self,
-            bws = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/coverage/unfragmented.{strand}.bigWig',
+            bws = '/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map/bed_files/merged_bed/coverage/unfragmented.{strand}.bigWig',
             exon_file = '/stor/work/Lambowitz/ref/hg19_ref/genes/exons.gencode.bed.gz',
             cutoff=2, 
             force=False):

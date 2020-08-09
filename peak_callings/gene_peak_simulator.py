@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import pickle
 import os
 import pysam
 import random
@@ -11,7 +12,7 @@ from functools import partial
 from collections import Counter
 import numpy as np
 from pybedtools import BedTool, set_tempdir
-outdir = '/stor/scratch/Lambowitz/simulated_peaks'
+outdir = '/stor/scratch/Lambowitz/simulated_peaks_IDR'
 if not os.path.isdir(outdir):
     os.mkdir(outdir)
 set_tempdir(outdir)
@@ -22,8 +23,7 @@ logger = logging.getLogger('Peak simulator')
 
 class GenePeakGenerator:
     def __init__(self):
-        count_file = '/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map/Counts'\
-                '/all_counts/counts/QCF1_R1_001.dedup.sense.counts'
+        count_file = '/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map/bed_files/merged_bed/MACS2/annotated/gene_count.bed'
         self.genes = []
         self.counts = []
         with open(count_file) as counts:
@@ -48,8 +48,12 @@ class GenePeakGenerator:
         return peaks
 
 
-def RBP(simulated_peaks):
-    rbp_bed = BedTool('/stor/work/Lambowitz/ref/hg19_ref/genes/filtered_RBP.bed.gz')
+def RBP(simulated_peaks, IDR=False):
+    if not IDR:
+        bed = '/stor/work/Lambowitz/ref/hg19_ref/genes/filtered_RBP.bed.gz'
+    else:
+        bed = '/stor/work/Lambowitz/ref/hg19_ref/genes/RBP_IDR.reformated.bed.gz'
+    rbp_bed = BedTool(bed)
     input_peaks = simulated_peaks.shape[0]
     non_rbp_peak = simulated_peaks\
         .reset_index(drop=True)\
@@ -76,7 +80,7 @@ class SizeGenerator:
         return self.insert_dist.rvs(size = number_of_peaks)
 
 
-def simulator(n_simulation, peak_sizes, number_of_peaks, i):
+def simulator(n_simulation, peak_sizes, number_of_peaks, IDR, i):
     '''
     running each chromosome
     '''
@@ -91,7 +95,7 @@ def simulator(n_simulation, peak_sizes, number_of_peaks, i):
                            sep='\t', 
                            header=False, 
                            index=False)
-    rbp_count = RBP(simulated_peaks)
+    rbp_count = RBP(simulated_peaks, IDR=IDR)
 
     if (i + 1) % (n_simulation // 10)  == 0:
         logger.info('Completed simulation %i with %i RBP' %(i + 1, rbp_count))
@@ -100,13 +104,15 @@ def simulator(n_simulation, peak_sizes, number_of_peaks, i):
 
 
 def main():
-    n_simulation = 1000
-    merged_peak = pd.read_excel('Sup_file_061620.xlsx', sheet_name = 'MACS2 peaks (Genomic)') 
+    n_simulation = 5000
+    IDR = True
+    merged_peak = pd.read_excel('Sup_file_061620.xlsx', sheet_name = 'MACS2 peaks (Genomic)')  \
+            .pipe(lambda d: d[d['High confidence'] == "Y"])
     RBP_count = merged_peak.pipe(lambda d: d[d['Sense strand RBP']!= '.']).shape[0]
     number_of_peaks = merged_peak.shape[0]
     logger.info('%i peaks with %i RBP binding sites ' %(number_of_peaks, RBP_count))
     peak_sizes = merged_peak['Peak size'].tolist()
-    simulator_func = partial(simulator, n_simulation, peak_sizes, number_of_peaks)
+    simulator_func = partial(simulator, n_simulation, peak_sizes, number_of_peaks, IDR)
 
     p = Pool(24)
     result = p.map(simulator_func, range(n_simulation))
@@ -118,7 +124,9 @@ def main():
     p_value = number_of_times_more_RBP / n_simulation
     logger.info('RBP enrichment p-value: %.4f' %p_value)
 
-
+    out_file = outdir + '/rbp_peaks.pickle'
+    with open(out_file,'wb') as f: 
+        pickle.dump(RBP_counts, f)
 
 
 if __name__ == '__main__':

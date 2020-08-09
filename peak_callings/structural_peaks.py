@@ -206,7 +206,7 @@ class GenicIntersect():
         self.independent_introns = '/stor/work/Lambowitz/ref/hg19/genome/independent_intron.bed'
         self.pseudogene = '/stor/work/Lambowitz/ref/hg19_ref/genes/small_pseudogenes.bed.gz'
         self.tabix = pysam.Tabixfile(self.introns)
-        bam = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam'
+        bam = '/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map/merged_bam/dedup/unfragmented.chrM_filter.dedup.bam'
         self.bam = pysam.Samfile(bam)
        
     def compute_psi(self, chrom, peak_start, peak_end, strand):
@@ -369,7 +369,7 @@ class mRNAFilter():
         ref_path = '/stor/work/Lambowitz/ref/hg19_ref/genes'
         exons = ref_path + '/gencode.exon.bed.gz'
         self.exons = pysam.Tabixfile(exons)
-        transcriptom_peaks = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/transcriptome/macs2/unfragmented.fwd_peaks_genomics.narrowPeak.gz'
+        transcriptom_peaks = '/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map/transcriptome/macs2/unfragmented.fwd_peaks_genomics.narrowPeak.gz'
         self.transcriptome_peaks = pysam.Tabixfile(transcriptom_peaks)
 
     def search(self, chrom, start, end, attribute = 'exon'):
@@ -450,9 +450,9 @@ class PeakAnalyzer:
             genome = '/stor/work/Lambowitz/ref/hg19_ref/genome/hg19_genome.fa',
             RNAshapes = '/stor/work/Lambowitz/cdw2854/src/miniconda3/bin/RNAshapes',
             gene_bed = '/stor/work/Lambowitz/ref/hg19_ref/genes/genes.bed.gz',
-            sample_bed = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/unfragmented.bed.gz',
-            tblout = '/stor/work/Lambowitz/cdw2854/cfNA/tgirt_map/bed_files/merged_bed/MACS2/annotated/unfragmented.tblout',
-            phyloP = '/stor/work/Lambowitz/ref/hg19_ref/phyloP/hg19.100way.phastCons.bw'):
+            sample_bed = '/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map/bed_files/merged_bed/unfragmented.bed.gz',
+            tblout = '/stor/work/Lambowitz/yaojun/Work/cfNA/tgirt_map/bed_files/merged_bed/MACS2/annotated/unfragmented.tblout',
+            phyloP = '/stor/work/Lambowitz/ref/hg19_ref/phyloP/vertebrate/vertebrate.BigWig'):
         self.fa = pysam.Fastafile(genome)
         self.gene_bed = gene_bed
         self.RNAshapes = RNAshapes

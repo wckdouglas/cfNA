@@ -54,12 +54,15 @@ if __name__ == '__main__':
     def test_fold(seq):
         logger.info('Testing %s' %seq)
         ft = FoldingTest()
-        return ft.testSeq(seq)
+        p_val = ft.testSeq(seq)
+        return str(p_val) + ';' + ','.join(map(str,ft.random_energies))
 
     merged_peak = pd.read_excel('Sup_file_061620.xlsx', sheet_name = 'MACS2 peaks (Genomic)') \
         .pipe(dd.from_pandas, npartitions = 100) \
         .assign(p_val = lambda d: d['Peak sequence'].map(test_fold)) \
-        .compute(num_workers=24, scheduler='processes')
+        .compute(num_workers=24, scheduler='processes') \
+        .assign(simulated_foldingMFE = lambda d: d.p_val.str.split(';',expand=True).iloc[:,1]) \
+        .assign(p_val = lambda d: d.p_val.str.extract('([0-9\.]+);').astype(float))
     
     filename = 'folding_test.csv'
     merged_peak.filter(['ID','Peak sequence','p_val']).to_csv(filename, index=False)
